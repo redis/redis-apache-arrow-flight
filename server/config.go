@@ -66,6 +66,10 @@ type Config struct {
 	KeyPrefix string
 	// DatasetTTL expires uploaded datasets; 0 keeps them until dropped.
 	DatasetTTL time.Duration
+	// DatasetEndpointBatches, if set, splits a dataset's FlightInfo into one
+	// endpoint per this many batches, which clients can read in parallel.
+	// Clients must then read every endpoint. 0 gives one endpoint.
+	DatasetEndpointBatches int
 
 	// PoolMaxIdle is the number of idle ADBC connections kept per user
 	// (default 8). PoolMaxOpen caps the connections in use at once per user
@@ -146,6 +150,9 @@ func (c *Config) validate() error {
 	}
 	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
 		return errors.New("TLS needs both a certificate and a key file")
+	}
+	if c.DatasetEndpointBatches < 0 {
+		return errors.New("DatasetEndpointBatches must not be negative")
 	}
 	if c.PoolMaxIdle < 0 || c.PoolMaxOpen < 1 {
 		return errors.New("the pool needs PoolMaxIdle >= 0 and PoolMaxOpen >= 1")

@@ -1082,6 +1082,108 @@ func TestIntegrationUploadCommitOutcome(t *testing.T) {
 	})
 }
 
+// Dataset tickets can name columns and a range of batches, and a server
+// can split a dataset into several endpoints.
+func TestIntegrationDatasetReads(t *testing.T) {
+	uri := redisURI(t)
+	ctx := context.Background()
+	const prefix = "it_flight_reads:"
+	admin := adminClient(t, uri)
+	t.Cleanup(func() { deleteKeys(admin, keysMatching(t, admin, prefix+"*")) })
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "n", Type: arrow.PrimitiveTypes.Int64},
+		{Name: "label", Type: arrow.BinaryTypes.String},
+	}, nil)
+	var recs []arrow.RecordBatch
+	for b := range 10 {
+		bld := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+		for i := b * 100; i < (b+1)*100; i++ {
+			bld.Field(0).(*array.Int64Builder).Append(int64(i))
+			bld.Field(1).(*array.StringBuilder).Append(fmt.Sprintf("r%d", i))
+		}
+		recs = append(recs, bld.NewRecordBatch())
+		bld.Release()
+	}
+	defer releaseAll(recs)
+	fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix}).fl
+	name := uniqueName("it_flight_reads")
+	if m := putDataset(t, ctx, fc, datasetDesc(name), schema, recs...); m.Batches != 10 {
+		t.Fatalf("stored %d batches, want 10", m.Batches)
+	}
+	read := func(fc flight.Client, tk map[string]any) (*arrow.Schema, []string, int, error) {
+		t.Helper()
+		tk["dataset"] = name
+		b, _ := json.Marshal(tk)
+		return getDataset(t, ctx, fc, b)
+	}
+	names := func(s *arrow.Schema) string {
+		var out []string
+		for _, f := range s.Fields() {
+			out = append(out, f.Name)
+		}
+		return strings.Join(out, ",")
+	}
+
+	s, rows, _, err := read(fc, map[string]any{"columns": []string{"label", "n"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if names(s) != "label,n" || len(rows) != 1000 || rows[0] != "r0|0" {
+		t.Errorf("projection: columns %s, %d rows, first %q", names(s), len(rows), rows[0])
+	}
+	for _, cols := range [][]string{{"nope"}, {"n", "n"}} {
+		if _, _, _, err := read(fc, map[string]any{"columns": cols}); status.Code(err) != codes.InvalidArgument {
+			t.Errorf("columns %v: err = %v, want InvalidArgument", cols, err)
+		}
+	}
+
+	_, rows, batches, err := read(fc, map[string]any{"batches": []int{2, 5}})
+	if err != nil || len(rows) != 300 || rows[0] != "200|r200" || rows[299] != "499|r499" || batches != 3 {
+		t.Errorf("batches [2, 5): %d rows in %d batches, %v", len(rows), batches, err)
+	}
+	if _, rows, _, err = read(fc, map[string]any{"batches": []int{8, 99}}); err != nil || len(rows) != 200 || rows[0] != "800|r800" {
+		t.Errorf("batches [8, 99): %d rows, %v", len(rows), err)
+	}
+	s, rows, _, err = read(fc, map[string]any{"batches": []int{5, 5}})
+	if err != nil || len(rows) != 0 || names(s) != "n,label" {
+		t.Errorf("batches [5, 5): schema %v, %d rows, %v", s, len(rows), err)
+	}
+	for _, r := range [][]int{{-1, 2}, {3, 2}, {1}} {
+		if _, _, _, err := read(fc, map[string]any{"batches": r}); status.Code(err) != codes.InvalidArgument {
+			t.Errorf("batches %v: err = %v, want InvalidArgument", r, err)
+		}
+	}
+	if _, rows, _, err = read(fc, map[string]any{"columns": []string{"n"}, "batches": []int{9, 10}}); err != nil ||
+		len(rows) != 100 || rows[0] != "900" || rows[99] != "999" {
+		t.Errorf("column n, batches [9, 10): %d rows, %v", len(rows), err)
+	}
+
+	// Endpoints of 4 batches each: 4, 4 and 2, which together are the dataset.
+	fc4 := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, DatasetEndpointBatches: 4}).fl
+	info, err := fc4.GetFlightInfo(ctx, datasetDesc(name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(info.Endpoint) != 3 {
+		t.Fatalf("got %d endpoints, want 3", len(info.Endpoint))
+	}
+	var all []string
+	for i, ep := range info.Endpoint {
+		_, rows, batches, err := getDataset(t, ctx, fc4, ep.Ticket.Ticket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := []int{4, 4, 2}[i]; batches != want {
+			t.Errorf("endpoint %d has %d batches, want %d", i, batches, want)
+		}
+		all = append(all, rows...)
+	}
+	if len(all) != 1000 || all[0] != "0|r0" || all[999] != "999|r999" {
+		t.Errorf("all endpoints: %d rows", len(all))
+	}
+}
+
 // holdCommitHook holds the first dataset commit until release is closed,
 // after closing held.
 type holdCommitHook struct {

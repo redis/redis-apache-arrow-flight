@@ -80,7 +80,8 @@ func New(cfg Config) (*Server, error) {
 	}
 	r := &router{
 		sql: flightsql.NewFlightServerWithAllocator(sql, cfg.Allocator),
-		ds:  &datasets{tenants: tenants, prefix: cfg.KeyPrefix, ttl: cfg.DatasetTTL, alloc: cfg.Allocator},
+		ds: &datasets{tenants: tenants, prefix: cfg.KeyPrefix, ttl: cfg.DatasetTTL,
+			endpointBatches: int64(cfg.DatasetEndpointBatches), alloc: cfg.Allocator},
 	}
 	fs := flight.NewServerWithMiddleware(middleware, opts...)
 	fs.RegisterFlightService(r)

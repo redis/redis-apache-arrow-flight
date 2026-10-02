@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
@@ -38,7 +39,8 @@ import (
 // writes a new generation and then switches the HASH to it atomically, so
 // readers never see a partial upload. The replaced generation expires after
 // a grace period, letting reads already under way finish. A ticket names
-// the generation its FlightInfo described.
+// the generation its FlightInfo described, and can name columns and a range
+// of batches to read.
 
 const (
 	actionDropDataset = "drop_dataset"
@@ -60,7 +62,9 @@ type datasets struct {
 	tenants *tenantCache
 	prefix  string
 	ttl     time.Duration
-	alloc   memory.Allocator
+	// endpointBatches, if set, is the number of batches per endpoint.
+	endpointBatches int64
+	alloc           memory.Allocator
 }
 
 type datasetKeys struct{ meta, seq string }
@@ -101,6 +105,57 @@ func datasetName(desc *flight.FlightDescriptor) (string, error) {
 type datasetTicket struct {
 	Dataset    string `json:"dataset"`
 	Generation int64  `json:"generation,omitempty"`
+	// Columns, if set, reads just these columns, in this order.
+	Columns []string `json:"columns,omitempty"`
+	// Batches, if set, reads the stored batches [start, end), counted from
+	// 0. An end past the last batch reads to the last.
+	Batches []int64 `json:"batches,omitempty"`
+}
+
+// batchRange returns the range of list elements holding the ticket's
+// batches, in a list of n elements (the schema, then the batches).
+func (dt datasetTicket) batchRange(n int64) (lo, hi int64) {
+	if dt.Batches == nil {
+		return 1, n
+	}
+	hi = min(1+dt.Batches[1], n)
+	return min(1+dt.Batches[0], hi), hi
+}
+
+func (dt datasetTicket) validate() error {
+	if dt.Dataset == "" {
+		return status.Error(codes.InvalidArgument, `invalid dataset ticket: want {"dataset": "<name>"}`)
+	}
+	if b := dt.Batches; b != nil && (len(b) != 2 || b[0] < 0 || b[1] < b[0]) {
+		return status.Error(codes.InvalidArgument, `invalid dataset ticket: want "batches": [start, end] with 0 <= start <= end`)
+	}
+	return nil
+}
+
+// projection returns the indices in schema of the named columns, and the
+// schema of just those, or nil for all the columns.
+func projection(schema *arrow.Schema, names []string) ([]int, *arrow.Schema, error) {
+	if names == nil {
+		return nil, schema, nil
+	}
+	idx := make([]int, len(names))
+	fields := make([]arrow.Field, len(names))
+	seen := map[string]bool{}
+	for i, name := range names {
+		switch at := schema.FieldIndices(name); {
+		case seen[name]:
+			return nil, nil, status.Errorf(codes.InvalidArgument, "column %q is named twice", name)
+		case len(at) == 0:
+			return nil, nil, status.Errorf(codes.InvalidArgument, "the dataset has no column %q", name)
+		case len(at) > 1:
+			return nil, nil, status.Errorf(codes.InvalidArgument, "the dataset has more than one column %q", name)
+		default:
+			seen[name] = true
+			idx[i], fields[i] = at[0], schema.Field(at[0])
+		}
+	}
+	md := schema.Metadata()
+	return idx, arrow.NewSchema(fields, &md), nil
 }
 
 type datasetMeta struct {
@@ -143,15 +198,31 @@ func (d *datasets) readMeta(ctx context.Context, rdb goredis.UniversalClient, na
 	return m, nil
 }
 
+// flightInfo describes a dataset: one endpoint, or with endpointBatches
+// set, one per that many batches, in order.
 func (d *datasets) flightInfo(m datasetMeta) *flight.FlightInfo {
-	tkt, _ := json.Marshal(datasetTicket{Dataset: m.Name, Generation: m.Generation})
+	endpoint := func(dt datasetTicket) *flight.FlightEndpoint {
+		tkt, _ := json.Marshal(dt)
+		return &flight.FlightEndpoint{Ticket: &flight.Ticket{Ticket: tkt}}
+	}
+	dt := datasetTicket{Dataset: m.Name, Generation: m.Generation}
+	var endpoints []*flight.FlightEndpoint
+	if n := d.endpointBatches; n > 0 && m.Batches > n {
+		for start := int64(0); start < m.Batches; start += n {
+			dt.Batches = []int64{start, min(start+n, m.Batches)}
+			endpoints = append(endpoints, endpoint(dt))
+		}
+	} else {
+		endpoints = []*flight.FlightEndpoint{endpoint(dt)}
+	}
 	appMeta, _ := json.Marshal(m)
 	return &flight.FlightInfo{
 		Schema:           m.schema,
 		FlightDescriptor: &flight.FlightDescriptor{Type: flight.DescriptorPATH, Path: strings.Split(m.Name, "/")},
-		Endpoint:         []*flight.FlightEndpoint{{Ticket: &flight.Ticket{Ticket: tkt}}},
+		Endpoint:         endpoints,
 		TotalRecords:     m.Rows,
 		TotalBytes:       m.Bytes,
+		Ordered:          len(endpoints) > 1,
 		AppMetadata:      appMeta,
 	}
 }
@@ -421,8 +492,11 @@ func (s *replayStream) Recv() (*flight.FlightData, error) {
 func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetServer) error {
 	ctx := stream.Context()
 	var dt datasetTicket
-	if err := json.Unmarshal(tkt.Ticket, &dt); err != nil || dt.Dataset == "" {
+	if err := json.Unmarshal(tkt.Ticket, &dt); err != nil {
 		return status.Error(codes.InvalidArgument, `invalid dataset ticket: want {"dataset": "<name>"}`)
+	}
+	if err := dt.validate(); err != nil {
+		return err
 	}
 	t, done, err := d.tenants.acquire(ctx)
 	if err != nil {
@@ -460,38 +534,71 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 		return gone()
 	}
 
-	var w *flight.Writer
+	var (
+		w      *flight.Writer
+		cols   []int
+		schema *arrow.Schema
+	)
 	defer func() {
 		if w != nil {
 			_ = w.Close()
 		}
 	}()
-	for start := int64(0); start < n; start += readPage {
-		vals, err := t.rdb.LRange(ctx, key, start, min(start+readPage, n)-1).Result()
+	// send writes a list element: the schema first, then batches.
+	send := func(v string) error {
+		s, recs, err := readIPC([]byte(v), d.alloc)
 		if err != nil {
-			return toStatus(err)
+			return status.Errorf(codes.DataLoss, "dataset %q has a corrupt batch: %v", dt.Dataset, err)
 		}
-		if int64(len(vals)) < min(readPage, n-start) {
-			return gone() // expired while being read
+		defer releaseAll(recs)
+		if w == nil {
+			if cols, schema, err = projection(s, dt.Columns); err != nil {
+				return err
+			}
+			w = flight.NewRecordWriter(stream, ipc.WithSchema(schema), ipc.WithAllocator(d.alloc))
 		}
-		for i, v := range vals {
-			schema, recs, err := readIPC([]byte(v), d.alloc)
+		for _, rec := range recs {
+			if cols != nil {
+				arrs := make([]arrow.Array, len(cols))
+				for i, c := range cols {
+					arrs[i] = rec.Column(c)
+				}
+				rec = array.NewRecordBatch(schema, arrs, rec.NumRows())
+				defer rec.Release()
+			}
+			if err := w.Write(rec); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	// read sends the list elements [from, to).
+	read := func(from, to int64) error {
+		for start := from; start < to; start += readPage {
+			end := min(start+readPage, to)
+			vals, err := t.rdb.LRange(ctx, key, start, end-1).Result()
 			if err != nil {
-				return status.Errorf(codes.DataLoss, "dataset %q has a corrupt batch: %v", dt.Dataset, err)
+				return toStatus(err)
 			}
-			if start == 0 && i == 0 {
-				w = flight.NewRecordWriter(stream, ipc.WithSchema(schema), ipc.WithAllocator(d.alloc))
+			if int64(len(vals)) < end-start {
+				return gone() // expired while being read
 			}
-			for j, rec := range recs {
-				if err := w.Write(rec); err != nil {
-					releaseAll(recs[j:])
+			for _, v := range vals {
+				if err := send(v); err != nil {
 					return err
 				}
-				rec.Release()
 			}
 		}
+		return nil
 	}
-	return nil
+	lo, hi := dt.batchRange(n)
+	if lo == 1 {
+		return read(0, hi) // the schema and the batches together
+	}
+	if err := read(0, 1); err != nil {
+		return err
+	}
+	return read(lo, hi)
 }
 
 // ---- listing and dropping ----

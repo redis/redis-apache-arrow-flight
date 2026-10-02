@@ -13,8 +13,8 @@
    with parameters, and catalog metadata. The server runs them on Redis with
    the Redis ADBC driver (one HASH per row, a RediSearch index per table).
 2. Datasets over plain Flight, with pyarrow.flight: upload a table with any
-   Arrow types, read it back, list and drop it. The server stores it in Redis
-   as Arrow IPC.
+   Arrow types, read it back (all of it, then some columns of some batches),
+   list and drop it. The server stores it in Redis as Arrow IPC.
 
 Run it against a server (see the README):
 
@@ -105,9 +105,18 @@ def dataset_tour(uri: str, user: str | None, password: str | None) -> None:
 
     info = client.get_flight_info(desc, options)
     print(f"dataset demo/features: {info.total_records} rows, {info.total_bytes} bytes")
-    back = client.do_get(info.endpoints[0].ticket, options).read_all()
+    # A server run with --dataset-endpoint-batches splits the dataset into
+    # several endpoints, which could be read in parallel.
+    back = pa.concat_tables([client.do_get(ep.ticket, options).read_all() for ep in info.endpoints])
     assert back.equals(features), "the dataset came back different"
-    print("read back", back.num_rows, "rows; equal to what was stored")
+    print("read back", back.num_rows, "rows from", len(info.endpoints), "endpoint(s); equal to what was stored")
+
+    # A ticket can name columns, and a range of the stored batches: here
+    # the second and third batches of 2,500 rows.
+    ticket = {"dataset": "demo/features", "columns": ["label", "id"], "batches": [1, 3]}
+    part = client.do_get(flight.Ticket(json.dumps(ticket).encode()), options).read_all()
+    assert part.column_names == ["label", "id"] and part["id"][0].as_py() == 2_500, "the partial read is wrong"
+    print("read columns", part.column_names, "of batches [1, 3):", part.num_rows, "rows")
 
     print("datasets:", ["/".join(p.decode() for p in f.descriptor.path) for f in client.list_flights(b"demo/", options)])
     for r in client.do_action(flight.Action("drop_dataset", b"demo/features"), options):

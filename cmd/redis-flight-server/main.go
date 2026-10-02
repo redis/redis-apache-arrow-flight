@@ -89,6 +89,8 @@ func run() error {
 	str(&cfg.TLSKeyFile, "tls-key", "FLIGHT_TLS_KEY", "", "TLS private key file (PEM)")
 	str(&cfg.KeyPrefix, "key-prefix", "FLIGHT_KEY_PREFIX", "arrowflight:", "prefix of the Redis keys that store datasets")
 	dur(&cfg.DatasetTTL, "dataset-ttl", "FLIGHT_DATASET_TTL", 0, "expire uploaded datasets after this long (0: keep until dropped)")
+	num(&cfg.DatasetEndpointBatches, "dataset-endpoint-batches", "FLIGHT_DATASET_ENDPOINT_BATCHES", 0,
+		"split a dataset's FlightInfo into one endpoint per this many batches (0: one endpoint)")
 	num(&cfg.PoolMaxIdle, "pool-max-idle", "FLIGHT_POOL_MAX_IDLE", 8, "idle ADBC connections kept per Redis user")
 	num(&cfg.PoolMaxOpen, "pool-max-open", "FLIGHT_POOL_MAX_OPEN", 32, "ADBC connections in use at once per Redis user")
 	fs.BoolVar(&sessions, "sessions", envOr("FLIGHT_SESSIONS", "true") != "false",
