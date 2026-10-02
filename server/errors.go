@@ -41,6 +41,19 @@ func toStatus(err error) error {
 	return status.Error(codes.Internal, msg)
 }
 
+// connectStatus is the status for a failure to connect to Redis. Bad or
+// changed credentials, missing permissions and cancellation keep their
+// codes, so a client logs in again rather than retrying. Anything else
+// (connection refused, a timeout) means Redis is unavailable.
+func connectStatus(err error) error {
+	code := codes.Unavailable
+	switch c := status.Code(toStatus(err)); c {
+	case codes.Unauthenticated, codes.PermissionDenied, codes.Canceled, codes.DeadlineExceeded:
+		code = c
+	}
+	return status.Errorf(code, "failed to connect to Redis: %v", err)
+}
+
 func adbcCode(c adbc.Status) codes.Code {
 	switch c {
 	case adbc.StatusNotImplemented:

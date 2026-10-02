@@ -40,7 +40,9 @@ func (r *router) PollFlightInfo(ctx context.Context, desc *flight.FlightDescript
 		if err != nil {
 			return nil, err
 		}
-		return &flight.PollInfo{Info: info, FlightDescriptor: desc}, nil
+		// A dataset is always complete. A descriptor in PollInfo would tell
+		// the client to poll again ("if unset, the query is complete").
+		return &flight.PollInfo{Info: info}, nil
 	}
 	return r.sql.PollFlightInfo(ctx, desc)
 }
