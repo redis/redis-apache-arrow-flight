@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // maxChunkBytes is the most data the server puts in one record batch it
@@ -104,35 +107,89 @@ func dataSize(d arrow.ArrayData) int64 {
 	return n
 }
 
+// liveResult is a result streaming from Redis as it is read (see
+// executeQuery).
+type liveResult struct {
+	// stall is how long the client may take to read a batch.
+	stall time.Duration
+	// done is called once the result is released, with its error: nil if
+	// it was read to the end, or the client went away or stalled.
+	done func(error)
+}
+
 // streamRecords sends rdr's batches, sliced by chunks, on a channel for
-// the Flight SQL DoGet handlers, and releases rdr when done.
-func streamRecords(ctx context.Context, rdr array.RecordReader) <-chan flight.StreamChunk {
+// the Flight SQL DoGet handlers, and releases rdr when done. For a live
+// result, a client that takes longer than live.stall to read a batch gets
+// an error instead of the rest, and the result is released at once.
+func streamRecords(ctx context.Context, rdr array.RecordReader, live *liveResult) <-chan flight.StreamChunk {
 	ch := make(chan flight.StreamChunk)
 	go func() {
 		defer close(ch)
-		defer rdr.Release()
-		send := func(c flight.StreamChunk) bool {
+		var resultErr error
+		released := false
+		release := func() {
+			if !released {
+				released = true
+				rdr.Release()
+				if live != nil {
+					live.done(resultErr)
+				}
+			}
+		}
+		defer release()
+		var stall *time.Timer
+		var stalled <-chan time.Time // nil (never) unless live
+		if live != nil {
+			stall = time.NewTimer(live.stall)
+			defer stall.Stop()
+			stalled = stall.C
+		}
+		// send sends c, unless the client goes away or stalls.
+		send := func(c flight.StreamChunk) (ok, stuck bool) {
 			select {
 			case ch <- c:
-				return true
+				return true, false
 			case <-ctx.Done():
-				if c.Data != nil {
-					c.Data.Release()
-				}
-				return false
+			case <-stalled:
+				stuck = true
+			}
+			if c.Data != nil {
+				c.Data.Release()
+			}
+			return false, stuck
+		}
+		// sendErr sends an error, however long the client takes.
+		sendErr := func(err error) {
+			select {
+			case ch <- flight.StreamChunk{Err: err}:
+			case <-ctx.Done():
 			}
 		}
 		for rdr.Next() {
+			if stall != nil {
+				stall.Reset(live.stall)
+			}
 			parts := chunks(rdr.RecordBatch())
 			for i, part := range parts {
-				if !send(flight.StreamChunk{Data: part}) {
+				if ok, stuck := send(flight.StreamChunk{Data: part}); !ok {
 					releaseAll(parts[i+1:])
+					if stuck {
+						// Free the cursor and the connection now, and tell
+						// the client, if it comes back, that rows are missing.
+						release()
+						sendErr(status.Errorf(codes.DeadlineExceeded, "the client took longer than %s to read a "+
+							"batch of the result, so the server stopped reading it from Redis (--stream-stall-timeout)", live.stall))
+					}
 					return
 				}
 			}
 		}
 		if err := rdr.Err(); err != nil {
-			send(flight.StreamChunk{Err: toStatus(err)})
+			if ctx.Err() == nil {
+				resultErr = err // not the client going away
+			}
+			release()
+			sendErr(toStatus(err))
 		}
 	}()
 	return ch

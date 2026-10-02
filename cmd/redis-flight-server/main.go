@@ -93,6 +93,10 @@ func run() error {
 		"split a dataset's FlightInfo into one endpoint per this many batches (0: one endpoint)")
 	num(&cfg.PoolMaxIdle, "pool-max-idle", "FLIGHT_POOL_MAX_IDLE", 8, "idle ADBC connections kept per Redis user")
 	num(&cfg.PoolMaxOpen, "pool-max-open", "FLIGHT_POOL_MAX_OPEN", 32, "ADBC connections in use at once per Redis user")
+	num(&cfg.MaxStreams, "max-streams", "FLIGHT_MAX_STREAMS", 8,
+		"query results a Redis user can stream from Redis at once; others are read whole first")
+	dur(&cfg.StreamStallTimeout, "stream-stall-timeout", "FLIGHT_STREAM_STALL_TIMEOUT", 2*time.Minute,
+		"end a streaming result whose client takes longer than this to read a batch")
 	fs.BoolVar(&sessions, "sessions", envOr("FLIGHT_SESSIONS", "true") != "false",
 		"Flight SQL sessions: a client that keeps the session cookie gets its own connection, so SET and temporary tables last (env FLIGHT_SESSIONS)")
 	dur(&cfg.SessionIdleTimeout, "session-idle-timeout", "FLIGHT_SESSION_IDLE_TIMEOUT", 10*time.Minute, "close a session after this long without requests")

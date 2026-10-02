@@ -117,10 +117,18 @@ func decodeHandle(b []byte) (statementHandle, error) {
 
 // newStatement makes a statement on conn for h's query with h's parameters
 // bound.
-func (s *sqlServer) newStatement(ctx context.Context, conn adbc.ConnectionWithContext, h statementHandle) (adbc.StatementWithContext, error) {
+// newStatement makes a statement for h on conn. Its query result is read
+// whole unless stream is set (see executeQuery).
+func (s *sqlServer) newStatement(ctx context.Context, conn adbc.ConnectionWithContext, h statementHandle, stream bool) (adbc.StatementWithContext, error) {
 	stmt, err := conn.NewStatement(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if !stream {
+		if err := stmt.SetOption(ctx, redis.OptionStringStreamResults, "false"); err != nil {
+			_ = stmt.Close(ctx)
+			return nil, err
+		}
 	}
 	if err := stmt.SetSqlQuery(ctx, h.Query); err != nil {
 		_ = stmt.Close(ctx)
@@ -152,7 +160,7 @@ func (s *sqlServer) newStatement(ctx context.Context, conn adbc.ConnectionWithCo
 func (s *sqlServer) planSchema(ctx context.Context, t *tenant, h statementHandle) (*arrow.Schema, error) {
 	var schema *arrow.Schema
 	err := t.withConn(ctx, "", func(conn adbc.ConnectionWithContext) error {
-		stmt, err := s.newStatement(ctx, conn, h)
+		stmt, err := s.newStatement(ctx, conn, h, false)
 		if err != nil {
 			return err
 		}
@@ -264,7 +272,7 @@ func (s *sqlServer) statementSchema(ctx context.Context, h statementHandle) (*fl
 func (s *sqlServer) runNow(ctx context.Context, t *tenant, h statementHandle, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
 	var rdr array.RecordReader
 	err := t.withConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) error {
-		stmt, err := s.newStatement(ctx, conn, h)
+		stmt, err := s.newStatement(ctx, conn, h, false)
 		if err != nil {
 			return err
 		}
@@ -337,32 +345,81 @@ func (s *sqlServer) streamResult(ctx context.Context, h statementHandle) (*arrow
 	if err != nil {
 		return nil, nil, status.Errorf(codes.Internal, "invalid result: %v", err)
 	}
-	return schema, streamRecords(ctx, rdr), nil
+	return schema, streamRecords(ctx, rdr, nil), nil
 }
 
-// executeQuery runs h and streams its result. The driver holds the whole
-// result in memory, so the connection goes back to the pool before
-// streaming starts.
+// executeQuery runs h and streams its result. The driver streams some
+// results from Redis as they are read (a plain scan of a table): such a
+// result keeps its pooled connection, its statement and one of the user's
+// MaxStreams until it has been sent, or the client has gone. Any other
+// result is whole in memory, so its connection goes back at once. In a
+// session, or with no stream free, results are read whole: a session's
+// connection serves its other requests too.
 func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	t, done, err := s.tenants.acquire(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer done()
-	var rdr array.RecordReader
-	err = t.withConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) error {
-		stmt, err := s.newStatement(ctx, conn, h)
-		if err != nil {
+	if sessionFrom(ctx) != nil || !t.tryStream() {
+		defer done()
+		var rdr array.RecordReader
+		err = t.withConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) error {
+			stmt, err := s.newStatement(ctx, conn, h, false)
+			if err != nil {
+				return err
+			}
+			defer stmt.Close(ctx)
+			rdr, _, err = stmt.ExecuteQuery(ctx)
 			return err
+		})
+		if err != nil {
+			return nil, nil, toStatus(err)
 		}
-		defer stmt.Close(ctx)
-		rdr, _, err = stmt.ExecuteQuery(ctx)
-		return err
+		return rdr.Schema(), streamRecords(ctx, rdr, nil), nil
+	}
+
+	live := false
+	defer func() {
+		if !live {
+			t.endStream()
+			done()
+		}
+	}()
+	var (
+		rdr  array.RecordReader
+		stmt adbc.StatementWithContext
+	)
+	release, err := t.leaseConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) (bool, error) {
+		var err error
+		if stmt, err = s.newStatement(ctx, conn, h, true); err != nil {
+			return false, err
+		}
+		var n int64
+		rdr, n, err = stmt.ExecuteQuery(ctx)
+		if err != nil || n >= 0 {
+			// Failed, or whole: n is the row count of a result read whole,
+			// and -1 for one streaming from Redis.
+			_ = stmt.Close(ctx)
+			return false, err
+		}
+		return true, nil
 	})
 	if err != nil {
 		return nil, nil, toStatus(err)
 	}
-	return rdr.Schema(), streamRecords(ctx, rdr), nil
+	if release == nil {
+		return rdr.Schema(), streamRecords(ctx, rdr, nil), nil
+	}
+	live = true
+	return rdr.Schema(), streamRecords(ctx, rdr, &liveResult{
+		stall: s.tenants.cfg.StreamStallTimeout,
+		done: func(err error) {
+			_ = stmt.Close(context.WithoutCancel(ctx))
+			release(err)
+			t.endStream()
+			done()
+		},
+	}), nil
 }
 
 // executeUpdate runs h, with params bound instead of h's parameters if
@@ -384,7 +441,7 @@ func (s *sqlServer) executeUpdate(ctx context.Context, h statementHandle, params
 	defer done()
 	var n int64
 	err = t.withConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) error {
-		stmt, err := s.newStatement(ctx, conn, h)
+		stmt, err := s.newStatement(ctx, conn, h, false)
 		if err != nil {
 			return err
 		}
