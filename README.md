@@ -33,9 +33,165 @@ Measured with 100,000 rows × 4 columns, on an Apple Silicon laptop with Redis
 | Point lookup (`WHERE order_id = 4242`) | 2.4 ms | not available |
 
 Datasets are 25–50× faster for whole-table transfers, since nothing is
-converted per row. SQL is the only way to read part of a table. Both can be
-combined: for example, upload a dataset, then bulk-ingest the rows you want
-to query into a SQL table.
+converted per row. A dataset read can pick columns and a range of batches,
+but only SQL can filter rows by value. Both can be combined: for example,
+upload a dataset, then bulk-ingest the rows you want to query into a SQL
+table.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph clients["Clients"]
+        jdbc["JDBC / DBeaver<br/>Flight SQL JDBC driver"]
+        adbc["ADBC Flight SQL driver<br/>Python, Go, R, …"]
+        fl["pyarrow.flight, arrow-go,<br/>Arrow Java"]
+    end
+
+    subgraph server["redis-flight-server (gRPC)"]
+        mw["Middleware<br/>recover → log → auth → sessions"]
+        router{"router.go"}
+        sql["Flight SQL handlers<br/>sqlserver.go, metadata.go"]
+        ds["Dataset store<br/>datasets.go"]
+        subgraph tenant["One tenant per Redis user (tenant.go)"]
+            pool["Pooled ADBC connections<br/>pool.go"]
+            sess["Session connections<br/>session.go"]
+            gr["go-redis client"]
+        end
+        drv["Redis ADBC driver<br/>SQL → Redis commands"]
+    end
+
+    subgraph redis["Redis 8"]
+        tables[("SQL tables<br/>a HASH per row,<br/>a RediSearch index per table")]
+        dsk[("Datasets<br/>Arrow IPC in a LIST<br/>per generation")]
+        res[("Large statement results<br/>kept 10 minutes")]
+    end
+
+    jdbc --> mw
+    adbc --> mw
+    fl --> mw
+    mw --> router
+    router -- "CMD descriptors,<br/>Flight SQL tickets" --> sql
+    router -- "PATH descriptors, JSON tickets,<br/>drop_dataset" --> ds
+    sql --> pool
+    sql --> sess
+    pool --> drv
+    sess --> drv
+    drv -- "FT.AGGREGATE, FT.SEARCH,<br/>HSET, …" --> tables
+    sql --> gr
+    ds --> gr
+    gr -- "RPUSH, LRANGE,<br/>EVAL" --> dsk
+    gr -- "SET, GET" --> res
+```
+
+- **Middleware.** `auth` is there only with `--auth=redis-acl`, and `sessions`
+  unless `--sessions=false`.
+- **Tenants.** Each Redis user gets its own ADBC database, connection pool and
+  go-redis client, so every command runs with that user's ACLs.
+- **The router** tells the two paths apart by the descriptor type and the
+  ticket's first byte (a protobuf `Any`, or `{`).
+- **Code.** [Development](#development) lists what each file does.
+
+### How a request flows
+
+**A query** (`SELECT`, `SHOW`) is planned when its FlightInfo is requested,
+and runs when its ticket is read:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Flight server
+    participant D as Redis ADBC driver
+    participant R as Redis
+    C->>S: GetFlightInfo(CommandStatementQuery)
+    S->>D: ExecuteSchema on a pooled connection
+    D->>R: read the tables' metadata
+    S-->>C: FlightInfo: the schema, a ticket holding the SQL
+    C->>S: DoGet(ticket)
+    S->>D: ExecuteQuery
+    D->>R: FT.AGGREGATE … WITHCURSOR
+    loop until the cursor ends
+        D->>R: FT.CURSOR READ
+    end
+    D-->>S: the result, as Arrow batches
+    S-->>C: FlightData, about 2 MiB per batch
+```
+
+**A statement that changes something** (`INSERT`, `UPDATE`, DDL, `SET`, …)
+runs when its FlightInfo is requested, so it runs exactly once. Its ticket
+carries the result:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Flight server
+    participant D as Redis ADBC driver
+    participant R as Redis
+    C->>S: GetFlightInfo(CommandStatementQuery "INSERT … RETURNING id")
+    S->>D: ExecuteQuery
+    D->>R: HSET, …
+    D-->>S: the result
+    alt the result is up to 1 MiB
+        S-->>C: FlightInfo, with the result in the ticket
+    else larger
+        S->>R: SET arrowflight:result:{id}, for 10 minutes
+        S-->>C: FlightInfo, with the key in the ticket
+    end
+    C->>S: DoGet(ticket), any number of times
+    S-->>C: the stored result, without running the statement again
+```
+
+`CommandStatementUpdate` (DoPut) runs the statement and returns its row count
+in the reply.
+
+**A dataset** is written as a new generation, switched to atomically, and
+read back in pages:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Flight server
+    participant R as Redis
+    C->>S: DoPut(PATH ["features", "v1"]), the schema, then batches
+    S->>R: INCR ds:{features/v1}:seq → generation N
+    loop every 64 batches or 8 MiB
+        S->>R: RPUSH ds:{features/v1}:gN, one IPC stream per batch
+    end
+    S->>R: EVAL commit: point the HASH at N, unless a newer upload won
+    S-->>C: PutResult {dataset, generation, rows, …}
+    C->>S: GetFlightInfo(PATH ["features", "v1"])
+    S->>R: HGETALL ds:{features/v1}
+    S-->>C: FlightInfo: the schema, counts, one or more tickets
+    C->>S: DoGet(ticket)
+    loop 64 batches at a time
+        S->>R: LRANGE ds:{features/v1}:gN
+    end
+    S-->>C: FlightData: the ticket's columns and batches
+```
+
+**Logging in and sessions.** With `--auth=redis-acl`, the handshake checks
+the credentials against Redis. A client that keeps cookies gets a session,
+with its own connection:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Flight server
+    participant R as Redis
+    C->>S: Handshake, with Basic alice:…
+    S->>R: PING, as alice
+    S-->>C: a bearer token (sealed identity)
+    C->>S: GetSqlInfo, with the token
+    S-->>C: the result, and Set-Cookie: arrow_flight_session_id
+    Note over S: no session state yet
+    C->>S: SET TIME ZONE 'Asia/Tokyo', with the token and the cookie
+    S->>S: start the session: an ADBC connection of its own, as alice
+    S->>R: the statement, on the session's connection
+    C->>S: SELECT …, with the same cookie
+    S->>R: on the same connection, so the time zone still applies
+    C->>S: CloseSession
+    S->>S: close the connection, dropping its temporary tables
+```
 
 ## Quick start
 
@@ -100,10 +256,18 @@ print(json.loads(results.read().to_pybytes()))  # {'dataset': 'features/v1', 'ge
 writer.close()
 
 info = client.get_flight_info(desc)
-print(client.do_get(info.endpoints[0].ticket).read_all())
+print(pa.concat_tables([client.do_get(ep.ticket).read_all() for ep in info.endpoints]))
+
+# Just the embedding column, of the first 10 batches.
+ticket = flight.Ticket(json.dumps({"dataset": "features/v1", "columns": ["embedding"], "batches": [0, 10]}).encode())
+print(client.do_get(ticket).read_all())
+
 print([f.descriptor.path for f in client.list_flights(b"features/")])
 list(client.do_action(flight.Action("drop_dataset", b"features/v1")))
 ```
+
+Read every endpoint of a FlightInfo. A dataset has one unless the server runs
+with `--dataset-endpoint-batches`.
 
 ### JDBC (DBeaver and others)
 
@@ -248,8 +412,26 @@ request.
 - **GetFlightInfo / GetSchema** return the schema, row and byte counts, and a
   ticket for the current generation. A ticket for a replaced generation keeps
   working for 5 minutes, so reads already under way finish.
-- **DoGet** takes the ticket from GetFlightInfo, or one you write yourself:
-  `{"dataset": "features/v1"}` reads the current generation.
+- **DoGet** takes a ticket from GetFlightInfo, or one you write yourself. A
+  ticket is JSON:
+
+  | Field | Meaning |
+  |-|-|
+  | `dataset` | The name. Required |
+  | `generation` | The generation to read. Leave it out for the current one |
+  | `columns` | Read just these columns, in this order. A name the dataset doesn't have, or one given twice, is `InvalidArgument` |
+  | `batches` | `[start, end]`: read the stored batches from `start` up to, not including, `end`, counting from 0. An `end` past the last batch reads to the last; `start` equal to `end` returns the schema alone. A negative `start`, or an `end` before `start`, is `InvalidArgument` |
+
+  For example, `{"dataset": "features/v1"}` reads the current generation, and
+  `{"dataset": "features/v1", "columns": ["id", "label"], "batches": [0, 4]}`
+  reads two columns of its first four batches. The stored batches are the
+  uploaded ones, split to about 2 MiB each; the PutResult and the FlightInfo's
+  app metadata count them (`batches`).
+- **Parallel reads.** With `--dataset-endpoint-batches=N`, GetFlightInfo,
+  PollFlightInfo and ListFlights return one endpoint per N batches. Clients can
+  read the endpoints in parallel, and must read them all; together, in order,
+  they are the dataset (the FlightInfo says `ordered`). Without the flag there
+  is one endpoint, since a client that reads only the first would miss data.
 - **ListFlights** lists datasets; the criteria expression, if given, is a name
   prefix.
 - **`drop_dataset` action** deletes a dataset. Its body is the name, or
@@ -325,6 +507,7 @@ Every flag can also be set with the environment variable shown.
 | `-tls-cert`, `-tls-key` | `FLIGHT_TLS_CERT`, `FLIGHT_TLS_KEY` | | PEM files; enable TLS |
 | `-key-prefix` | `FLIGHT_KEY_PREFIX` | `arrowflight:` | Prefix of the server's own keys |
 | `-dataset-ttl` | `FLIGHT_DATASET_TTL` | `0` (keep) | Expire uploaded datasets |
+| `-dataset-endpoint-batches` | `FLIGHT_DATASET_ENDPOINT_BATCHES` | `0` (one endpoint) | Give a dataset's FlightInfo one endpoint per this many batches, for [parallel reads](#datasets) |
 | `-pool-max-idle` | `FLIGHT_POOL_MAX_IDLE` | `8` | Idle ADBC connections kept per Redis user |
 | `-pool-max-open` | `FLIGHT_POOL_MAX_OPEN` | `32` | ADBC connections in use at once per Redis user |
 | `-sessions` | `FLIGHT_SESSIONS` | `true` | [Sessions](#sessions) for clients that keep cookies |
