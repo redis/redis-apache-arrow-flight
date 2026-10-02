@@ -368,6 +368,87 @@ func TestIntegrationPreparedScripts(t *testing.T) {
 	})
 }
 
+// A bound parameter batch with columns but no rows runs the statement zero
+// times; only a batch without columns means "no parameters".
+func TestIntegrationZeroRowParams(t *testing.T) {
+	c := newClients(t, Config{RedisURI: redisURI(t)}).sql
+	ctx := context.Background()
+	tbl := uniqueName("it_flight_zero")
+	dropTable(t, c, tbl)
+	update(t, ctx, c, "CREATE TABLE "+tbl+" (id BIGINT NOT NULL, qty BIGINT)")
+	update(t, ctx, c, "INSERT INTO "+tbl+" VALUES (1, 10)")
+	count := func(t *testing.T) []string { return query(t, ctx, c, "SELECT COUNT(*) FROM "+tbl) }
+	prepare := func(t *testing.T, sql string) *flightsql.PreparedStatement {
+		t.Helper()
+		p, err := c.Prepare(ctx, sql)
+		if err != nil {
+			t.Fatalf("Prepare(%q): %v", sql, err)
+		}
+		t.Cleanup(func() { _ = p.Close(context.Background()) })
+		return p
+	}
+	bind := func(p *flightsql.PreparedStatement, names []string, cols ...[]int64) {
+		rec := int64Record(t, names, cols...)
+		p.SetParameters(rec)
+		rec.Release()
+	}
+	// The arrow-go client sends a zero-row batch given to SetParameters as
+	// "no parameters" (no columns), so a bind of no rows goes through a
+	// reader, as ADBC's BindStream does: its columns, and no batches.
+	bindNoRows := func(p *flightsql.PreparedStatement, names ...string) {
+		cols := make([][]int64, len(names))
+		for i := range cols {
+			cols[i] = []int64{}
+		}
+		rec := int64Record(t, names, cols...)
+		rdr, err := array.NewRecordReader(rec.Schema(), nil)
+		rec.Release()
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.SetRecordReader(rdr)
+		rdr.Release()
+	}
+
+	t.Run("update", func(t *testing.T) {
+		p := prepare(t, "INSERT INTO "+tbl+" VALUES ($1, $2)")
+		bindNoRows(p, "id", "qty")
+		if n, err := p.ExecuteUpdate(ctx); err != nil || n != 0 {
+			t.Errorf("ExecuteUpdate with no rows = %d, %v; want 0", n, err)
+		}
+		wantRows(t, count(t), "1")
+	})
+
+	t.Run("update after a query bind", func(t *testing.T) {
+		p := prepare(t, "INSERT INTO "+tbl+" VALUES ($1, 20)")
+		bind(p, []string{"id"}, []int64{2})
+		// Run as a query: it inserts once, and the handle keeps {2}.
+		if _, err := p.Execute(ctx); err != nil {
+			t.Fatal(err)
+		}
+		wantRows(t, count(t), "2")
+		bindNoRows(p, "id")
+		if n, err := p.ExecuteUpdate(ctx); err != nil || n != 0 {
+			t.Errorf("ExecuteUpdate with no rows = %d, %v; want 0", n, err)
+		}
+		wantRows(t, count(t), "2")
+	})
+
+	t.Run("query", func(t *testing.T) {
+		p := prepare(t, "SELECT qty FROM "+tbl+" WHERE id = $1")
+		bindNoRows(p, "id")
+		info, err := p.Execute(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		schema, rows := fetch(t, ctx, c, info)
+		wantRows(t, rows)
+		if schema.NumFields() != 1 || schema.Field(0).Name != "qty" {
+			t.Errorf("result schema = %s, want qty", schema)
+		}
+	})
+}
+
 func int64Record(t *testing.T, names []string, cols ...[]int64) arrow.RecordBatch {
 	t.Helper()
 	fields := make([]arrow.Field, len(names))
