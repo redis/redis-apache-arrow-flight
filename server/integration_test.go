@@ -975,6 +975,56 @@ func deleteKeys(admin goredis.UniversalClient, keys []string) {
 	})
 }
 
+// A token whose Redis credentials stopped working is refused for that
+// reason, not as Redis being down, so the client logs in again instead of
+// retrying.
+func TestIntegrationStaleCredentials(t *testing.T) {
+	uri := redisURI(t)
+	ctx := context.Background()
+	admin := adminClient(t, uri)
+	user := uniqueName("it_flight_stale")
+	acl := func(rules ...string) {
+		t.Helper()
+		args := []any{"ACL", "SETUSER", user}
+		for _, r := range rules {
+			args = append(args, r)
+		}
+		if err := eachNode(admin, func(ctx context.Context, c *goredis.Client) error {
+			return c.Do(ctx, args...).Err()
+		}); err != nil {
+			t.Fatalf("ACL SETUSER %s %v: %v", user, rules, err)
+		}
+	}
+	acl("on", ">old-pw", "resetchannels", "~*", "+@all")
+	t.Cleanup(func() {
+		_ = eachNode(admin, func(ctx context.Context, c *goredis.Client) error {
+			return c.Do(ctx, "ACL", "DELUSER", user).Err()
+		})
+	})
+
+	cl := newClients(t, Config{RedisURI: uri, Auth: AuthRedisACL, TokenSecret: "stale"})
+	tctx, err := cl.fl.AuthenticateBasicToken(ctx, user, "old-pw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Logging in doesn't connect the user's requests, and a failed connect
+	// isn't kept, so each request below connects with the token's
+	// credentials.
+	for _, step := range []struct {
+		change []string
+		want   codes.Code
+	}{
+		{[]string{"resetpass", ">new-pw"}, codes.Unauthenticated},
+		{[]string{"resetpass", ">old-pw", "-ping"}, codes.PermissionDenied},
+		{[]string{"+ping", "off"}, codes.Unauthenticated},
+	} {
+		acl(step.change...)
+		if _, err := cl.sql.Execute(tctx, "SELECT 1"); status.Code(err) != step.want {
+			t.Errorf("after ACL SETUSER %v: err = %v, want %v", step.change, err, step.want)
+		}
+	}
+}
+
 func TestIntegrationRedisACL(t *testing.T) {
 	uri := redisURI(t)
 	ctx := context.Background()

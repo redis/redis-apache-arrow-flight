@@ -108,6 +108,26 @@ func TestReusable(t *testing.T) {
 	}
 }
 
+func TestConnectStatus(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		want codes.Code
+	}{
+		{errors.New("WRONGPASS invalid username-password pair or user is disabled."), codes.Unauthenticated},
+		{errors.New("NOAUTH Authentication required."), codes.Unauthenticated},
+		{errors.New("NOPERM User u has no permissions to run the 'ping' command"), codes.PermissionDenied},
+		{context.Canceled, codes.Canceled},
+		{context.DeadlineExceeded, codes.DeadlineExceeded},
+		{errors.New("dial tcp 127.0.0.1:1: connect: connection refused"), codes.Unavailable},
+		{errors.New("i/o timeout"), codes.Unavailable},
+	} {
+		got := connectStatus(tc.err)
+		if status.Code(got) != tc.want || !strings.Contains(status.Convert(got).Message(), tc.err.Error()) {
+			t.Errorf("connectStatus(%q) = %v, want %v with the cause", tc.err, got, tc.want)
+		}
+	}
+}
+
 func TestIngestMode(t *testing.T) {
 	const (
 		create   = flightsql.TableDefinitionOptionsTableNotExistOptionCreate

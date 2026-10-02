@@ -160,7 +160,7 @@ func (c *tenantCache) open(ctx context.Context, id identity) (*tenant, error) {
 	}
 	rdb, err := newRedisClient(ctx, opts, c.cfg.ADBCOptions[clusterOption])
 	if err != nil {
-		return nil, status.Errorf(codes.Unavailable, "failed to connect to Redis: %v", err)
+		return nil, connectStatus(err)
 	}
 	if c.cfg.redisHook != nil {
 		rdb.AddHook(c.cfg.redisHook)
