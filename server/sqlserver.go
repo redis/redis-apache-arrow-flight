@@ -499,13 +499,14 @@ func (s *sqlServer) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql
 	if err != nil {
 		return nil, err
 	}
-	schema, recs, err := readParams(rdr)
+	schema, recs, bound, err := readParams(rdr)
 	if err != nil {
 		return nil, err
 	}
 	defer releaseAll(recs)
 	h.Params = nil
-	if recs != nil {
+	if bound {
+		// With no rows too: the query then runs zero times.
 		b, err := writeIPC(schema, recs, s.Alloc)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to encode the parameters: %v", err)
@@ -520,26 +521,27 @@ func (s *sqlServer) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql
 	return h.encode(), nil
 }
 
-// readParams reads bound parameters. It returns no batches when the
-// stream has no columns or no rows: clients send that for a statement
-// without parameters, and binding it would run the statement zero times.
-func readParams(rdr flight.MessageReader) (*arrow.Schema, []arrow.RecordBatch, error) {
-	schema := rdr.Schema()
+// readParams reads bound parameters. bound is false when the stream has no
+// schema or no columns: clients send that for a statement without
+// parameters. A schema with columns binds even with no rows, and the
+// statement then runs zero times. recs are the batches that have rows.
+func readParams(rdr flight.MessageReader) (schema *arrow.Schema, recs []arrow.RecordBatch, bound bool, err error) {
+	schema = rdr.Schema()
 	if schema == nil {
 		if err := rdr.Err(); err != nil {
-			return nil, nil, status.Errorf(codes.InvalidArgument, "failed to read the parameters: %v", err)
+			return nil, nil, false, status.Errorf(codes.InvalidArgument, "failed to read the parameters: %v", err)
 		}
-		return nil, nil, nil
+		return nil, nil, false, nil
 	}
-	recs, rows, err := readAll(rdr)
+	recs, _, err = readAll(rdr)
 	if err != nil {
-		return nil, nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, nil, false, status.Error(codes.InvalidArgument, err.Error())
 	}
-	if schema.NumFields() == 0 || rows == 0 {
+	if schema.NumFields() == 0 {
 		releaseAll(recs)
-		return schema, nil, nil
+		return schema, nil, false, nil
 	}
-	return schema, recs, nil
+	return schema, recs, true, nil
 }
 
 func (s *sqlServer) GetFlightInfoPreparedStatement(ctx context.Context, cmd flightsql.PreparedStatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
@@ -567,19 +569,19 @@ func (s *sqlServer) DoGetPreparedStatement(ctx context.Context, cmd flightsql.Pr
 }
 
 // DoPutPreparedStatementUpdate runs a prepared update once per row of the
-// uploaded parameters, or with the parameters already in the handle when
-// none are uploaded.
+// uploaded parameters (zero times for none), or with the parameters
+// already in the handle when the upload has no columns.
 func (s *sqlServer) DoPutPreparedStatementUpdate(ctx context.Context, cmd flightsql.PreparedStatementUpdate, rdr flight.MessageReader) (int64, error) {
 	h, err := decodeHandle(cmd.GetPreparedStatementHandle())
 	if err != nil {
 		return 0, err
 	}
-	schema, recs, err := readParams(rdr)
+	schema, recs, bound, err := readParams(rdr)
 	if err != nil {
 		return 0, err
 	}
 	var params array.RecordReader
-	if recs != nil {
+	if bound {
 		params, err = array.NewRecordReader(schema, recs)
 		releaseAll(recs)
 		if err != nil {

@@ -368,6 +368,87 @@ func TestIntegrationPreparedScripts(t *testing.T) {
 	})
 }
 
+// A bound parameter batch with columns but no rows runs the statement zero
+// times; only a batch without columns means "no parameters".
+func TestIntegrationZeroRowParams(t *testing.T) {
+	c := newClients(t, Config{RedisURI: redisURI(t)}).sql
+	ctx := context.Background()
+	tbl := uniqueName("it_flight_zero")
+	dropTable(t, c, tbl)
+	update(t, ctx, c, "CREATE TABLE "+tbl+" (id BIGINT NOT NULL, qty BIGINT)")
+	update(t, ctx, c, "INSERT INTO "+tbl+" VALUES (1, 10)")
+	count := func(t *testing.T) []string { return query(t, ctx, c, "SELECT COUNT(*) FROM "+tbl) }
+	prepare := func(t *testing.T, sql string) *flightsql.PreparedStatement {
+		t.Helper()
+		p, err := c.Prepare(ctx, sql)
+		if err != nil {
+			t.Fatalf("Prepare(%q): %v", sql, err)
+		}
+		t.Cleanup(func() { _ = p.Close(context.Background()) })
+		return p
+	}
+	bind := func(p *flightsql.PreparedStatement, names []string, cols ...[]int64) {
+		rec := int64Record(t, names, cols...)
+		p.SetParameters(rec)
+		rec.Release()
+	}
+	// The arrow-go client sends a zero-row batch given to SetParameters as
+	// "no parameters" (no columns), so a bind of no rows goes through a
+	// reader, as ADBC's BindStream does: its columns, and no batches.
+	bindNoRows := func(p *flightsql.PreparedStatement, names ...string) {
+		cols := make([][]int64, len(names))
+		for i := range cols {
+			cols[i] = []int64{}
+		}
+		rec := int64Record(t, names, cols...)
+		rdr, err := array.NewRecordReader(rec.Schema(), nil)
+		rec.Release()
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.SetRecordReader(rdr)
+		rdr.Release()
+	}
+
+	t.Run("update", func(t *testing.T) {
+		p := prepare(t, "INSERT INTO "+tbl+" VALUES ($1, $2)")
+		bindNoRows(p, "id", "qty")
+		if n, err := p.ExecuteUpdate(ctx); err != nil || n != 0 {
+			t.Errorf("ExecuteUpdate with no rows = %d, %v; want 0", n, err)
+		}
+		wantRows(t, count(t), "1")
+	})
+
+	t.Run("update after a query bind", func(t *testing.T) {
+		p := prepare(t, "INSERT INTO "+tbl+" VALUES ($1, 20)")
+		bind(p, []string{"id"}, []int64{2})
+		// Run as a query: it inserts once, and the handle keeps {2}.
+		if _, err := p.Execute(ctx); err != nil {
+			t.Fatal(err)
+		}
+		wantRows(t, count(t), "2")
+		bindNoRows(p, "id")
+		if n, err := p.ExecuteUpdate(ctx); err != nil || n != 0 {
+			t.Errorf("ExecuteUpdate with no rows = %d, %v; want 0", n, err)
+		}
+		wantRows(t, count(t), "2")
+	})
+
+	t.Run("query", func(t *testing.T) {
+		p := prepare(t, "SELECT qty FROM "+tbl+" WHERE id = $1")
+		bindNoRows(p, "id")
+		info, err := p.Execute(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		schema, rows := fetch(t, ctx, c, info)
+		wantRows(t, rows)
+		if schema.NumFields() != 1 || schema.Field(0).Name != "qty" {
+			t.Errorf("result schema = %s, want qty", schema)
+		}
+	})
+}
+
 func int64Record(t *testing.T, names []string, cols ...[]int64) arrow.RecordBatch {
 	t.Helper()
 	fields := make([]arrow.Field, len(names))
@@ -859,12 +940,16 @@ func (h *commitHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) gored
 	return next
 }
 
+// isCommitScript reports whether cmd runs the dataset commit script, which
+// has 4 keys (the drop script has 2).
+func isCommitScript(cmd goredis.Cmder) bool {
+	name, args := strings.ToLower(cmd.Name()), cmd.Args()
+	return (name == "evalsha" || name == "eval") && len(args) > 2 && fmt.Sprint(args[2]) == "4"
+}
+
 func (h *commitHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	return func(ctx context.Context, cmd goredis.Cmder) error {
-		// The commit script has 4 keys (the drop script has 2).
-		name, args := strings.ToLower(cmd.Name()), cmd.Args()
-		isCommit := (name == "evalsha" || name == "eval") && len(args) > 2 && fmt.Sprint(args[2]) == "4"
-		if !isCommit || h.fired.Load() {
+		if !isCommitScript(cmd) || h.fired.Load() {
 			return next(ctx, cmd)
 		}
 		if h.ran {
@@ -878,6 +963,28 @@ func (h *commitHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	}
 }
 
+func datasetDesc(name string) *flight.FlightDescriptor {
+	return &flight.FlightDescriptor{Type: flight.DescriptorPATH, Path: []string{name}}
+}
+
+// readDataset returns a dataset's current summary and rows.
+func readDataset(t *testing.T, ctx context.Context, fc flight.Client, desc *flight.FlightDescriptor) (datasetMeta, []string) {
+	t.Helper()
+	info, err := fc.GetFlightInfo(ctx, desc)
+	if err != nil {
+		t.Fatalf("GetFlightInfo: %v", err)
+	}
+	var m datasetMeta
+	if err := json.Unmarshal(info.AppMetadata, &m); err != nil {
+		t.Fatal(err)
+	}
+	_, rows, _, err := getDataset(t, ctx, fc, info.Endpoint[0].Ticket.Ticket)
+	if err != nil {
+		t.Fatalf("DoGet: %v", err)
+	}
+	return m, rows
+}
+
 // An upload whose commit reply is lost keeps its data when the commit
 // went through, and leaves the dataset as it was when it didn't.
 func TestIntegrationUploadCommitOutcome(t *testing.T) {
@@ -888,35 +995,16 @@ func TestIntegrationUploadCommitOutcome(t *testing.T) {
 	t.Cleanup(func() { deleteKeys(admin, keysMatching(t, admin, prefix+"*")) })
 	rec := int64Record(t, []string{"n"}, []int64{1, 2, 3})
 	defer rec.Release()
-	pathDesc := func(name string) *flight.FlightDescriptor {
-		return &flight.FlightDescriptor{Type: flight.DescriptorPATH, Path: []string{name}}
-	}
-	read := func(t *testing.T, fc flight.Client, desc *flight.FlightDescriptor) (datasetMeta, []string) {
-		t.Helper()
-		info, err := fc.GetFlightInfo(ctx, desc)
-		if err != nil {
-			t.Fatalf("GetFlightInfo: %v", err)
-		}
-		var m datasetMeta
-		if err := json.Unmarshal(info.AppMetadata, &m); err != nil {
-			t.Fatal(err)
-		}
-		_, rows, _, err := getDataset(t, ctx, fc, info.Endpoint[0].Ticket.Ticket)
-		if err != nil {
-			t.Fatalf("DoGet: %v", err)
-		}
-		return m, rows
-	}
 
 	t.Run("reply lost after the commit ran", func(t *testing.T) {
 		hook := &commitHook{ran: true}
 		fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, redisHook: hook}).fl
-		desc := pathDesc(uniqueName("it_flight_lost_reply"))
+		desc := datasetDesc(uniqueName("it_flight_lost_reply"))
 		m := putDataset(t, ctx, fc, desc, rec.Schema(), rec)
 		if !hook.fired.Load() {
 			t.Fatal("the commit reply wasn't failed")
 		}
-		got, rows := read(t, fc, desc)
+		got, rows := readDataset(t, ctx, fc, desc)
 		if got.Generation != m.Generation {
 			t.Errorf("current generation %d, want the upload's %d", got.Generation, m.Generation)
 		}
@@ -925,7 +1013,7 @@ func TestIntegrationUploadCommitOutcome(t *testing.T) {
 
 	t.Run("commit never ran", func(t *testing.T) {
 		name := uniqueName("it_flight_no_commit")
-		desc := pathDesc(name)
+		desc := datasetDesc(name)
 		plain := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix}).fl
 		first := putDataset(t, ctx, plain, desc, rec.Schema(), rec)
 
@@ -936,7 +1024,7 @@ func TestIntegrationUploadCommitOutcome(t *testing.T) {
 		if _, err := tryPutDataset(ctx, fc, desc, other.Schema(), other); err == nil {
 			t.Error("an upload whose commit failed succeeded")
 		}
-		got, rows := read(t, plain, desc)
+		got, rows := readDataset(t, ctx, plain, desc)
 		if got.Generation != first.Generation {
 			t.Errorf("current generation %d, want the first upload's %d", got.Generation, first.Generation)
 		}
@@ -947,6 +1035,117 @@ func TestIntegrationUploadCommitOutcome(t *testing.T) {
 			t.Errorf("the failed upload's list %s has TTL %v, want at most %v", key, ttl, replacedGrace)
 		}
 	})
+}
+
+// holdCommitHook holds the first dataset commit until release is closed,
+// after closing held.
+type holdCommitHook struct {
+	held, release chan struct{}
+	once          sync.Once
+}
+
+func (h *holdCommitHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+
+func (h *holdCommitHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return next
+}
+
+func (h *holdCommitHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		if isCommitScript(cmd) {
+			h.once.Do(func() {
+				close(h.held)
+				<-h.release
+			})
+		}
+		return next(ctx, cmd)
+	}
+}
+
+// Of two uploads of one dataset, the one started later wins, even if the
+// earlier one finishes last.
+func TestIntegrationUploadOrder(t *testing.T) {
+	uri := redisURI(t)
+	ctx := context.Background()
+	const prefix = "it_flight_order:"
+	admin := adminClient(t, uri)
+	t.Cleanup(func() { deleteKeys(admin, keysMatching(t, admin, prefix+"*")) })
+
+	hook := &holdCommitHook{held: make(chan struct{}), release: make(chan struct{})}
+	slow := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, redisHook: hook}).fl
+	fast := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix}).fl
+	name := uniqueName("it_flight_order")
+	desc := datasetDesc(name)
+	older := int64Record(t, []string{"n"}, []int64{1})
+	defer older.Release()
+	newer := int64Record(t, []string{"n"}, []int64{2})
+	defer newer.Release()
+
+	type result struct {
+		m   datasetMeta
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		m, err := tryPutDataset(ctx, slow, desc, older.Schema(), older)
+		done <- result{m, err}
+	}()
+	select {
+	case <-hook.held: // the older upload has its generation, and waits to commit
+	case <-time.After(10 * time.Second):
+		t.Fatal("the older upload never reached its commit")
+	}
+	m := putDataset(t, ctx, fast, desc, newer.Schema(), newer)
+	close(hook.release)
+	var r result
+	select {
+	case r = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the older upload never finished")
+	}
+	if r.err != nil {
+		t.Fatalf("older upload: %v", r.err)
+	}
+	if !r.m.Superseded || r.m.Generation >= m.Generation {
+		t.Errorf("older upload = generation %d, superseded %v; want below %d, superseded", r.m.Generation, r.m.Superseded, m.Generation)
+	}
+	got, rows := readDataset(t, ctx, fast, desc)
+	if got.Generation != m.Generation {
+		t.Errorf("current generation %d, want the newer upload's %d", got.Generation, m.Generation)
+	}
+	wantRows(t, rows, "2")
+	key := prefix + "ds:{" + name + "}:g" + fmt.Sprint(r.m.Generation)
+	if ttl := admin.PTTL(ctx, key).Val(); ttl <= 0 || ttl > replacedGrace {
+		t.Errorf("the superseded upload's list %s has TTL %v, want at most %v", key, ttl, replacedGrace)
+	}
+}
+
+// With --dataset-ttl, a dataset's keys expire but its generation counter
+// doesn't, so generation numbers never repeat.
+func TestIntegrationDatasetTTLKeepsSeq(t *testing.T) {
+	uri := redisURI(t)
+	ctx := context.Background()
+	const prefix = "it_flight_ttl:"
+	admin := adminClient(t, uri)
+	t.Cleanup(func() { deleteKeys(admin, keysMatching(t, admin, prefix+"*")) })
+	fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, DatasetTTL: time.Hour}).fl
+	name := uniqueName("it_flight_ttl")
+	rec := int64Record(t, []string{"n"}, []int64{1})
+	defer rec.Release()
+	m := putDataset(t, ctx, fc, datasetDesc(name), rec.Schema(), rec)
+
+	base := prefix + "ds:{" + name + "}"
+	for _, key := range []string{base, base + ":g" + fmt.Sprint(m.Generation)} {
+		if ttl := admin.PTTL(ctx, key).Val(); ttl <= 0 || ttl > time.Hour {
+			t.Errorf("%s has TTL %v, want at most 1h", key, ttl)
+		}
+	}
+	if n := admin.Exists(ctx, base+":seq").Val(); n != 1 {
+		t.Fatalf("%s:seq is missing", base)
+	}
+	if ttl := admin.PTTL(ctx, base+":seq").Val(); ttl > 0 {
+		t.Errorf("%s:seq has TTL %v, want none", base, ttl)
+	}
 }
 
 func sequence(n int) []int64 {
