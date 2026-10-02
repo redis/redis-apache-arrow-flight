@@ -162,6 +162,9 @@ func (c *tenantCache) open(ctx context.Context, id identity) (*tenant, error) {
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "failed to connect to Redis: %v", err)
 	}
+	if c.cfg.redisHook != nil {
+		rdb.AddHook(c.cfg.redisHook)
+	}
 	dbOpts := maps.Clone(c.cfg.ADBCOptions)
 	if dbOpts == nil {
 		dbOpts = map[string]string{}

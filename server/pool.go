@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	redis "github.com/adbc-drivers/redis/go"
@@ -114,10 +115,18 @@ func isStatementError(err error) bool {
 	return false
 }
 
+// tempSchema is where the driver keeps a connection's temporary tables
+// and views: a table or view created in it is temporary even without TEMP.
+const tempSchema = "pg_temp"
+
+// isTempSchemaName reports whether schema names the temporary schema, as
+// the driver decides it (case-insensitively).
+func isTempSchemaName(schema string) bool { return strings.EqualFold(schema, tempSchema) }
+
 // changesSession reports whether sql may leave state on its connection: SET
-// / RESET, BEGIN and the other transaction statements, and CREATE TEMP
-// TABLE / VIEW. It parses sql with the driver's own parser; SQL that doesn't
-// parse never ran.
+// / RESET, BEGIN and the other transaction statements, and temporary tables
+// and views (CREATE TEMP TABLE / VIEW, or a name in pg_temp). It parses sql
+// with the driver's own parser; SQL that doesn't parse never ran.
 func changesSession(sql string) bool {
 	if sql == "" {
 		return false
@@ -131,11 +140,11 @@ func changesSession(sql string) bool {
 		case *redis.SetStmt, *redis.TransactionStmt:
 			return true
 		case *redis.CreateTableStmt:
-			if s.Temporary {
+			if s.Temporary || isTempSchemaName(s.Table.Schema) {
 				return true
 			}
 		case *redis.CreateViewStmt:
-			if s.Temporary {
+			if s.Temporary || isTempSchemaName(s.Name.Schema) {
 				return true
 			}
 		}

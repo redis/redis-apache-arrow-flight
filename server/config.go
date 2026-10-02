@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // Version is the server's version, set at build time with
@@ -85,6 +86,10 @@ type Config struct {
 
 	Logger    *slog.Logger
 	Allocator memory.Allocator
+
+	// redisHook, if set, is added to every go-redis client the server opens
+	// for requests (tests use it to make Redis replies fail).
+	redisHook goredis.Hook
 }
 
 func (c *Config) setDefaults() {

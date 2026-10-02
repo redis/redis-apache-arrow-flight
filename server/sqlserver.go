@@ -582,9 +582,17 @@ func (s *sqlServer) DoPutCommandStatementIngest(ctx context.Context, cmd flights
 	if len(cmd.GetTransactionId()) > 0 {
 		return 0, errNoTransactions
 	}
-	if cmd.GetTemporary() {
+	if cmd.GetTemporary() || isTempSchemaName(cmd.GetSchema()) {
 		return 0, status.Error(codes.InvalidArgument,
 			"temporary tables are not supported: they belong to one connection, and each Flight request may use another")
+	}
+	// The command's fields say where and how to ingest; the same settings as
+	// ADBC options could override them (and make the table temporary).
+	for k := range cmd.GetOptions() {
+		if strings.HasPrefix(k, "adbc.ingest.") {
+			return 0, status.Errorf(codes.InvalidArgument,
+				"option %q is not accepted: set the ingest target, mode and temporary with the command's own fields", k)
+		}
 	}
 	table := cmd.GetTable()
 	if table == "" {
