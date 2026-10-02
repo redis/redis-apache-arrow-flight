@@ -128,6 +128,86 @@ func TestConnectStatus(t *testing.T) {
 	}
 }
 
+// fakeDB and fakeConn stand in for the driver; only what the pool calls is
+// implemented.
+type fakeDB struct {
+	adbc.DatabaseWithContext
+	conns []*fakeConn
+}
+
+func (d *fakeDB) Open(context.Context) (adbc.ConnectionWithContext, error) {
+	c := &fakeConn{}
+	d.conns = append(d.conns, c)
+	return c, nil
+}
+
+type fakeConn struct {
+	adbc.ConnectionWithContext
+	closed bool
+}
+
+func (c *fakeConn) Close(context.Context) error {
+	c.closed = true
+	return nil
+}
+
+func TestWithConnReleasesOnPanic(t *testing.T) {
+	db := &fakeDB{}
+	tn := &tenant{pool: newConnPool(db, 1, 1)}
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("withConn didn't pass the panic on")
+			}
+		}()
+		_ = tn.withConn(context.Background(), "SELECT 1", func(adbc.ConnectionWithContext) error {
+			panic("a driver bug")
+		})
+	}()
+	if len(db.conns) != 1 || !db.conns[0].closed {
+		t.Error("the connection of a call that panicked wasn't closed")
+	}
+	// The pool has one slot: it must be free again.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := tn.withConn(ctx, "SELECT 1", func(adbc.ConnectionWithContext) error { return nil }); err != nil {
+		t.Errorf("withConn after a panic: %v", err)
+	}
+}
+
+func TestAcquireAfterPanicInOpen(t *testing.T) {
+	cfg := Config{Logger: testLogger(t)}
+	cfg.setDefaults()
+	c := newTenantCache(&cfg)
+	defer c.close()
+	errDown := errors.New("redis is down")
+	calls := 0
+	c.open = func(context.Context, identity) (*tenant, error) {
+		calls++
+		if calls == 1 {
+			panic("a bug while connecting")
+		}
+		return nil, errDown
+	}
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("acquire didn't pass the panic on")
+			}
+		}()
+		_, _, _ = c.acquire(context.Background())
+	}()
+	// The next request must connect again, not wait for the one that panicked.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if _, _, err := c.acquire(ctx); !errors.Is(err, errDown) {
+		t.Errorf("acquire after a panic: err = %v, want %v", err, errDown)
+	}
+	if calls != 2 {
+		t.Errorf("open was called %d times, want 2", calls)
+	}
+}
+
 func TestIngestMode(t *testing.T) {
 	const (
 		create   = flightsql.TableDefinitionOptionsTableNotExistOptionCreate
