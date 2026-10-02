@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -559,36 +560,44 @@ func TestIntegrationMetadata(t *testing.T) {
 // putDataset uploads recs as a dataset and returns the server's summary.
 func putDataset(t *testing.T, ctx context.Context, fc flight.Client, desc *flight.FlightDescriptor, schema *arrow.Schema, recs ...arrow.RecordBatch) datasetMeta {
 	t.Helper()
+	m, err := tryPutDataset(ctx, fc, desc, schema, recs...)
+	if err != nil {
+		t.Fatalf("DoPut: %v", err)
+	}
+	return m
+}
+
+func tryPutDataset(ctx context.Context, fc flight.Client, desc *flight.FlightDescriptor, schema *arrow.Schema, recs ...arrow.RecordBatch) (datasetMeta, error) {
+	var m datasetMeta
 	stream, err := fc.DoPut(ctx)
 	if err != nil {
-		t.Fatal(err)
+		return m, err
 	}
 	w := flight.NewRecordWriter(stream, ipc.WithSchema(schema))
 	w.SetFlightDescriptor(desc)
 	for _, rec := range recs {
 		if err := w.Write(rec); err != nil {
-			t.Fatal(err)
+			return m, err
 		}
 	}
 	// With no batches, Close sends the schema alone.
 	if err := w.Close(); err != nil {
-		t.Fatal(err)
+		return m, err
 	}
 	if err := stream.CloseSend(); err != nil {
-		t.Fatal(err)
+		return m, err
 	}
 	res, err := stream.Recv()
 	if err != nil {
-		t.Fatalf("DoPut: %v", err)
+		return m, err
 	}
-	var m datasetMeta
 	if err := json.Unmarshal(res.AppMetadata, &m); err != nil {
-		t.Fatal(err)
+		return m, err
 	}
 	if _, err := stream.Recv(); !errors.Is(err, io.EOF) {
-		t.Fatalf("DoPut ended with %v", err)
+		return m, fmt.Errorf("DoPut ended with %v", err)
 	}
-	return m
+	return m, nil
 }
 
 func getDataset(t *testing.T, ctx context.Context, fc flight.Client, tkt []byte) (*arrow.Schema, []string, int, error) {
@@ -776,6 +785,110 @@ func TestIntegrationDatasets(t *testing.T) {
 	if _, err := stream.Recv(); status.Code(err) != codes.InvalidArgument {
 		t.Errorf("upload without a schema: err = %v, want InvalidArgument", err)
 	}
+}
+
+// commitHook makes the reply to the dataset commit script fail once, the
+// way it does when the client goes away: after the script ran (ran), or
+// instead of running it.
+type commitHook struct {
+	ran   bool
+	fired atomic.Bool
+}
+
+func (h *commitHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+
+func (h *commitHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return next
+}
+
+func (h *commitHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		// The commit script has 4 keys (the drop script has 2).
+		name, args := strings.ToLower(cmd.Name()), cmd.Args()
+		isCommit := (name == "evalsha" || name == "eval") && len(args) > 2 && fmt.Sprint(args[2]) == "4"
+		if !isCommit || h.fired.Load() {
+			return next(ctx, cmd)
+		}
+		if h.ran {
+			if err := next(ctx, cmd); err != nil {
+				return err // NOSCRIPT, before go-redis falls back to EVAL
+			}
+		}
+		h.fired.Store(true)
+		cmd.SetErr(context.Canceled)
+		return context.Canceled
+	}
+}
+
+// An upload whose commit reply is lost keeps its data when the commit
+// went through, and leaves the dataset as it was when it didn't.
+func TestIntegrationUploadCommitOutcome(t *testing.T) {
+	uri := redisURI(t)
+	ctx := context.Background()
+	const prefix = "it_flight_commit:"
+	admin := adminClient(t, uri)
+	t.Cleanup(func() { deleteKeys(admin, keysMatching(t, admin, prefix+"*")) })
+	rec := int64Record(t, []string{"n"}, []int64{1, 2, 3})
+	defer rec.Release()
+	pathDesc := func(name string) *flight.FlightDescriptor {
+		return &flight.FlightDescriptor{Type: flight.DescriptorPATH, Path: []string{name}}
+	}
+	read := func(t *testing.T, fc flight.Client, desc *flight.FlightDescriptor) (datasetMeta, []string) {
+		t.Helper()
+		info, err := fc.GetFlightInfo(ctx, desc)
+		if err != nil {
+			t.Fatalf("GetFlightInfo: %v", err)
+		}
+		var m datasetMeta
+		if err := json.Unmarshal(info.AppMetadata, &m); err != nil {
+			t.Fatal(err)
+		}
+		_, rows, _, err := getDataset(t, ctx, fc, info.Endpoint[0].Ticket.Ticket)
+		if err != nil {
+			t.Fatalf("DoGet: %v", err)
+		}
+		return m, rows
+	}
+
+	t.Run("reply lost after the commit ran", func(t *testing.T) {
+		hook := &commitHook{ran: true}
+		fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, redisHook: hook}).fl
+		desc := pathDesc(uniqueName("it_flight_lost_reply"))
+		m := putDataset(t, ctx, fc, desc, rec.Schema(), rec)
+		if !hook.fired.Load() {
+			t.Fatal("the commit reply wasn't failed")
+		}
+		got, rows := read(t, fc, desc)
+		if got.Generation != m.Generation {
+			t.Errorf("current generation %d, want the upload's %d", got.Generation, m.Generation)
+		}
+		wantRows(t, rows, "1", "2", "3")
+	})
+
+	t.Run("commit never ran", func(t *testing.T) {
+		name := uniqueName("it_flight_no_commit")
+		desc := pathDesc(name)
+		plain := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix}).fl
+		first := putDataset(t, ctx, plain, desc, rec.Schema(), rec)
+
+		hook := &commitHook{ran: false}
+		fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, redisHook: hook}).fl
+		other := int64Record(t, []string{"n"}, []int64{9})
+		defer other.Release()
+		if _, err := tryPutDataset(ctx, fc, desc, other.Schema(), other); err == nil {
+			t.Error("an upload whose commit failed succeeded")
+		}
+		got, rows := read(t, plain, desc)
+		if got.Generation != first.Generation {
+			t.Errorf("current generation %d, want the first upload's %d", got.Generation, first.Generation)
+		}
+		wantRows(t, rows, "1", "2", "3")
+		// The failed upload's list expires like a replaced generation.
+		key := prefix + "ds:{" + name + "}:g" + fmt.Sprint(first.Generation+1)
+		if ttl := admin.PTTL(ctx, key).Val(); ttl <= 0 || ttl > replacedGrace {
+			t.Errorf("the failed upload's list %s has TTL %v, want at most %v", key, ttl, replacedGrace)
+		}
+	})
 }
 
 func sequence(n int) []int64 {

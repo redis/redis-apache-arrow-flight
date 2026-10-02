@@ -48,6 +48,9 @@ const (
 	uploadTTL = time.Hour
 	// replacedGrace is how long a replaced generation stays readable.
 	replacedGrace = 5 * time.Minute
+	// commitTimeout bounds an upload's commit, which runs even if the
+	// client has gone.
+	commitTimeout = 30 * time.Second
 	readPage      = 64
 	flushValues   = 64
 	flushBytes    = 8 << 20
@@ -308,13 +311,44 @@ func (d *datasets) DoPut(stream flight.FlightService_DoPutServer, first *flight.
 	if err := w.flush(ctx); err != nil {
 		return abort(toStatus(err))
 	}
+	if err := ctx.Err(); err != nil {
+		return abort(toStatus(err)) // gone before the commit started
+	}
+	// Once the commit script may have run, its outcome is Redis's, so the
+	// client going away mustn't interrupt it. And when its reply is an error,
+	// the new generation is deleted only if Redis says it isn't current.
+	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), commitTimeout)
+	defer cancel()
 	m.Updated = time.Now().UTC()
-	if err := d.commit(ctx, t.rdb, keys, m); err != nil {
-		return abort(err)
+	if err := d.commit(cctx, t.rdb, keys, m); err != nil {
+		current, cerr := d.isCurrent(cctx, t.rdb, keys, gen)
+		switch {
+		case cerr != nil:
+			// Unknown. If it wasn't committed, the upload expiry removes it.
+			return status.Errorf(status.Code(err), "could not confirm whether the upload was committed: %v", err)
+		case !current:
+			// It may have been committed and then replaced already, so it
+			// expires like a replaced generation rather than at once.
+			_ = t.rdb.PExpire(cctx, w.key, replacedGrace).Err()
+			return err
+		}
+		// The commit went through, and only its reply was lost.
 	}
 
 	res, _ := json.Marshal(m)
 	return stream.Send(&flight.PutResult{AppMetadata: res})
+}
+
+// isCurrent reports whether gen is the dataset's current generation.
+func (d *datasets) isCurrent(ctx context.Context, rdb goredis.UniversalClient, keys datasetKeys, gen int64) (bool, error) {
+	cur, err := rdb.HGet(ctx, keys.meta, "gen").Result()
+	if errors.Is(err, goredis.Nil) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return cur == strconv.FormatInt(gen, 10), nil
 }
 
 func (d *datasets) commit(ctx context.Context, rdb goredis.UniversalClient, keys datasetKeys, m datasetMeta) error {
