@@ -1,0 +1,27 @@
+services:
+  redis:
+    # Redis 8.x has the Query Engine (RediSearch) built in, which the ADBC
+    # driver needs for SQL. Same image the driver tests against.
+    image: redis:8.6.2
+    container_name: redis-flight-test
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  flight:
+    build: .
+    container_name: redis-flight-server
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      FLIGHT_LISTEN: 0.0.0.0:8815
+      REDIS_URI: redis://redis:6379/0
+      # FLIGHT_AUTH: redis-acl
+      # FLIGHT_TOKEN_SECRET: change-me
+    ports:
+      - "127.0.0.1:${FLIGHT_PORT:-8815}:8815"
