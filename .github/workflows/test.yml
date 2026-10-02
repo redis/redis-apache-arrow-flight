@@ -1,0 +1,73 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Format and vet
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::Run gofmt on: $unformatted"
+            exit 1
+          fi
+          go vet ./...
+
+      # The same Redis as compose.yaml runs locally: standalone, and a
+      # 3-shard cluster in one container.
+      - name: Start Redis
+        run: |
+          docker compose up --detach --wait redis
+          docker compose --profile cluster up --detach --wait redis-cluster
+
+      - name: Test (standalone)
+        env:
+          REDIS_URI: redis://localhost:6379/0
+        run: go test -count=1 -race ./...
+
+      - name: Test (3-shard cluster)
+        env:
+          REDIS_URI: redis://localhost:7001/0
+        run: go test -count=1 -race ./...
+
+      # The server needs no cgo, so it is statically linked.
+      - name: Build
+        run: |
+          make build
+          file bin/redis-flight-server
+          file bin/redis-flight-server | grep -q 'statically linked'
+
+      # Real clients (the ADBC Flight SQL driver and pyarrow.flight) against
+      # the Docker image.
+      - name: Python quickstart
+        run: |
+          docker compose up --detach --build --wait flight
+          for _ in $(seq 30); do
+            (exec 3<>/dev/tcp/127.0.0.1/8815) 2>/dev/null && break
+            sleep 1
+          done
+          uv run examples/python/quickstart.py
+
+      - name: Server logs
+        if: failure()
+        run: docker compose logs flight

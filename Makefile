@@ -3,7 +3,7 @@ LDFLAGS := -s -w -X github.com/alberttwong/redis-apache-arrow-flight/server.Vers
 REDIS_PORT ?= 6379
 REDIS_URI ?= redis://localhost:$(REDIS_PORT)/0
 
-.PHONY: build test test-integration run redis-up redis-down docker example clean
+.PHONY: build test test-integration test-cluster run redis-up redis-cluster-up redis-down docker example clean
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/redis-flight-server ./cmd/redis-flight-server
@@ -16,14 +16,21 @@ test:
 test-integration: redis-up
 	REDIS_URI=$(REDIS_URI) go test -count=1 -race ./...
 
+# Integration tests against a 3-shard Redis Cluster (OSS Cluster API).
+test-cluster: redis-cluster-up
+	REDIS_URI=redis://localhost:7001/0 go test -count=1 -race ./...
+
 run: build
 	REDIS_URI=$(REDIS_URI) ./bin/redis-flight-server
 
 redis-up:
 	REDIS_PORT=$(REDIS_PORT) docker compose up --detach --wait redis
 
+redis-cluster-up:
+	docker compose --profile cluster up --detach --wait redis-cluster
+
 redis-down:
-	docker compose down
+	docker compose --profile cluster down
 
 docker:
 	docker build --build-arg VERSION=$(VERSION) -t redis-flight-server:$(VERSION) .
