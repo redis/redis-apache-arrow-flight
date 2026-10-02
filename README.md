@@ -150,8 +150,11 @@ How statements run:
   `/`.
 - **DoPut** stores the stream as the dataset's new *generation*, then switches
   to it atomically with a Lua script. Readers never see a half-written upload;
-  the last upload to finish wins. The reply's app metadata is JSON: `dataset`,
-  `generation`, `rows`, `batches`, `bytes`, `updated`.
+  generation numbers only go up, so of two uploads the one that started later
+  wins. An older one that finishes last is replaced at once: its reply says
+  `"superseded": true`, and its data expires after the grace period. The
+  reply's app metadata is JSON: `dataset`, `generation`, `rows`, `batches`,
+  `bytes`, `updated`, and `superseded` when set.
 - **GetFlightInfo / GetSchema** return the schema, row and byte counts, and a
   ticket for the current generation. A ticket for a replaced generation keeps
   working for 5 minutes, so reads already under way finish.
@@ -171,7 +174,7 @@ slot:
 |-|-|-|
 | `arrowflight:ds:{<name>}` | HASH | `gen`, `schema` (IPC), `rows`, `batches`, `bytes`, `updated` |
 | `arrowflight:ds:{<name>}:g<N>` | LIST | Generation N: an IPC stream with the schema alone, then one IPC stream per batch (about 2 MiB each) |
-| `arrowflight:ds:{<name>}:seq` | STRING | The last generation number |
+| `arrowflight:ds:{<name>}:seq` | STRING | The last generation number. It never expires, not even with `--dataset-ttl` or a drop, so generation numbers never repeat |
 | `arrowflight:result:{<id>}` | STRING | A statement result too big for its ticket (expires after 10 minutes) |
 
 The name in a key is URL-path-escaped.

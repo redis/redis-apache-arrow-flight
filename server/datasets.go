@@ -110,6 +110,9 @@ type datasetMeta struct {
 	Batches    int64     `json:"batches"`
 	Bytes      int64     `json:"bytes"`
 	Updated    time.Time `json:"updated"`
+	// Superseded is set in an upload's reply when a newer upload of the
+	// dataset finished first.
+	Superseded bool `json:"superseded,omitempty"`
 	schema     []byte
 }
 
@@ -212,8 +215,12 @@ func (w *listWriter) flush(ctx context.Context) error {
 }
 
 // commitScript switches a dataset to a new generation if its current one
-// is still the expected one (ARGV[1], "" for none), and returns 1; it
-// returns 0 if another upload got there first.
+// is still the expected one (ARGV[1], "" for none), and returns 1. It
+// returns 0 if the current one changed meanwhile (read it and try again),
+// and -1 if the current one is newer: an upload that started later
+// finished first, so this one is replaced at once, and its list expires
+// like a replaced generation. Generations only go up, and the seq key
+// never expires, so a generation number never names two uploads.
 //
 //	KEYS: meta, new generation, seq, old generation (or the new one again)
 //	ARGV: expected gen, new gen, schema, rows, batches, bytes, updated (unix ms),
@@ -221,12 +228,17 @@ func (w *listWriter) flush(ctx context.Context) error {
 var commitScript = goredis.NewScript(`
 local cur = redis.call('HGET', KEYS[1], 'gen') or ''
 if cur ~= ARGV[1] then return 0 end
+if cur ~= '' and tonumber(cur) >= tonumber(ARGV[2]) then
+  redis.call('PEXPIRE', KEYS[2], ARGV[8])
+  return -1
+end
 redis.call('HSET', KEYS[1], 'gen', ARGV[2], 'schema', ARGV[3], 'rows', ARGV[4],
   'batches', ARGV[5], 'bytes', ARGV[6], 'updated', ARGV[7])
 local ttl = tonumber(ARGV[9])
-for i = 1, 3 do
+for i = 1, 2 do
   if ttl > 0 then redis.call('PEXPIRE', KEYS[i], ttl) else redis.call('PERSIST', KEYS[i]) end
 end
+redis.call('PERSIST', KEYS[3])
 if ARGV[1] ~= '' and KEYS[4] ~= KEYS[2] then redis.call('PEXPIRE', KEYS[4], ARGV[8]) end
 return 1
 `)
@@ -320,7 +332,8 @@ func (d *datasets) DoPut(stream flight.FlightService_DoPutServer, first *flight.
 	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), commitTimeout)
 	defer cancel()
 	m.Updated = time.Now().UTC()
-	if err := d.commit(cctx, t.rdb, keys, m); err != nil {
+	superseded, err := d.commit(cctx, t.rdb, keys, m)
+	if err != nil {
 		current, cerr := d.isCurrent(cctx, t.rdb, keys, gen)
 		switch {
 		case cerr != nil:
@@ -334,6 +347,7 @@ func (d *datasets) DoPut(stream flight.FlightService_DoPutServer, first *flight.
 		}
 		// The commit went through, and only its reply was lost.
 	}
+	m.Superseded = superseded
 
 	res, _ := json.Marshal(m)
 	return stream.Send(&flight.PutResult{AppMetadata: res})
@@ -351,33 +365,39 @@ func (d *datasets) isCurrent(ctx context.Context, rdb goredis.UniversalClient, k
 	return cur == strconv.FormatInt(gen, 10), nil
 }
 
-func (d *datasets) commit(ctx context.Context, rdb goredis.UniversalClient, keys datasetKeys, m datasetMeta) error {
+// commit makes m's generation the dataset's current one. superseded is
+// set when a newer upload had already committed, so this one was replaced
+// at once (see commitScript).
+func (d *datasets) commit(ctx context.Context, rdb goredis.UniversalClient, keys datasetKeys, m datasetMeta) (superseded bool, err error) {
 	for range 10 {
 		cur, err := rdb.HGet(ctx, keys.meta, "gen").Result()
 		if err != nil && !errors.Is(err, goredis.Nil) {
-			return toStatus(err)
+			return false, toStatus(err)
 		}
 		old := keys.gen(m.Generation)
 		if cur != "" {
 			n, err := strconv.ParseInt(cur, 10, 64)
 			if err != nil {
-				return status.Errorf(codes.Internal, "dataset %q has an invalid generation %q", m.Name, cur)
+				return false, status.Errorf(codes.Internal, "dataset %q has an invalid generation %q", m.Name, cur)
 			}
 			old = keys.gen(n)
 		}
-		ok, err := commitScript.Run(ctx, rdb,
+		res, err := commitScript.Run(ctx, rdb,
 			[]string{keys.meta, keys.gen(m.Generation), keys.seq, old},
 			cur, m.Generation, m.schema, m.Rows, m.Batches, m.Bytes, m.Updated.UnixMilli(),
 			replacedGrace.Milliseconds(), d.ttl.Milliseconds(),
 		).Int()
 		if err != nil {
-			return toStatus(err)
+			return false, toStatus(err)
 		}
-		if ok == 1 {
-			return nil
+		switch res {
+		case 1:
+			return false, nil
+		case -1:
+			return true, nil
 		}
 	}
-	return status.Errorf(codes.Aborted, "dataset %q kept changing during the upload; try again", m.Name)
+	return false, status.Errorf(codes.Aborted, "dataset %q kept changing during the upload; try again", m.Name)
 }
 
 // replayStream returns a message already read from a DoPut stream before
