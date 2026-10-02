@@ -271,6 +271,53 @@ func TestIntegrationWritesRunOnce(t *testing.T) {
 	}
 }
 
+// Temporary tables and views stay with the request that made them, however
+// they are made: a pool of one connection would hand a leaked one to the
+// next request.
+func TestIntegrationTempObjectsDontLeak(t *testing.T) {
+	c := newClients(t, Config{RedisURI: redisURI(t), PoolMaxIdle: 1, PoolMaxOpen: 1}).sql
+	ctx := context.Background()
+	for _, create := range []string{
+		"CREATE TABLE pg_temp.%s (id BIGINT)",
+		"CREATE TABLE PG_TEMP.%s AS SELECT 1 AS id",
+		"CREATE VIEW pg_temp.%s AS SELECT 1 AS id",
+	} {
+		name := uniqueName("it_flight_tmp")
+		update(t, ctx, c, fmt.Sprintf(create, name))
+		_, err := c.Execute(ctx, "SELECT * FROM "+name)
+		if code := status.Code(err); code != codes.NotFound && code != codes.InvalidArgument {
+			t.Errorf("%s, then SELECT from it in another request: err = %v, want NotFound or InvalidArgument",
+				fmt.Sprintf(create, name), err)
+		}
+	}
+
+	// Bulk ingest into a temporary table is refused, however it is asked for.
+	pgTemp := "pg_temp"
+	for desc, opts := range map[string]*flightsql.ExecuteIngestOpts{
+		"schema pg_temp":               {Schema: &pgTemp},
+		"adbc.ingest.temporary":        {Options: map[string]string{"adbc.ingest.temporary": "true"}},
+		"adbc.ingest.target_db_schema": {Options: map[string]string{"adbc.ingest.target_db_schema": "pg_temp"}},
+	} {
+		opts.Table = uniqueName("it_flight_tmp_ingest")
+		dropTable(t, c, opts.Table)
+		opts.TableDefinitionOptions = &flightsql.TableDefinitionOptions{
+			IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+			IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionFail,
+		}
+		rec := int64Record(t, []string{"id"}, []int64{1})
+		rdr, err := array.NewRecordReader(rec.Schema(), []arrow.RecordBatch{rec})
+		rec.Release()
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = c.ExecuteIngest(ctx, rdr, opts)
+		rdr.Release()
+		if status.Code(err) != codes.InvalidArgument {
+			t.Errorf("ingest with %s: err = %v, want InvalidArgument", desc, err)
+		}
+	}
+}
+
 func int64Record(t *testing.T, names []string, cols ...[]int64) arrow.RecordBatch {
 	t.Helper()
 	fields := make([]arrow.Field, len(names))

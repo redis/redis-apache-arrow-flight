@@ -120,7 +120,7 @@ list(client.do_action(flight.Action("drop_dataset", b"features/v1")))
 |-|-|
 | Queries (`CommandStatementQuery`), updates (`CommandStatementUpdate`) | Yes |
 | Prepared statements, with parameters | Yes. The handle carries the SQL and the bound values, so the server keeps no state. Clients must use the handle a bind returns (`DoPutPreparedStatementResult`, Flight SQL's stateless prepared statements). arrow-go and the ADBC Flight SQL driver do, and are tested; a client that ignores it loses the bound values. Parameters for a query are limited to 1 MiB |
-| Bulk ingest (`CommandStatementIngest`) | Yes: create, append, replace, create-or-append, and pass-through options such as `adbc.redis.ingest.index_columns`. Temporary tables are refused |
+| Bulk ingest (`CommandStatementIngest`) | Yes: create, append, replace, create-or-append, and pass-through options such as `adbc.redis.ingest.index_columns`. Temporary tables (`temporary`, or the `pg_temp` schema) are refused, as are `adbc.ingest.*` options: set the target and mode with the command's fields |
 | `GetCatalogs`, `GetDbSchemas`, `GetTables` (with schemas), `GetTableTypes`, `GetSqlInfo` | Yes. The catalog is `redis`; schemas are key namespaces (`public` by default) |
 | Primary and foreign keys | Empty results: the driver has no constraints |
 | Transactions, savepoints, Substrait, `GetXdbcTypeInfo`, cancellation | No |
@@ -136,7 +136,8 @@ How statements run:
   larger than 1 MiB, it is kept in Redis for 10 minutes instead.
 - **Each request uses a pooled ADBC connection.** Session state therefore
   doesn't carry over between requests. A statement that changes it (`SET`,
-  `BEGIN`, `CREATE TEMP TABLE`) works within its own script, for example
+  `BEGIN`, `CREATE TEMP TABLE`, or a table or view created in `pg_temp`)
+  works within its own script, for example
   `SET TIME ZONE 'Asia/Tokyo'; SELECT …`, and its connection is closed
   afterwards rather than reused.
 - **Results are held in memory.** The driver builds the whole result there

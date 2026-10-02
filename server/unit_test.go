@@ -80,6 +80,13 @@ func TestChangesSession(t *testing.T) {
 		"this is not SQL":                                false,
 		"":                                               false,
 		"SELECT 1; SET application_name = 'x'; SELECT 2": true,
+		// pg_temp makes a temporary object without TEMP, in any case.
+		"CREATE TABLE pg_temp.t (a INTEGER)":      true,
+		"CREATE TABLE PG_TEMP.t (a INTEGER)":      true,
+		"CREATE VIEW pg_temp.v AS SELECT 1 AS a":  true,
+		"CREATE TABLE pg_temp.t AS SELECT 1 AS a": true,
+		"CREATE TABLE public.t (a INTEGER)":       false,
+		"CREATE TABLE pg_temp_x.t (a INTEGER)":    false,
 	} {
 		if got := changesSession(sql); got != want {
 			t.Errorf("changesSession(%q) = %v, want %v", sql, got, want)
