@@ -1,0 +1,348 @@
+package server
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/apache/arrow-adbc/go/adbc"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/flight"
+	"github.com/apache/arrow-go/v18/arrow/flight/flightsql"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
+)
+
+func TestTokenSealer(t *testing.T) {
+	s, err := newTokenSealer("secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_800_000_000, 0)
+	id := identity{Username: "alice", Password: "p@ss"}
+	tok, err := s.seal(id, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(tok, "p@ss") || strings.Contains(tok, "alice") {
+		t.Fatalf("token shows the credentials: %s", tok)
+	}
+	got, err := s.open(tok, now)
+	if err != nil || got != id {
+		t.Fatalf("open = %+v, %v; want %+v", got, err, id)
+	}
+	if _, err := s.open(tok, now.Add(time.Hour)); !errors.Is(err, errBadToken) {
+		t.Errorf("expired token: err = %v", err)
+	}
+	other, _ := newTokenSealer("other secret")
+	if _, err := other.open(tok, now); !errors.Is(err, errBadToken) {
+		t.Errorf("token from another secret: err = %v", err)
+	}
+	same, _ := newTokenSealer("secret")
+	if _, err := same.open(tok, now); err != nil {
+		t.Errorf("token from a server with the same secret: %v", err)
+	}
+	tampered := []byte(tok)
+	tampered[len(tampered)/2] ^= 1
+	if _, err := s.open(string(tampered), now); !errors.Is(err, errBadToken) {
+		t.Errorf("tampered token: err = %v", err)
+	}
+	if _, err := s.open("not base64!", now); !errors.Is(err, errBadToken) {
+		t.Errorf("garbage token: err = %v", err)
+	}
+}
+
+func TestChangesSession(t *testing.T) {
+	for sql, want := range map[string]bool{
+		"SELECT 1":                                       false,
+		"SELECT * FROM t WHERE a = $1":                   false,
+		"UPDATE t SET a = 1 WHERE b = 2":                 false,
+		"CREATE TABLE t (a INTEGER)":                     false,
+		"CREATE VIEW v AS SELECT 1 AS a":                 false,
+		"INSERT INTO t VALUES (1)":                       false,
+		"SET search_path = other":                        true,
+		"SET TIME ZONE 'America/New_York'":               true,
+		"RESET ALL":                                      true,
+		"BEGIN":                                          true,
+		"SELECT 1; COMMIT":                               true,
+		"CREATE TEMP TABLE t (a INTEGER)":                true,
+		"CREATE TEMPORARY VIEW v AS SELECT 1 AS a":       true,
+		"CREATE TEMP TABLE t AS SELECT 1 AS a":           true,
+		"this is not SQL":                                false,
+		"":                                               false,
+		"SELECT 1; SET application_name = 'x'; SELECT 2": true,
+	} {
+		if got := changesSession(sql); got != want {
+			t.Errorf("changesSession(%q) = %v, want %v", sql, got, want)
+		}
+	}
+}
+
+func TestReusable(t *testing.T) {
+	stmtErr := adbc.Error{Code: adbc.StatusInvalidArgument, Msg: "syntax error"}
+	ioErr := adbc.Error{Code: adbc.StatusIO, Msg: "connection reset"}
+	if !reusable("SELECT 1", nil) || !reusable("SELECT 1", stmtErr) {
+		t.Error("a statement error should keep the connection")
+	}
+	if reusable("SELECT 1", ioErr) || reusable("SELECT 1", context.Canceled) {
+		t.Error("an I/O error or cancellation should close the connection")
+	}
+	if reusable("SET search_path = x", nil) {
+		t.Error("SET should close the connection")
+	}
+}
+
+func TestIngestMode(t *testing.T) {
+	const (
+		create   = flightsql.TableDefinitionOptionsTableNotExistOptionCreate
+		failNE   = flightsql.TableDefinitionOptionsTableNotExistOptionFail
+		failEx   = flightsql.TableDefinitionOptionsTableExistsOptionFail
+		appendEx = flightsql.TableDefinitionOptionsTableExistsOptionAppend
+		replace  = flightsql.TableDefinitionOptionsTableExistsOptionReplace
+	)
+	for _, tc := range []struct {
+		opts      *flightsql.TableDefinitionOptions
+		mode      string
+		mustExist bool
+		fails     bool
+	}{
+		{opts: nil, mode: adbc.OptionValueIngestModeCreate},
+		{opts: &flightsql.TableDefinitionOptions{IfNotExist: create, IfExists: failEx}, mode: adbc.OptionValueIngestModeCreate},
+		{opts: &flightsql.TableDefinitionOptions{IfNotExist: create, IfExists: appendEx}, mode: adbc.OptionValueIngestModeCreateAppend},
+		{opts: &flightsql.TableDefinitionOptions{IfNotExist: create, IfExists: replace}, mode: adbc.OptionValueIngestModeReplace},
+		{opts: &flightsql.TableDefinitionOptions{IfNotExist: failNE, IfExists: appendEx}, mode: adbc.OptionValueIngestModeAppend},
+		{opts: &flightsql.TableDefinitionOptions{IfNotExist: failNE, IfExists: replace}, mode: adbc.OptionValueIngestModeReplace, mustExist: true},
+		{opts: &flightsql.TableDefinitionOptions{IfNotExist: failNE, IfExists: failEx}, fails: true},
+	} {
+		mode, mustExist, err := ingestMode(tc.opts)
+		if tc.fails {
+			if status.Code(err) != codes.InvalidArgument {
+				t.Errorf("%v: err = %v, want InvalidArgument", tc.opts, err)
+			}
+			continue
+		}
+		if err != nil || mode != tc.mode || mustExist != tc.mustExist {
+			t.Errorf("%v: got %q, %v, %v; want %q, %v", tc.opts, mode, mustExist, err, tc.mode, tc.mustExist)
+		}
+	}
+}
+
+func TestFlattenObjects(t *testing.T) {
+	const objs = `[
+	  {"catalog_name": "redis", "catalog_db_schemas": [
+	    {"db_schema_name": "sales", "db_schema_tables": [
+	      {"table_name": "orders", "table_type": "TABLE", "table_columns": null, "table_constraints": null},
+	      {"table_name": "big_orders", "table_type": "VIEW", "table_columns": null, "table_constraints": null}
+	    ]},
+	    {"db_schema_name": "public", "db_schema_tables": []},
+	    {"db_schema_name": "empty", "db_schema_tables": null}
+	  ]},
+	  {"catalog_name": "other", "catalog_db_schemas": null}
+	]`
+	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, adbc.GetObjectsSchema, strings.NewReader(objs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rec.Release()
+	rdr, _ := array.NewRecordReader(adbc.GetObjectsSchema, []arrow.RecordBatch{rec})
+	defer rdr.Release()
+	got, err := flattenObjects(rdr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"other", "redis"}; !equal(got.catalogs, want) {
+		t.Errorf("catalogs = %v, want %v", got.catalogs, want)
+	}
+	var schemas, tables []string
+	for _, s := range got.schemas {
+		schemas = append(schemas, *s.catalog+"."+s.schema)
+	}
+	for _, tr := range got.tables {
+		tables = append(tables, *tr.catalog+"."+*tr.schema+"."+tr.name+":"+tr.kind)
+	}
+	if want := []string{"redis.empty", "redis.public", "redis.sales"}; !equal(schemas, want) {
+		t.Errorf("schemas = %v, want %v", schemas, want)
+	}
+	if want := []string{"redis.sales.big_orders:VIEW", "redis.sales.orders:TABLE"}; !equal(tables, want) {
+		t.Errorf("tables = %v, want %v", tables, want)
+	}
+}
+
+func equal(a, b []string) bool { return strings.Join(a, "|") == strings.Join(b, "|") }
+
+func TestChunks(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+	schema := arrow.NewSchema([]arrow.Field{{Name: "x", Type: arrow.PrimitiveTypes.Int64}}, nil)
+	b := array.NewInt64Builder(mem)
+	const n = 1_000_000 // 8 MB
+	for i := range n {
+		b.Append(int64(i))
+	}
+	col := b.NewArray()
+	b.Release()
+	rec := array.NewRecordBatch(schema, []arrow.Array{col}, n)
+	col.Release()
+	parts := chunks(rec)
+	rec.Release()
+	if len(parts) < 4 {
+		t.Fatalf("got %d chunks, want at least 4", len(parts))
+	}
+	var rows int64
+	for _, p := range parts {
+		if p.NumRows()*8 > maxChunkBytes {
+			t.Errorf("chunk of %d rows is over %d bytes", p.NumRows(), maxChunkBytes)
+		}
+		if first := p.Column(0).(*array.Int64).Value(0); first != rows {
+			t.Errorf("chunk starts at %d, want %d", first, rows)
+		}
+		rows += p.NumRows()
+		p.Release()
+	}
+	if rows != n {
+		t.Errorf("chunks have %d rows, want %d", rows, n)
+	}
+}
+
+func TestDatasetKeys(t *testing.T) {
+	d := &datasets{prefix: "af:"}
+	for _, name := range []string{"sales", "a/b/c", "with {braces}", "odd*?[]\\ name", "ünïcödé"} {
+		k := d.keys(name)
+		if strings.Count(k.meta, "{") != 1 || strings.Count(k.meta, "}") != 1 {
+			t.Errorf("%q: key %q has extra braces, which would break its hash tag", name, k.meta)
+		}
+		if got, ok := d.nameFromKey(k.meta); !ok || got != name {
+			t.Errorf("nameFromKey(%q) = %q, %v; want %q", k.meta, got, ok, name)
+		}
+		if _, ok := d.nameFromKey(k.seq); ok {
+			t.Errorf("nameFromKey(%q) accepted a seq key", k.seq)
+		}
+	}
+	if got := escapeGlob(`a*b?[c]\`); got != `a\*b\?\[c\]\\` {
+		t.Errorf("escapeGlob = %q", got)
+	}
+}
+
+func TestStatementHandle(t *testing.T) {
+	h := statementHandle{Query: "SELECT $1", Params: []byte{0, 1, 2, 0xff}}
+	got, err := decodeHandle(h.encode())
+	if err != nil || got.Query != h.Query || string(got.Params) != string(h.Params) {
+		t.Fatalf("round trip = %+v, %v", got, err)
+	}
+	if _, err := decodeHandle([]byte("garbage")); status.Code(err) != codes.InvalidArgument {
+		t.Errorf("garbage handle: err = %v", err)
+	}
+}
+
+// newTestServer starts a Server on an in-memory listener and returns a
+// connection to it.
+func newTestServer(t *testing.T, cfg Config) *grpc.ClientConn {
+	t.Helper()
+	if cfg.Logger == nil {
+		cfg.Logger = testLogger(t)
+	}
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lis := bufconn.Listen(1 << 20)
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Shutdown)
+	cc, err := grpc.NewClient("passthrough:///bufconn",
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) { return lis.DialContext(ctx) }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cc.Close() })
+	return cc
+}
+
+func TestDoPutNeedsDescriptor(t *testing.T) {
+	// Nothing here reaches Redis.
+	cc := newTestServer(t, Config{RedisURI: "redis://127.0.0.1:1/0"})
+	client := flight.NewFlightServiceClient(cc)
+	ctx := context.Background()
+
+	put := func(msgs ...*flight.FlightData) error {
+		stream, err := client.DoPut(ctx)
+		if err != nil {
+			return err
+		}
+		for _, m := range msgs {
+			if err := stream.Send(m); err != nil {
+				return err
+			}
+		}
+		if err := stream.CloseSend(); err != nil {
+			return err
+		}
+		_, err = stream.Recv()
+		return err
+	}
+	if err := put(); status.Code(err) != codes.InvalidArgument {
+		t.Errorf("empty DoPut: err = %v, want InvalidArgument", err)
+	}
+	if err := put(&flight.FlightData{DataHeader: []byte{1}}); status.Code(err) != codes.InvalidArgument {
+		t.Errorf("DoPut without a descriptor: err = %v, want InvalidArgument", err)
+	}
+	if err := put(&flight.FlightData{FlightDescriptor: &flight.FlightDescriptor{Type: flight.DescriptorPATH}}); status.Code(err) != codes.InvalidArgument {
+		t.Errorf("DoPut with an empty path: err = %v, want InvalidArgument", err)
+	}
+
+	// Garbage tickets are refused, whichever handler they reach.
+	for _, tkt := range [][]byte{[]byte("{not json"), []byte("garbage")} {
+		stream, err := client.DoGet(ctx, &flight.Ticket{Ticket: tkt})
+		if err == nil {
+			_, err = stream.Recv()
+		}
+		if status.Code(err) != codes.InvalidArgument {
+			t.Errorf("DoGet(%q): err = %v, want InvalidArgument", tkt, err)
+		}
+	}
+
+	// The action list has Flight SQL's actions and the dataset one.
+	actions, err := client.ListActions(ctx, &flight.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var types []string
+	for {
+		a, err := actions.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		types = append(types, a.Type)
+	}
+	joined := strings.Join(types, ",")
+	if !strings.Contains(joined, actionDropDataset) || !strings.Contains(joined, flightsql.CreatePreparedStatementActionType) {
+		t.Errorf("actions = %v", types)
+	}
+}
+
+func TestConfigValidation(t *testing.T) {
+	for _, cfg := range []Config{
+		{Auth: "kerberos"},
+		{TLSCertFile: "cert.pem"},
+		{ADBCOptions: map[string]string{"uri": "redis://elsewhere"}},
+		{RedisURI: "http://not-redis"},
+	} {
+		cfg.Logger = testLogger(t)
+		if _, err := New(cfg); err == nil {
+			t.Errorf("New(%+v) succeeded", cfg)
+		}
+	}
+}
