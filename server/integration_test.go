@@ -9,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -258,7 +259,7 @@ func TestIntegrationWritesRunOnce(t *testing.T) {
 		t.Errorf("RETURNING: %d rows, first %q", len(rows), rows[0])
 	}
 	admin := adminClient(t, redisURI(t))
-	keys, _ := admin.Keys(ctx, "it_flight_res:result:*").Result()
+	keys := keysMatching(t, admin, "it_flight_res:result:*")
 	if len(keys) != 1 {
 		t.Errorf("result keys = %v, want one", keys)
 	}
@@ -575,10 +576,7 @@ func TestIntegrationDatasets(t *testing.T) {
 	name := base + "/events {v1}"
 	t.Cleanup(func() {
 		admin := adminClient(t, uri)
-		keys, _ := admin.Keys(context.Background(), "it_flight_ds:*").Result()
-		if len(keys) > 0 {
-			admin.Del(context.Background(), keys...)
-		}
+		deleteKeys(admin, keysMatching(t, admin, "it_flight_ds:*"))
 	})
 
 	// Nested and dictionary types, which SQL tables don't have, round-trip.
@@ -755,6 +753,59 @@ func adminClient(t *testing.T, uri string) goredis.UniversalClient {
 	return c
 }
 
+// eachNode runs fn on every node of a cluster (ACL users are per node), or
+// on the one server.
+func eachNode(admin goredis.UniversalClient, fn func(context.Context, *goredis.Client) error) error {
+	ctx := context.Background()
+	switch c := admin.(type) {
+	case *goredis.ClusterClient:
+		return c.ForEachShard(ctx, fn)
+	case *goredis.Client:
+		return fn(ctx, c)
+	}
+	return fmt.Errorf("unsupported client %T", admin)
+}
+
+// keysMatching scans every primary for keys matching pattern.
+func keysMatching(t *testing.T, admin goredis.UniversalClient, pattern string) []string {
+	t.Helper()
+	var (
+		mu   sync.Mutex
+		keys []string
+	)
+	scan := func(ctx context.Context, c *goredis.Client) error {
+		it := c.Scan(ctx, 0, pattern, 1000).Iterator()
+		for it.Next(ctx) {
+			mu.Lock()
+			keys = append(keys, it.Val())
+			mu.Unlock()
+		}
+		return it.Err()
+	}
+	var err error
+	if c, ok := admin.(*goredis.ClusterClient); ok {
+		err = c.ForEachMaster(context.Background(), scan)
+	} else {
+		err = scan(context.Background(), admin.(*goredis.Client))
+	}
+	if err != nil {
+		t.Errorf("SCAN %s: %v", pattern, err)
+	}
+	return keys
+}
+
+// deleteKeys deletes keys one per command, so keys in different cluster
+// slots can be deleted together.
+func deleteKeys(admin goredis.UniversalClient, keys []string) {
+	ctx := context.Background()
+	_, _ = admin.Pipelined(ctx, func(p goredis.Pipeliner) error {
+		for _, k := range keys {
+			p.Del(ctx, k)
+		}
+		return nil
+	})
+}
+
 func TestIntegrationRedisACL(t *testing.T) {
 	uri := redisURI(t)
 	ctx := context.Background()
@@ -764,7 +815,7 @@ func TestIntegrationRedisACL(t *testing.T) {
 	// datasets needs.
 	readRules := strings.Fields("on >reader-pw resetchannels %R~adbc:* %R~public:* %R~arrowflight:* " +
 		"+ping +info +ft._list +ft.aggregate +ft.cursor +ft.search +ft.profile +get +exists +hget +hmget " +
-		"+hgetall +smembers +sismember +llen +lrange +scan")
+		"+hgetall +smembers +sismember +llen +lrange +scan +cluster|slots +command")
 	for user, rules := range map[string][]string{
 		writer: strings.Fields("on >writer-pw resetchannels ~* +@all"),
 		reader: readRules,
@@ -773,10 +824,16 @@ func TestIntegrationRedisACL(t *testing.T) {
 		for _, r := range rules {
 			args = append(args, r)
 		}
-		if err := admin.Do(ctx, args...).Err(); err != nil {
+		if err := eachNode(admin, func(ctx context.Context, c *goredis.Client) error {
+			return c.Do(ctx, args...).Err()
+		}); err != nil {
 			t.Fatalf("ACL SETUSER %s: %v", user, err)
 		}
-		t.Cleanup(func() { admin.Do(context.Background(), "ACL", "DELUSER", user) })
+		t.Cleanup(func() {
+			_ = eachNode(admin, func(ctx context.Context, c *goredis.Client) error {
+				return c.Do(ctx, "ACL", "DELUSER", user).Err()
+			})
+		})
 	}
 
 	cfg := Config{RedisURI: uri, Auth: AuthRedisACL, TokenSecret: "integration"}
@@ -826,10 +883,7 @@ func TestIntegrationRedisACL(t *testing.T) {
 
 	// The writer can, and the reader can then read and list it.
 	t.Cleanup(func() {
-		keys, _ := admin.Keys(context.Background(), "arrowflight:ds:{"+tbl+"}*").Result()
-		if len(keys) > 0 {
-			admin.Del(context.Background(), keys...)
-		}
+		deleteKeys(admin, keysMatching(t, admin, "arrowflight:ds:{"+tbl+"}*"))
 	})
 	putDataset(t, wctx, cl.fl, desc, rec.Schema(), rec)
 	info, err := cl.fl.GetFlightInfo(rctx, desc)

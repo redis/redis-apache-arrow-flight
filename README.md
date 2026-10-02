@@ -264,15 +264,27 @@ make test
 make test-integration
 ```
 
+```bash
+make test-cluster
+```
+
 `make test` runs the unit tests, which need no Redis.
 `make test-integration` starts the compose Redis and runs every test with
-`-race`. It creates, and removes, tables, keys and ACL users named
-`it_flight_*`. To use another Redis, set `REDIS_URI`, or `REDIS_PORT` for the
-compose one:
+`-race`; `make test-cluster` does the same on a 3-shard Redis Cluster in one
+container (ports 7001–7003). They create, and remove, tables, keys and ACL
+users named `it_flight_*`. To use another Redis, set `REDIS_URI`, or
+`REDIS_PORT` for the compose one:
 
 ```bash
 REDIS_URI=redis://localhost:6379/0 go test -count=1 ./...
 ```
+
+GitHub Actions (`.github/workflows/test.yml`) runs on every pull request and
+push to `main`:
+- gofmt and `go vet`
+- every test, on standalone Redis and on the 3-shard cluster
+- a check that the binary is statically linked
+- the Python quickstart against the Docker image
 
 The driver dependency is pinned in `go.mod` with a `replace` to a commit of
 `github.com/alberttwong/redis-adbc-driver/go`. To build against a local
