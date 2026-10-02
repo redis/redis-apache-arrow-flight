@@ -80,6 +80,15 @@ type Config struct {
 	// requests (default 10m).
 	TenantIdleTimeout time.Duration
 
+	// MaxStreams is the number of query results a user can have streaming
+	// from Redis at once (default 8). Each holds a pooled connection until
+	// it is read; further queries are read whole before they are sent.
+	MaxStreams int
+	// StreamStallTimeout ends a streaming result whose client takes longer
+	// than this to read a batch (default 2m), since Redis deletes a cursor
+	// left unread for 5 minutes.
+	StreamStallTimeout time.Duration
+
 	// DisableSessions turns off Flight SQL sessions (cookies, a dedicated
 	// connection per session, and the session options).
 	DisableSessions bool
@@ -128,6 +137,12 @@ func (c *Config) setDefaults() {
 	if c.TenantIdleTimeout == 0 {
 		c.TenantIdleTimeout = 10 * time.Minute
 	}
+	if c.MaxStreams == 0 {
+		c.MaxStreams = 8
+	}
+	if c.StreamStallTimeout == 0 {
+		c.StreamStallTimeout = 2 * time.Minute
+	}
 	if c.SessionIdleTimeout == 0 {
 		c.SessionIdleTimeout = 10 * time.Minute
 	}
@@ -151,13 +166,13 @@ func (c *Config) validate() error {
 	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
 		return errors.New("TLS needs both a certificate and a key file")
 	}
-	if c.DatasetEndpointBatches < 0 {
-		return errors.New("DatasetEndpointBatches must not be negative")
+	if c.DatasetEndpointBatches < 0 || c.MaxStreams < 0 {
+		return errors.New("DatasetEndpointBatches and MaxStreams must not be negative")
 	}
 	if c.PoolMaxIdle < 0 || c.PoolMaxOpen < 1 {
 		return errors.New("the pool needs PoolMaxIdle >= 0 and PoolMaxOpen >= 1")
 	}
-	if c.TokenTTL < 0 || c.DatasetTTL < 0 || c.TenantIdleTimeout < 0 || c.SessionIdleTimeout < 0 {
+	if c.TokenTTL < 0 || c.DatasetTTL < 0 || c.TenantIdleTimeout < 0 || c.SessionIdleTimeout < 0 || c.StreamStallTimeout < 0 {
 		return errors.New("durations must not be negative")
 	}
 	for _, k := range []string{"uri", "username", "password"} {

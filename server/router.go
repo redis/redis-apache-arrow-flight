@@ -58,7 +58,35 @@ func (r *router) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetServ
 	if len(tkt.GetTicket()) > 0 && tkt.Ticket[0] == '{' {
 		return r.ds.DoGet(tkt, stream)
 	}
-	return r.sql.DoGet(tkt, stream)
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+	err := r.sql.DoGet(tkt, &cancelOnSendError{FlightService_DoGetServer: stream, ctx: ctx, cancel: cancel})
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		// The Flight SQL server returns the context's error as it is,
+		// which gRPC would report as Unknown.
+		err = status.FromContextError(err).Err()
+	}
+	return err
+}
+
+// cancelOnSendError cancels a DoGet's context once a message fails to
+// send. After a failed send, the Flight SQL server drains the result
+// before it returns, while the call's context is still live; cancelling
+// it stops the result being read from Redis to the end for nothing.
+type cancelOnSendError struct {
+	flight.FlightService_DoGetServer
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+func (s *cancelOnSendError) Context() context.Context { return s.ctx }
+
+func (s *cancelOnSendError) Send(d *flight.FlightData) error {
+	err := s.FlightService_DoGetServer.Send(d)
+	if err != nil {
+		s.cancel()
+	}
+	return err
 }
 
 // DoPut reads the first message to see where the stream goes, and replays

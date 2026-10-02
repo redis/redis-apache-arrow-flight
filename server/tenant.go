@@ -37,6 +37,8 @@ type tenant struct {
 	db   adbc.DatabaseWithContext
 	pool *connPool
 	rdb  goredis.UniversalClient
+	// streams has a token per result streaming from Redis (MaxStreams).
+	streams chan struct{}
 
 	// Guarded by tenantCache.mu.
 	active   int
@@ -70,6 +72,43 @@ func (t *tenant) withConn(ctx context.Context, sql string, fn func(adbc.Connecti
 	reuse = reusable(sql, err)
 	return err
 }
+
+// leaseConn is withConn for a result read after fn returns. If fn returns
+// keep, the connection stays in use until release is called with the
+// result's error; otherwise it goes back at once, and release is nil.
+func (t *tenant) leaseConn(ctx context.Context, sql string,
+	fn func(adbc.ConnectionWithContext) (keep bool, err error)) (release func(error), err error) {
+	conn, err := t.pool.get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	reuse, kept := false, false
+	defer func() {
+		if !kept {
+			t.pool.put(conn, reuse)
+		}
+	}()
+	keep, err := fn(conn)
+	if err != nil || !keep {
+		reuse = reusable(sql, err)
+		return nil, err
+	}
+	kept = true
+	var once sync.Once
+	return func(err error) { once.Do(func() { t.pool.put(conn, reusable(sql, err)) }) }, nil
+}
+
+// tryStream takes a stream token, if one is free.
+func (t *tenant) tryStream() bool {
+	select {
+	case t.streams <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t *tenant) endStream() { <-t.streams }
 
 // tenantCache opens tenants on first use and closes them when idle.
 type tenantCache struct {
@@ -202,10 +241,11 @@ func (c *tenantCache) openTenant(ctx context.Context, id identity) (*tenant, err
 		return nil, toStatus(err)
 	}
 	return &tenant{
-		id:   id,
-		db:   db,
-		pool: newConnPool(db, c.cfg.PoolMaxIdle, c.cfg.PoolMaxOpen),
-		rdb:  rdb,
+		id:      id,
+		db:      db,
+		pool:    newConnPool(db, c.cfg.PoolMaxIdle, c.cfg.PoolMaxOpen),
+		rdb:     rdb,
+		streams: make(chan struct{}, c.cfg.MaxStreams),
 	}, nil
 }
 

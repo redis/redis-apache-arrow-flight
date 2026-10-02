@@ -108,14 +108,18 @@ sequenceDiagram
     D->>R: read the tables' metadata
     S-->>C: FlightInfo: the schema, a ticket holding the SQL
     C->>S: DoGet(ticket)
-    S->>D: ExecuteQuery
+    S->>D: ExecuteQuery, on a connection it keeps until the end
     D->>R: FT.AGGREGATE … WITHCURSOR
     loop until the cursor ends
-        D->>R: FT.CURSOR READ
+        D-->>S: an Arrow batch
+        S-->>C: FlightData, about 2 MiB per message
+        D->>R: FT.CURSOR READ, for the next page
     end
-    D-->>S: the result, as Arrow batches
-    S-->>C: FlightData, about 2 MiB per batch
 ```
+
+A plain scan like this streams. A query whose result must be built whole
+first (an aggregate, a join, a sort the driver does) reads every page
+before the first batch is sent, and gives its connection back at once.
 
 **A statement that changes something** (`INSERT`, `UPDATE`, DDL, `SET`, …)
 runs when its FlightInfo is requested, so it runs exactly once. Its ticket
@@ -286,7 +290,9 @@ jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
   `disableCertificateVerification` as needed.
 - **Sessions:** the driver keeps cookies, so each JDBC connection is a
   [session](#sessions): `SET`, `search_path` and temporary tables last from one
-  statement to the next.
+  statement to the next. Query results in a session are built whole before
+  they are sent, so JDBC doesn't get [streamed](#flight-sql-support)
+  results yet.
 - **Java 17 and later:** run the JVM with
   `--add-opens=java.base/java.nio=ALL-UNNAMED`. In DBeaver, add it to
   `dbeaver.ini`.
@@ -348,9 +354,26 @@ How statements run:
   table or view created in `pg_temp`) works within its own script, for
   example `SET TIME ZONE 'Asia/Tokyo'; SELECT …`, and its connection is
   closed afterwards rather than reused.
-- **Results are held in memory.** The driver builds the whole result there
-  before streaming it. Batches are sent at about 2 MiB each, under gRPC's
-  default 4 MiB limit.
+- **Plain scans stream from Redis.** For a query that reads one table
+  through its index, row by row (`SELECT * FROM t`, or a filter and
+  `ORDER BY` the index can do), the driver reads the rows a cursor page at
+  a time while they are sent. The server then holds about one batch of
+  them, whatever the table's size. Other queries (aggregates, joins,
+  `DISTINCT`, window functions, sorts the driver does) are built whole in
+  memory first. The driver's
+  [Streamed results](https://github.com/alberttwong/redis-adbc-driver#streamed-results)
+  has the exact rules.
+  - A streaming result keeps its pooled connection until it has been sent,
+    or the client goes away. Each Redis user can have `--max-streams` (8)
+    results streaming at once; queries beyond that are read whole, as are
+    queries in a [session](#sessions).
+  - A client that takes longer than `--stream-stall-timeout` (2 minutes) to
+    read a batch gets a `DEADLINE_EXCEEDED` error instead of the rest, and
+    the server stops reading from Redis. Redis deletes a cursor that isn't
+    read for 5 minutes.
+  - To read every result whole instead, pass
+    `-adbc-option adbc.redis.stream_results=false`.
+- **Batches are sent at about 2 MiB each,** under gRPC's default 4 MiB limit.
 
 ## Sessions
 
@@ -393,6 +416,10 @@ request.
 - **Ownership.** A session belongs to the Redis user that made it. With
   `--auth=redis-acl`, another user's request with the same cookie gets a
   session of its own.
+- **Results are read whole.** A query result in a session is built in
+  memory before it is sent, not [streamed](#flight-sql-support) from Redis.
+  A streaming result would keep the session's connection busy until read, and
+  clients such as JDBC run other statements while they read a result.
 - **Several servers.** Sessions live in one server's memory. Route a client to
   the same server each time (sticky sessions on the load balancer).
 - **Turning them off.** `--sessions=false` does so: no cookies, and every
@@ -510,6 +537,8 @@ Every flag can also be set with the environment variable shown.
 | `-dataset-endpoint-batches` | `FLIGHT_DATASET_ENDPOINT_BATCHES` | `0` (one endpoint) | Give a dataset's FlightInfo one endpoint per this many batches, for [parallel reads](#datasets) |
 | `-pool-max-idle` | `FLIGHT_POOL_MAX_IDLE` | `8` | Idle ADBC connections kept per Redis user |
 | `-pool-max-open` | `FLIGHT_POOL_MAX_OPEN` | `32` | ADBC connections in use at once per Redis user |
+| `-max-streams` | `FLIGHT_MAX_STREAMS` | `8` | Query results a Redis user can have [streaming](#flight-sql-support) from Redis at once. Each keeps a connection; further queries are read whole first |
+| `-stream-stall-timeout` | `FLIGHT_STREAM_STALL_TIMEOUT` | `2m` | End a streaming result whose client takes longer than this to read a batch |
 | `-sessions` | `FLIGHT_SESSIONS` | `true` | [Sessions](#sessions) for clients that keep cookies |
 | `-session-idle-timeout` | `FLIGHT_SESSION_IDLE_TIMEOUT` | `10m` | Close a session after this long without requests |
 | `-max-msg-size` | `FLIGHT_MAX_MSG_SIZE` | 64 MiB | Largest gRPC message accepted |
