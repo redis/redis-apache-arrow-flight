@@ -679,6 +679,15 @@ func TestIntegrationDatasets(t *testing.T) {
 	if err != nil || string(sr.Schema) != string(info.Schema) {
 		t.Errorf("GetSchema = %v, %v", sr, err)
 	}
+	// A dataset is complete: PollInfo without a descriptor to poll again.
+	pi, err := fc.PollFlightInfo(ctx, desc)
+	if err != nil {
+		t.Fatalf("PollFlightInfo: %v", err)
+	}
+	if pi.FlightDescriptor != nil || pi.Info.GetTotalRecords() != 3 {
+		t.Errorf("PollFlightInfo = descriptor %v, %d records; want no descriptor (complete), 3 records",
+			pi.FlightDescriptor, pi.Info.GetTotalRecords())
+	}
 	oldTicket := info.Endpoint[0].Ticket.Ticket
 	gotSchema, rows, batches, err := getDataset(t, ctx, fc, oldTicket)
 	if err != nil {
