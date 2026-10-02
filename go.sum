@@ -2,8 +2,8 @@ github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20260903064016-31a68ee93
 github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20260903064016-31a68ee93796/go.mod h1:2UUwZqV/NVOJwESLh6ajN2GuzVK9MQg5LI7EPKXkoEg=
 github.com/adbc-drivers/driverbase-go/testutil v0.0.0-20260803160758-8f4d5c91c894 h1:ytSDLPGv8gMSyvDsu8Ohol0Dh+hK0sx6n01K4+0MCuc=
 github.com/adbc-drivers/driverbase-go/testutil v0.0.0-20260803160758-8f4d5c91c894/go.mod h1:958w1J4jByMlVKfyrv1Uil06T1hkPEeZ/jE3JdKGvnk=
-github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261002155737-0522977ecbee h1:O8UezzxZNb1AByAvR8/dxx4en/1ROi0KAHAFsw3QdHg=
-github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261002155737-0522977ecbee/go.mod h1:/HyX3cD7Em8awby9nyqxdFo8R83uNKz6E73wMu315JM=
+github.com/alberttwong/redis-adbc-driver-arrow-ipc/go v0.0.0-20261002211440-a6ec8de0b4bf h1:yvTVFVuGkIC5LxUxnsGaOmXgR1XapXZUDMrkd7FWT68=
+github.com/alberttwong/redis-adbc-driver-arrow-ipc/go v0.0.0-20261002211440-a6ec8de0b4bf/go.mod h1:/HyX3cD7Em8awby9nyqxdFo8R83uNKz6E73wMu315JM=
 github.com/andybalholm/brotli v1.2.3 h1:8H1qwOkl2LPfjf3YezB90JnCliZb6SInJ/OJkEbA5NQ=
 github.com/andybalholm/brotli v1.2.3/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 github.com/apache/arrow-adbc/go/adbc v1.12.0 h1:1S7h8M12a+JZPuduuBo0kIQIRq+4heUikMnHBQ9seXE=

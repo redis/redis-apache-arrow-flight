@@ -319,6 +319,51 @@ func TestIntegrationTempObjectsDontLeak(t *testing.T) {
 	}
 }
 
+// Prepared statements report their parameters' types (the JDBC driver
+// sizes a statement's parameters from them), and are planned with them.
+func TestIntegrationPreparedTypes(t *testing.T) {
+	c := newClients(t, Config{RedisURI: redisURI(t)}).sql
+	ctx := context.Background()
+	tbl := uniqueName("it_flight_ptypes")
+	dropTable(t, c, tbl)
+	// DDL reports 0 rows, not the driver's -1 (unknown): JDBC takes -1 for
+	// a query.
+	if n := update(t, ctx, c, "CREATE TABLE "+tbl+" (id BIGINT NOT NULL, name VARCHAR, qty INTEGER)"); n != 0 {
+		t.Errorf("CREATE TABLE changed %d rows, want 0", n)
+	}
+	types := func(s *arrow.Schema) string {
+		if s == nil {
+			return "none"
+		}
+		out := make([]string, s.NumFields())
+		for i, f := range s.Fields() {
+			out[i] = f.Type.String()
+		}
+		return "[" + strings.Join(out, " ") + "]"
+	}
+	for _, tc := range []struct{ sql, params, dataset string }{
+		{"SELECT name FROM " + tbl + " WHERE id = $1", "[int64]", "[utf8]"},
+		{"INSERT INTO " + tbl + " VALUES (?, ?, ?)", "[int64 utf8 int32]", "[]"},
+		// Planned with $1's type, so the column has one.
+		{"SELECT $1 AS x FROM " + tbl + " WHERE id = $1", "[int64]", "[int64]"},
+		{"SELECT $1 AS x", "[null]", "none"},
+		{"SELECT 1 AS one", "[]", "[int64]"},
+	} {
+		p, err := c.Prepare(ctx, tc.sql)
+		if err != nil {
+			t.Errorf("Prepare(%q): %v", tc.sql, err)
+			continue
+		}
+		if got := types(p.ParameterSchema()); got != tc.params {
+			t.Errorf("%s: parameters %s, want %s", tc.sql, got, tc.params)
+		}
+		if got := types(p.DatasetSchema()); got != tc.dataset {
+			t.Errorf("%s: dataset %s, want %s", tc.sql, got, tc.dataset)
+		}
+		_ = p.Close(ctx)
+	}
+}
+
 // A prepared script that changes things isn't planned before it runs, so
 // its last statement may use what the ones before it make or set.
 func TestIntegrationPreparedScripts(t *testing.T) {

@@ -39,6 +39,14 @@ type sqlServer struct {
 	keyPrefix string
 }
 
+// trace logs a Flight SQL command at debug level, with the start of its SQL.
+func (s *sqlServer) trace(command, sql string) {
+	if len(sql) > 80 {
+		sql = sql[:80] + "…"
+	}
+	s.tenants.cfg.Logger.Debug("flight sql", "command", command, "sql", sql)
+}
+
 const (
 	// maxInlineBytes caps what a ticket carries (bound parameters, or a
 	// result). Tickets travel in FlightInfo replies, which gRPC clients
@@ -72,7 +80,7 @@ func newSQLServer(tenants *tenantCache, alloc memory.Allocator, keyPrefix string
 		flightsql.SqlInfoDDLTable:                                   true,
 		flightsql.SqlInfoIdentifierQuoteChar:                        `"`,
 		flightsql.SqlInfoAllTablesAreASelectable:                    true,
-		flightsql.SqlInfoNullOrdering:                               int64(flightsql.SqlNullOrderingSortAtEnd),
+		flightsql.SqlInfoNullOrdering:                               int32(flightsql.SqlNullOrderingSortAtEnd),
 		flightsql.SqlInfoTransactionsSupported:                      false,
 	}
 	for id, v := range info {
@@ -398,6 +406,7 @@ func (s *sqlServer) executeUpdate(ctx context.Context, h statementHandle, params
 // ---- statements ----
 
 func (s *sqlServer) GetFlightInfoStatement(ctx context.Context, cmd flightsql.StatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	s.trace("GetFlightInfo StatementQuery", cmd.GetQuery())
 	if len(cmd.GetTransactionId()) > 0 {
 		return nil, errNoTransactions
 	}
@@ -423,15 +432,28 @@ func (s *sqlServer) DoGetStatement(ctx context.Context, tkt flightsql.StatementQ
 }
 
 func (s *sqlServer) DoPutCommandStatementUpdate(ctx context.Context, cmd flightsql.StatementUpdate) (int64, error) {
+	s.trace("DoPut StatementUpdate", cmd.GetQuery())
 	if len(cmd.GetTransactionId()) > 0 {
 		return 0, errNoTransactions
 	}
-	return s.executeUpdate(ctx, statementHandle{Query: cmd.GetQuery()}, nil)
+	n, err := s.executeUpdate(ctx, statementHandle{Query: cmd.GetQuery()}, nil)
+	return knownCount(n), err
+}
+
+// knownCount is an update's row count for its client: the driver's -1
+// (unknown: DDL, SET, …) is 0. Flight SQL allows -1, but the JDBC driver
+// (19.0.0) then takes the statement for a query: it asks for its result,
+// which runs the statement again (see runNow), and on failing to read one
+// prepares and runs it again (apache/arrow#34284), so CREATE TABLE fails
+// with "already exists".
+func knownCount(n int64) int64 {
+	return max(n, 0)
 }
 
 // ---- prepared statements ----
 
 func (s *sqlServer) CreatePreparedStatement(ctx context.Context, req flightsql.ActionCreatePreparedStatementRequest) (flightsql.ActionCreatePreparedStatementResult, error) {
+	s.trace("CreatePreparedStatement", req.GetQuery())
 	var res flightsql.ActionCreatePreparedStatementResult
 	if len(req.GetTransactionId()) > 0 {
 		return res, errNoTransactions
@@ -442,17 +464,30 @@ func (s *sqlServer) CreatePreparedStatement(ctx context.Context, req flightsql.A
 		return res, status.Error(codes.InvalidArgument, err.Error())
 	}
 	res.Handle = h.encode()
-	// Planning such a script would fail on what its earlier statements
-	// make; the client reads its schema from the result instead.
-	if plannedOnRun(parsed) {
-		return res, nil
-	}
 	t, done, err := s.tenants.acquire(ctx)
 	if err != nil {
 		return res, err
 	}
 	defer done()
-	schema, err := s.infoSchema(ctx, t, h)
+	// The parameters' types, as the driver infers them from their uses
+	// (JDBC sizes a statement's parameters from this).
+	params := s.paramSchema(ctx, t, h)
+	res.ParameterSchema = params
+	// Planning such a script would fail on what its earlier statements
+	// make; the client reads its schema from the result instead.
+	if plannedOnRun(parsed) {
+		return res, nil
+	}
+	// Plan with the parameters' types when all are known (ExecuteSchema
+	// takes them from what is bound), so a result column computed from a
+	// parameter has a type too.
+	planned := h
+	if params != nil && params.NumFields() > 0 && !hasNullField(params) {
+		if b, err := writeIPC(params, nil, s.Alloc); err == nil {
+			planned.Params = b
+		}
+	}
+	schema, err := s.infoSchema(ctx, t, planned)
 	if err != nil {
 		return res, err
 	}
@@ -466,9 +501,26 @@ func (s *sqlServer) CreatePreparedStatement(ctx context.Context, req flightsql.A
 		isUpdate := schema.NumFields() == 0
 		res.IsUpdate = &isUpdate
 	}
-	// ParameterSchema stays nil: the driver can't describe parameters, and
-	// an empty schema would tell clients there are none.
 	return res, nil
+}
+
+// paramSchema returns the types of h's parameters, or nil if the driver
+// can't tell them.
+func (s *sqlServer) paramSchema(ctx context.Context, t *tenant, h statementHandle) *arrow.Schema {
+	var schema *arrow.Schema
+	_ = t.withConn(ctx, "", func(conn adbc.ConnectionWithContext) error {
+		stmt, err := conn.NewStatement(ctx)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close(ctx)
+		if err := stmt.SetSqlQuery(ctx, h.Query); err != nil {
+			return err
+		}
+		schema, err = stmt.GetParameterSchema(ctx)
+		return err
+	})
+	return schema
 }
 
 func numParams(parsed []redis.ParsedStmt) int {
@@ -488,7 +540,10 @@ func hasNullField(schema *arrow.Schema) bool {
 	return false
 }
 
-func (s *sqlServer) ClosePreparedStatement(context.Context, flightsql.ActionClosePreparedStatementRequest) error {
+func (s *sqlServer) ClosePreparedStatement(_ context.Context, req flightsql.ActionClosePreparedStatementRequest) error {
+	if h, err := decodeHandle(req.GetPreparedStatementHandle()); err == nil {
+		s.trace("ClosePreparedStatement", h.Query)
+	}
 	return nil // the handle is the whole statement
 }
 
@@ -499,6 +554,7 @@ func (s *sqlServer) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql
 	if err != nil {
 		return nil, err
 	}
+	s.trace("DoPut PreparedStatementQuery (bind)", h.Query)
 	schema, recs, bound, err := readParams(rdr)
 	if err != nil {
 		return nil, err
@@ -549,6 +605,7 @@ func (s *sqlServer) GetFlightInfoPreparedStatement(ctx context.Context, cmd flig
 	if err != nil {
 		return nil, err
 	}
+	s.trace("GetFlightInfo PreparedStatementQuery", h.Query)
 	return s.statementInfo(ctx, h, desc)
 }
 
@@ -576,6 +633,7 @@ func (s *sqlServer) DoPutPreparedStatementUpdate(ctx context.Context, cmd flight
 	if err != nil {
 		return 0, err
 	}
+	s.trace("DoPut PreparedStatementUpdate", h.Query)
 	schema, recs, bound, err := readParams(rdr)
 	if err != nil {
 		return 0, err
@@ -588,7 +646,8 @@ func (s *sqlServer) DoPutPreparedStatementUpdate(ctx context.Context, cmd flight
 			return 0, status.Errorf(codes.InvalidArgument, "invalid parameters: %v", err)
 		}
 	}
-	return s.executeUpdate(ctx, h, params)
+	n, err := s.executeUpdate(ctx, h, params)
+	return knownCount(n), err
 }
 
 // ---- bulk ingest ----
