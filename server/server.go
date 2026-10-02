@@ -19,10 +19,11 @@ import (
 
 // Server is the Arrow Flight server.
 type Server struct {
-	cfg     Config
-	log     *slog.Logger
-	tenants *tenantCache
-	flight  flight.Server
+	cfg      Config
+	log      *slog.Logger
+	tenants  *tenantCache
+	sessions *sessionStore // nil when sessions are off
+	flight   flight.Server
 }
 
 // New makes a Server from cfg. It connects to Redis only when requests
@@ -63,8 +64,17 @@ func New(cfg Config) (*Server, error) {
 	}
 
 	tenants := newTenantCache(&cfg)
+	var sessions *sessionStore
+	if !cfg.DisableSessions {
+		// After authentication: a session belongs to who made it.
+		sessions = newSessionStore(tenants, cfg.SessionIdleTimeout, cfg.Logger)
+		middleware = append(middleware, sessions.middleware())
+	}
 	sql, err := newSQLServer(tenants, cfg.Allocator, cfg.KeyPrefix)
 	if err != nil {
+		if sessions != nil {
+			sessions.close()
+		}
 		tenants.close()
 		return nil, err
 	}
@@ -74,14 +84,14 @@ func New(cfg Config) (*Server, error) {
 	}
 	fs := flight.NewServerWithMiddleware(middleware, opts...)
 	fs.RegisterFlightService(r)
-	return &Server{cfg: cfg, log: cfg.Logger, tenants: tenants, flight: fs}, nil
+	return &Server{cfg: cfg, log: cfg.Logger, tenants: tenants, sessions: sessions, flight: fs}, nil
 }
 
 // Serve serves on lis until Shutdown.
 func (s *Server) Serve(lis net.Listener) error {
 	s.flight.InitListener(lis)
 	s.log.Info("serving Arrow Flight", "addr", lis.Addr().String(), "redis", redactURI(s.cfg.RedisURI),
-		"auth", string(s.cfg.Auth), "tls", s.cfg.TLSCertFile != "")
+		"auth", string(s.cfg.Auth), "tls", s.cfg.TLSCertFile != "", "sessions", !s.cfg.DisableSessions)
 	return s.flight.Serve()
 }
 
@@ -98,6 +108,9 @@ func (s *Server) ListenAndServe() error {
 // Redis connections.
 func (s *Server) Shutdown() {
 	s.flight.Shutdown()
+	if s.sessions != nil {
+		s.sessions.close()
+	}
 	s.tenants.close()
 }
 

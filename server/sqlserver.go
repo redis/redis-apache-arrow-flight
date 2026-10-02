@@ -591,21 +591,16 @@ func (s *sqlServer) DoPutPreparedStatementUpdate(ctx context.Context, cmd flight
 	return s.executeUpdate(ctx, h, params)
 }
 
-// CloseSession succeeds: the server keeps no sessions, and the ADBC Flight
-// SQL driver closes one when its connection closes.
-func (s *sqlServer) CloseSession(context.Context, *flight.CloseSessionRequest) (*flight.CloseSessionResult, error) {
-	return &flight.CloseSessionResult{Status: flight.CloseSessionResultClosed}, nil
-}
-
 // ---- bulk ingest ----
 
 func (s *sqlServer) DoPutCommandStatementIngest(ctx context.Context, cmd flightsql.StatementIngest, rdr flight.MessageReader) (int64, error) {
 	if len(cmd.GetTransactionId()) > 0 {
 		return 0, errNoTransactions
 	}
-	if cmd.GetTemporary() || isTempSchemaName(cmd.GetSchema()) {
+	temporary := cmd.GetTemporary() || isTempSchemaName(cmd.GetSchema())
+	if temporary && sessionFrom(ctx) == nil {
 		return 0, status.Error(codes.InvalidArgument,
-			"temporary tables are not supported: they belong to one connection, and each Flight request may use another")
+			"temporary tables need a session: they belong to one connection, and outside a session each Flight request may use another")
 	}
 	// The command's fields say where and how to ingest; the same settings as
 	// ADBC options could override them (and make the table temporary).
@@ -659,6 +654,9 @@ func (s *sqlServer) DoPutCommandStatementIngest(ctx context.Context, cmd flights
 		}
 		if sc := cmd.GetSchema(); sc != "" {
 			opts = append(opts, [2]string{adbc.OptionValueIngestTargetDBSchema, sc})
+		}
+		if cmd.GetTemporary() {
+			opts = append(opts, [2]string{adbc.OptionValueIngestTemporary, adbc.OptionValueEnabled})
 		}
 		if c := cmd.GetCatalog(); c != "" {
 			opts = append(opts, [2]string{adbc.OptionValueIngestTargetCatalog, c})

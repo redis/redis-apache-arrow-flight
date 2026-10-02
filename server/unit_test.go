@@ -354,6 +354,12 @@ func TestStatementHandle(t *testing.T) {
 // connection to it.
 func newTestServer(t *testing.T, cfg Config) *grpc.ClientConn {
 	t.Helper()
+	return dialTestServer(t, startTestServer(t, cfg))
+}
+
+// startTestServer starts a Server on an in-memory listener.
+func startTestServer(t *testing.T, cfg Config) *bufconn.Listener {
+	t.Helper()
 	if cfg.Logger == nil {
 		cfg.Logger = testLogger(t)
 	}
@@ -364,10 +370,20 @@ func newTestServer(t *testing.T, cfg Config) *grpc.ClientConn {
 	lis := bufconn.Listen(1 << 20)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Shutdown)
-	cc, err := grpc.NewClient("passthrough:///bufconn",
+	return lis
+}
+
+func testDialOptions(lis *bufconn.Listener) []grpc.DialOption {
+	return []grpc.DialOption{
 		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) { return lis.DialContext(ctx) }),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20)))
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64 << 20)),
+	}
+}
+
+func dialTestServer(t *testing.T, lis *bufconn.Listener) *grpc.ClientConn {
+	t.Helper()
+	cc, err := grpc.NewClient("passthrough:///bufconn", testDialOptions(lis)...)
 	if err != nil {
 		t.Fatal(err)
 	}

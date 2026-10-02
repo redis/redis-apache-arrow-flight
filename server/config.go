@@ -76,6 +76,13 @@ type Config struct {
 	// requests (default 10m).
 	TenantIdleTimeout time.Duration
 
+	// DisableSessions turns off Flight SQL sessions (cookies, a dedicated
+	// connection per session, and the session options).
+	DisableSessions bool
+	// SessionIdleTimeout closes a session after this long without requests
+	// (default 10m).
+	SessionIdleTimeout time.Duration
+
 	// MaxMsgSize is the largest gRPC message the server accepts
 	// (default 64 MiB).
 	MaxMsgSize int
@@ -117,6 +124,9 @@ func (c *Config) setDefaults() {
 	if c.TenantIdleTimeout == 0 {
 		c.TenantIdleTimeout = 10 * time.Minute
 	}
+	if c.SessionIdleTimeout == 0 {
+		c.SessionIdleTimeout = 10 * time.Minute
+	}
 	if c.MaxMsgSize == 0 {
 		c.MaxMsgSize = 64 << 20
 	}
@@ -140,7 +150,7 @@ func (c *Config) validate() error {
 	if c.PoolMaxIdle < 0 || c.PoolMaxOpen < 1 {
 		return errors.New("the pool needs PoolMaxIdle >= 0 and PoolMaxOpen >= 1")
 	}
-	if c.TokenTTL < 0 || c.DatasetTTL < 0 || c.TenantIdleTimeout < 0 {
+	if c.TokenTTL < 0 || c.DatasetTTL < 0 || c.TenantIdleTimeout < 0 || c.SessionIdleTimeout < 0 {
 		return errors.New("durations must not be negative")
 	}
 	for _, k := range []string{"uri", "username", "password"} {
