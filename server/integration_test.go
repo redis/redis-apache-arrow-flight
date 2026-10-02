@@ -319,6 +319,55 @@ func TestIntegrationTempObjectsDontLeak(t *testing.T) {
 	}
 }
 
+// A prepared script that changes things isn't planned before it runs, so
+// its last statement may use what the ones before it make or set.
+func TestIntegrationPreparedScripts(t *testing.T) {
+	c := newClients(t, Config{RedisURI: redisURI(t)}).sql
+	ctx := context.Background()
+	execute := func(t *testing.T, p *flightsql.PreparedStatement, id int64) []string {
+		t.Helper()
+		params := int64Record(t, []string{"id"}, []int64{id})
+		p.SetParameters(params)
+		params.Release()
+		info, err := p.Execute(ctx)
+		if err != nil {
+			t.Fatalf("Execute: %v", err)
+		}
+		_, rows := fetch(t, ctx, c, info)
+		return rows
+	}
+
+	t.Run("create, then read", func(t *testing.T) {
+		tbl := uniqueName("it_flight_script")
+		dropTable(t, c, tbl)
+		p, err := c.Prepare(ctx, "CREATE TABLE "+tbl+" (id BIGINT); INSERT INTO "+tbl+" VALUES ($1); SELECT id FROM "+tbl)
+		if err != nil {
+			t.Fatalf("Prepare: %v", err)
+		}
+		defer p.Close(ctx)
+		if p.DatasetSchema() != nil {
+			t.Errorf("dataset schema = %s, want none before the script runs", p.DatasetSchema())
+		}
+		if _, err := p.GetSchema(ctx); status.Code(err) != codes.Unimplemented {
+			t.Errorf("GetSchema: err = %v, want Unimplemented", err)
+		}
+		wantRows(t, execute(t, p, 7), "7")
+	})
+
+	t.Run("set search_path, then read", func(t *testing.T) {
+		schema, tbl := uniqueName("it_flight_s"), uniqueName("it_flight_t")
+		dropTable(t, c, schema+"."+tbl)
+		update(t, ctx, c, "CREATE TABLE "+schema+"."+tbl+" (id BIGINT)")
+		update(t, ctx, c, "INSERT INTO "+schema+"."+tbl+" VALUES (1), (2)")
+		p, err := c.Prepare(ctx, "SET search_path TO "+schema+"; SELECT id FROM "+tbl+" WHERE id = $1")
+		if err != nil {
+			t.Fatalf("Prepare: %v", err)
+		}
+		defer p.Close(ctx)
+		wantRows(t, execute(t, p, 2), "2")
+	})
+}
+
 func int64Record(t *testing.T, names []string, cols ...[]int64) arrow.RecordBatch {
 	t.Helper()
 	fields := make([]arrow.Field, len(names))

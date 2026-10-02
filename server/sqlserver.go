@@ -200,6 +200,17 @@ func readOnly(parsed []redis.ParsedStmt) bool {
 	return len(parsed) > 0
 }
 
+// plannedOnRun reports whether a script can be planned only by running it:
+// it has several statements and changes things, so its last statement may
+// use a table or setting that an earlier one makes, and the driver plans
+// only the last statement, on a fresh session.
+func plannedOnRun(parsed []redis.ParsedStmt) bool {
+	return len(parsed) > 1 && !readOnly(parsed)
+}
+
+var errPlannedOnRun = status.Error(codes.Unimplemented,
+	"the result schema of a script that changes things is known only when it runs: read it from its result")
+
 func (s *sqlServer) statementInfo(ctx context.Context, h statementHandle, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
 	parsed, err := redis.ParseScript(h.Query)
 	if err != nil {
@@ -225,6 +236,9 @@ func (s *sqlServer) statementInfo(ctx context.Context, h statementHandle, desc *
 }
 
 func (s *sqlServer) statementSchema(ctx context.Context, h statementHandle) (*flight.SchemaResult, error) {
+	if parsed, err := redis.ParseScript(h.Query); err == nil && plannedOnRun(parsed) {
+		return nil, errPlannedOnRun
+	}
 	t, done, err := s.tenants.acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -427,6 +441,12 @@ func (s *sqlServer) CreatePreparedStatement(ctx context.Context, req flightsql.A
 	if err != nil {
 		return res, status.Error(codes.InvalidArgument, err.Error())
 	}
+	res.Handle = h.encode()
+	// Planning such a script would fail on what its earlier statements
+	// make; the client reads its schema from the result instead.
+	if plannedOnRun(parsed) {
+		return res, nil
+	}
 	t, done, err := s.tenants.acquire(ctx)
 	if err != nil {
 		return res, err
@@ -441,7 +461,6 @@ func (s *sqlServer) CreatePreparedStatement(ctx context.Context, req flightsql.A
 	if schema != nil && numParams(parsed) > 0 && hasNullField(schema) {
 		schema = nil
 	}
-	res.Handle = h.encode()
 	res.DatasetSchema = schema
 	if schema != nil {
 		isUpdate := schema.NumFields() == 0
