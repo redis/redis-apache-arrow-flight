@@ -50,14 +50,18 @@ func (t *tenant) close() {
 }
 
 // withConn runs fn on a pooled connection. sql is the statement fn runs, if
-// any, so the pool can tell whether the connection may be reused.
+// any, so the pool can tell whether the connection may be reused. If fn
+// panics, the connection is closed and its slot freed before the panic
+// goes on to the recovery middleware.
 func (t *tenant) withConn(ctx context.Context, sql string, fn func(adbc.ConnectionWithContext) error) error {
 	conn, err := t.pool.get(ctx)
 	if err != nil {
 		return err
 	}
+	reuse := false
+	defer func() { t.pool.put(conn, reuse) }()
 	err = fn(conn)
-	t.pool.put(conn, reusable(sql, err))
+	reuse = reusable(sql, err)
 	return err
 }
 
@@ -65,6 +69,8 @@ func (t *tenant) withConn(ctx context.Context, sql string, fn func(adbc.Connecti
 type tenantCache struct {
 	cfg    *Config
 	driver databaseOpener
+	// open opens a tenant (openTenant; tests replace it).
+	open func(context.Context, identity) (*tenant, error)
 
 	mu       sync.Mutex
 	tenants  map[string]*tenant
@@ -82,6 +88,7 @@ func newTenantCache(cfg *Config) *tenantCache {
 		stop:     make(chan struct{}),
 		done:     make(chan struct{}),
 	}
+	c.open = c.openTenant
 	go c.evictLoop()
 	return c
 }
@@ -130,20 +137,29 @@ func (c *tenantCache) acquire(ctx context.Context) (*tenant, func(), error) {
 		c.creating[key] = wait
 		c.mu.Unlock()
 
-		t, err := c.open(ctx, id)
-
-		c.mu.Lock()
-		delete(c.creating, key)
-		close(wait)
+		t, err := c.create(ctx, id, key, wait)
 		if err != nil {
-			c.mu.Unlock()
 			return nil, nil, err
 		}
-		t.active = 1
-		c.tenants[key] = t
-		c.mu.Unlock()
 		return t, func() { c.release(t) }, nil
 	}
+}
+
+// create opens the tenant for key, registers it in use once, and wakes the
+// requests waiting for it. They are woken even if opening panics, and then
+// try to open it themselves.
+func (c *tenantCache) create(ctx context.Context, id identity, key string, wait chan struct{}) (t *tenant, err error) {
+	defer func() {
+		c.mu.Lock()
+		delete(c.creating, key)
+		if t != nil {
+			t.active = 1
+			c.tenants[key] = t
+		}
+		c.mu.Unlock()
+		close(wait)
+	}()
+	return c.open(ctx, id)
 }
 
 func (c *tenantCache) release(t *tenant) {
@@ -153,7 +169,7 @@ func (c *tenantCache) release(t *tenant) {
 	c.mu.Unlock()
 }
 
-func (c *tenantCache) open(ctx context.Context, id identity) (*tenant, error) {
+func (c *tenantCache) openTenant(ctx context.Context, id identity) (*tenant, error) {
 	opts, err := clientOptions(c.cfg.RedisURI, id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
