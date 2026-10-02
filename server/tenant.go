@@ -53,7 +53,13 @@ func (t *tenant) close() {
 // any, so the pool can tell whether the connection may be reused. If fn
 // panics, the connection is closed and its slot freed before the panic
 // goes on to the recovery middleware.
+//
+// In a session, fn runs on the session's own connection instead, whatever
+// sql does to it.
 func (t *tenant) withConn(ctx context.Context, sql string, fn func(adbc.ConnectionWithContext) error) error {
+	if s := sessionFrom(ctx); s != nil {
+		return s.run(ctx, t, fn)
+	}
 	conn, err := t.pool.get(ctx)
 	if err != nil {
 		return err

@@ -43,6 +43,7 @@ func run() error {
 	fs := flag.NewFlagSet("redis-flight-server", flag.ContinueOnError)
 	var (
 		cfg      server.Config
+		sessions bool
 		auth     string
 		logLevel string
 		version  bool
@@ -90,6 +91,9 @@ func run() error {
 	dur(&cfg.DatasetTTL, "dataset-ttl", "FLIGHT_DATASET_TTL", 0, "expire uploaded datasets after this long (0: keep until dropped)")
 	num(&cfg.PoolMaxIdle, "pool-max-idle", "FLIGHT_POOL_MAX_IDLE", 8, "idle ADBC connections kept per Redis user")
 	num(&cfg.PoolMaxOpen, "pool-max-open", "FLIGHT_POOL_MAX_OPEN", 32, "ADBC connections in use at once per Redis user")
+	fs.BoolVar(&sessions, "sessions", envOr("FLIGHT_SESSIONS", "true") != "false",
+		"Flight SQL sessions: a client that keeps the session cookie gets its own connection, so SET and temporary tables last (env FLIGHT_SESSIONS)")
+	dur(&cfg.SessionIdleTimeout, "session-idle-timeout", "FLIGHT_SESSION_IDLE_TIMEOUT", 10*time.Minute, "close a session after this long without requests")
 	num(&cfg.MaxMsgSize, "max-msg-size", "FLIGHT_MAX_MSG_SIZE", 64<<20, "largest gRPC message accepted, in bytes")
 	str(&logLevel, "log-level", "FLIGHT_LOG_LEVEL", "info", "debug, info, warn or error")
 	fs.Var(adbcOpts, "adbc-option", "Redis ADBC driver database option key=value, repeatable (env FLIGHT_ADBC_OPTIONS, comma-separated)")
@@ -123,6 +127,7 @@ func run() error {
 		}
 	}
 	cfg.Auth = server.AuthMode(auth)
+	cfg.DisableSessions = !sessions
 	cfg.ADBCOptions = adbcOpts
 
 	var level slog.Level

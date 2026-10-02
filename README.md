@@ -120,9 +120,10 @@ list(client.do_action(flight.Action("drop_dataset", b"features/v1")))
 |-|-|
 | Queries (`CommandStatementQuery`), updates (`CommandStatementUpdate`) | Yes |
 | Prepared statements, with parameters | Yes. The handle carries the SQL and the bound values, so the server keeps no state. Clients must use the handle a bind returns (`DoPutPreparedStatementResult`, Flight SQL's stateless prepared statements). arrow-go and the ADBC Flight SQL driver do, and are tested; a client that ignores it loses the bound values. Parameters for a query are limited to 1 MiB |
-| Bulk ingest (`CommandStatementIngest`) | Yes: create, append, replace, create-or-append, and pass-through options such as `adbc.redis.ingest.index_columns`. Temporary tables (`temporary`, or the `pg_temp` schema) are refused, as are `adbc.ingest.*` options: set the target and mode with the command's fields |
+| Bulk ingest (`CommandStatementIngest`) | Yes: create, append, replace, create-or-append, and pass-through options such as `adbc.redis.ingest.index_columns`. Temporary tables (`temporary`, or the `pg_temp` schema) need a [session](#sessions). `adbc.ingest.*` options are refused: set the target and mode with the command's fields |
 | `GetCatalogs`, `GetDbSchemas`, `GetTables` (with schemas), `GetTableTypes`, `GetSqlInfo` | Yes. The catalog is `redis`; schemas are key namespaces (`public` by default) |
 | Primary and foreign keys | Empty results: the driver has no constraints |
+| Sessions: `SetSessionOptions`, `GetSessionOptions`, `CloseSession` | Yes, for clients that keep cookies: see [Sessions](#sessions) |
 | Transactions, savepoints, Substrait, `GetXdbcTypeInfo`, cancellation | No |
 
 How statements run:
@@ -134,15 +135,61 @@ How statements run:
   reads the stream (DB-API cursors often don't) or reads it twice. The result,
   such as the rows of `INSERT … RETURNING`, travels in the ticket. If it is
   larger than 1 MiB, it is kept in Redis for 10 minutes instead.
-- **Each request uses a pooled ADBC connection.** Session state therefore
-  doesn't carry over between requests. A statement that changes it (`SET`,
-  `BEGIN`, `CREATE TEMP TABLE`, or a table or view created in `pg_temp`)
-  works within its own script, for example
-  `SET TIME ZONE 'Asia/Tokyo'; SELECT …`, and its connection is closed
-  afterwards rather than reused.
+- **Outside a [session](#sessions), each request uses a pooled ADBC
+  connection.** Session state then doesn't carry over between requests.
+  A statement that changes it (`SET`, `BEGIN`, `CREATE TEMP TABLE`, or a
+  table or view created in `pg_temp`) works within its own script, for
+  example `SET TIME ZONE 'Asia/Tokyo'; SELECT …`, and its connection is
+  closed afterwards rather than reused.
 - **Results are held in memory.** The driver builds the whole result there
   before streaming it. Batches are sent at about 2 MiB each, under gRPC's
   default 4 MiB limit.
+
+## Sessions
+
+A session keeps a client's session state from one request to the next: `SET`
+parameters such as `search_path` and `TimeZone`, and temporary tables and
+views. The session has its own ADBC connection, opened by its first SQL
+request.
+
+- **They are cookie sessions.** A response to a request without a session
+  cookie sets one, `arrow_flight_session_id`. A client that sends it back is
+  in that session.
+- **Which clients keep cookies:**
+  - The Arrow Flight SQL JDBC driver does by default.
+  - The ADBC Flight SQL driver does with
+    `adbc.flight.sql.rpc.with_cookie_middleware=true`. Each ADBC connection is
+    then its own session.
+  - arrow-go clients do with `flight.NewCookieMiddleware()`.
+- **What it costs.** The server keeps nothing for a cookie it hands out until
+  a request brings it back, so clients that don't keep cookies cost nothing:
+  they use the pool as before.
+- **When a session starts.** It begins with the client's *second* request,
+  the first one carrying the cookie. Make a cheap call first (for example
+  `GetSqlInfo`) if the very first statement is a `SET`.
+- **Session options** (`SetSessionOptions`, `GetSessionOptions`):
+
+  | Option | Effect |
+  |-|-|
+  | `catalog` | Must be `redis` |
+  | `schema` | Sets the current schema (`search_path`); the schema must exist |
+  | `timezone` | Sets the session time zone, as `SET TIME ZONE` does |
+
+  - Erasing an option goes back to its default.
+  - An unknown name gets `INVALID_NAME`, and a bad value `INVALID_VALUE`.
+  - SetSessionOptions starts a session if the request has none.
+- **When a session ends.** `CloseSession` ends it: its connection closes, and
+  its temporary tables are dropped. So does `--session-idle-timeout` (10
+  minutes) without requests; a session made by SetSessionOptions whose cookie
+  never came back closes after 30 seconds. A later request with the old cookie
+  starts a new, empty session.
+- **Ownership.** A session belongs to the Redis user that made it. With
+  `--auth=redis-acl`, another user's request with the same cookie gets a
+  session of its own.
+- **Several servers.** Sessions live in one server's memory. Route a client to
+  the same server each time (sticky sessions on the load balancer).
+- **Turning them off.** `--sessions=false` does so: no cookies, and every
+  request uses the pool.
 
 ## Datasets
 
@@ -237,6 +284,8 @@ Every flag can also be set with the environment variable shown.
 | `-dataset-ttl` | `FLIGHT_DATASET_TTL` | `0` (keep) | Expire uploaded datasets |
 | `-pool-max-idle` | `FLIGHT_POOL_MAX_IDLE` | `8` | Idle ADBC connections kept per Redis user |
 | `-pool-max-open` | `FLIGHT_POOL_MAX_OPEN` | `32` | ADBC connections in use at once per Redis user |
+| `-sessions` | `FLIGHT_SESSIONS` | `true` | [Sessions](#sessions) for clients that keep cookies |
+| `-session-idle-timeout` | `FLIGHT_SESSION_IDLE_TIMEOUT` | `10m` | Close a session after this long without requests |
 | `-max-msg-size` | `FLIGHT_MAX_MSG_SIZE` | 64 MiB | Largest gRPC message accepted |
 | `-adbc-option k=v` (repeatable) | `FLIGHT_ADBC_OPTIONS` (comma-separated) | | [Redis ADBC driver options](https://github.com/alberttwong/redis-adbc-driver#options), such as `adbc.redis.aggregate_pushdown=all`, `adbc.redis.default_schema=sales`, `adbc.redis.cluster=true` |
 | `-log-level` | `FLIGHT_LOG_LEVEL` | `info` | `debug` logs every call |
@@ -256,6 +305,7 @@ Code layout:
 | `server/sqlserver.go`, `server/metadata.go` | Flight SQL on the ADBC driver |
 | `server/datasets.go` | The Arrow IPC dataset store |
 | `server/tenant.go`, `server/pool.go` | Each Redis user's ADBC database, connection pool and go-redis client |
+| `server/session.go` | Sessions: the cookie middleware, each session's connection, and the session options |
 | `server/auth.go` | Redis ACL login and tokens |
 
 Tests:
