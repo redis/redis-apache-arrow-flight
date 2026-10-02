@@ -105,21 +105,64 @@ print([f.descriptor.path for f in client.list_flights(b"features/")])
 list(client.do_action(flight.Action("drop_dataset", b"features/v1")))
 ```
 
+### JDBC (DBeaver and others)
+
+Use the [Arrow Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html)
+(`org.apache.arrow:flight-sql-jdbc-driver`). Tested with 19.0.0 on Java 17 and
+21. The URL is:
+
+```text
+jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
+```
+
+- **Logging in:** with `--auth=redis-acl`, add `&user=<redis user>&password=<…>`
+  to the URL. The driver logs in with the Flight handshake and keeps the bearer
+  token.
+- **TLS:** use `useEncryption=true`, plus `trustStore` or
+  `disableCertificateVerification` as needed.
+- **Sessions:** the driver keeps cookies, so each JDBC connection is a
+  [session](#sessions): `SET`, `search_path` and temporary tables last from one
+  statement to the next.
+- **Java 17 and later:** run the JVM with
+  `--add-opens=java.base/java.nio=ALL-UNNAMED`. In DBeaver, add it to
+  `dbeaver.ini`.
+
+`examples/jdbc/JdbcSmoke.java` checks prepared statements with `?` parameters,
+DatabaseMetaData (catalogs, schemas, tables, columns, table types, keys),
+update counts and the session. CI runs it on every pull request:
+
+```bash
+make jdbc-smoke
+```
+
+That target downloads the jar into `bin/` (checking its SHA-1) and runs the
+smoke test against a server on `localhost:8815`.
+
+Known limits of the JDBC driver (19.0.0):
+- **Statements without a result schema run as updates.** The driver treats a
+  prepared statement that has none as an update, so it gets no rows back. The
+  server leaves the schema out for two kinds of statement:
+  - a script of several statements that changes something, such as
+    `CREATE TABLE x …; SELECT … FROM x`
+  - a statement whose result depends on a parameter of unknown type
+    (`SELECT ?`)
+
+  Run such a query as its own statement.
+- **Untyped parameters accept only `null`.** A parameter whose type can't be
+  inferred from its use is typed NULL.
+
 ### Other clients
 
 - **Go:** `github.com/apache/arrow-go/v18/arrow/flight/flightsql` (`flightsql.NewClient`) for SQL, and
   `flight.NewClientWithMiddleware` for datasets. The integration tests in
   `server/integration_test.go` use both.
-- **JDBC** (DBeaver and others), with the Arrow Flight SQL JDBC driver:
-  `jdbc:arrow-flight-sql://localhost:8815?useEncryption=false`. This hasn't
-  been tested yet.
 
 ## Flight SQL support
 
 | Feature | Support |
 |-|-|
-| Queries (`CommandStatementQuery`), updates (`CommandStatementUpdate`) | Yes |
-| Prepared statements, with parameters | Yes. The handle carries the SQL and the bound values, so the server keeps no state. Clients must use the handle a bind returns (`DoPutPreparedStatementResult`, Flight SQL's stateless prepared statements). arrow-go and the ADBC Flight SQL driver do, and are tested; a client that ignores it loses the bound values. Parameters for a query are limited to 1 MiB |
+| Queries (`CommandStatementQuery`), updates (`CommandStatementUpdate`) | Yes. A statement without a row count (DDL, `SET`) reports 0 rows |
+| Prepared statements, with parameters | Yes. The handle carries the SQL and the bound values, so the server keeps no state. Clients must use the handle a bind returns (`DoPutPreparedStatementResult`, Flight SQL's stateless prepared statements). arrow-go, the ADBC Flight SQL driver and the JDBC driver do, and are tested; a client that ignores it loses the bound values. The parameter schema gives each parameter the type it's used as (a compared column's, an `INSERT` target's, a `CAST`'s, …), as the Redis ADBC driver infers it, or NULL. Parameters for a query are limited to 1 MiB |
 | Bulk ingest (`CommandStatementIngest`) | Yes: create, append, replace, create-or-append, and pass-through options such as `adbc.redis.ingest.index_columns`. Temporary tables (`temporary`, or the `pg_temp` schema) need a [session](#sessions). `adbc.ingest.*` options are refused: set the target and mode with the command's fields |
 | `GetCatalogs`, `GetDbSchemas`, `GetTables` (with schemas), `GetTableTypes`, `GetSqlInfo` | Yes. The catalog is `redis`; schemas are key namespaces (`public` by default) |
 | Primary and foreign keys | Empty results: the driver has no constraints |

@@ -3,7 +3,13 @@ LDFLAGS := -s -w -X github.com/alberttwong/redis-apache-arrow-flight/server.Vers
 REDIS_PORT ?= 6379
 REDIS_URI ?= redis://localhost:$(REDIS_PORT)/0
 
-.PHONY: build test test-integration test-cluster run redis-up redis-cluster-up redis-down docker example clean
+JDBC_VERSION ?= 19.0.0
+JDBC_JAR := bin/flight-sql-jdbc-driver-$(JDBC_VERSION).jar
+JDBC_BASE := https://repo1.maven.org/maven2/org/apache/arrow/flight-sql-jdbc-driver/$(JDBC_VERSION)
+JDBC_URL ?= jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
+JAVA ?= java
+
+.PHONY: build test test-integration test-cluster run redis-up redis-cluster-up redis-down docker example jdbc-smoke clean
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/redis-flight-server ./cmd/redis-flight-server
@@ -37,6 +43,16 @@ docker:
 
 example:
 	uv run examples/python/quickstart.py
+
+# The Arrow Flight SQL JDBC driver, checked against Maven Central's SHA-1.
+$(JDBC_JAR):
+	mkdir -p bin
+	curl -fsSL -o $@ $(JDBC_BASE)/flight-sql-jdbc-driver-$(JDBC_VERSION).jar
+	echo "$$(curl -fsSL $(JDBC_BASE)/flight-sql-jdbc-driver-$(JDBC_VERSION).jar.sha1 | cut -c1-40)  $@" | shasum -a 1 -c - || (rm -f $@; exit 1)
+
+# JDBC smoke test against a running server (make run, in another terminal).
+jdbc-smoke: $(JDBC_JAR)
+	$(JAVA) --add-opens=java.base/java.nio=ALL-UNNAMED -cp $(JDBC_JAR) examples/jdbc/JdbcSmoke.java "$(JDBC_URL)"
 
 clean:
 	rm -rf bin

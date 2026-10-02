@@ -469,3 +469,53 @@ func TestConfigValidation(t *testing.T) {
 		}
 	}
 }
+
+// Each SqlInfo value is in the union member FlightSql.proto gives its type
+// (the JDBC driver reads values as that type).
+func TestSqlInfoTypes(t *testing.T) {
+	cc := newTestServer(t, Config{RedisURI: "redis://127.0.0.1:1/0"}) // SqlInfo needs no Redis
+	c := &flightsql.Client{Client: flight.NewClientFromConn(cc, nil), Alloc: memory.DefaultAllocator}
+	ctx := context.Background()
+	const str, boolean, int32Value = 0, 1, 3 // the union's type codes
+	want := map[flightsql.SqlInfo]arrow.UnionTypeCode{
+		flightsql.SqlInfoFlightSqlServerName: str, flightsql.SqlInfoFlightSqlServerVersion: str,
+		flightsql.SqlInfoFlightSqlServerArrowVersion: str, flightsql.SqlInfoIdentifierQuoteChar: str,
+		flightsql.SqlInfoFlightSqlServerReadOnly: boolean, flightsql.SqlInfoFlightSqlServerSql: boolean,
+		flightsql.SqlInfoFlightSqlServerSubstrait: boolean, flightsql.SqlInfoFlightSqlServerCancel: boolean,
+		flightsql.SqlInfoFlightSqlServerBulkIngestion: boolean, flightsql.SqlInfoFlightSqlServerIngestTransactionsSupported: boolean,
+		flightsql.SqlInfoDDLCatalog: boolean, flightsql.SqlInfoDDLSchema: boolean, flightsql.SqlInfoDDLTable: boolean,
+		flightsql.SqlInfoAllTablesAreASelectable: boolean, flightsql.SqlInfoTransactionsSupported: boolean,
+		flightsql.SqlInfoFlightSqlServerTransaction: int32Value, flightsql.SqlInfoFlightSqlServerStatementTimeout: int32Value,
+		flightsql.SqlInfoFlightSqlServerTransactionTimeout: int32Value, flightsql.SqlInfoNullOrdering: int32Value,
+	}
+	info, err := c.GetSqlInfo(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rdr, err := c.DoGet(ctx, info.Endpoint[0].Ticket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rdr.Release()
+	seen := 0
+	for rdr.Next() {
+		rec := rdr.RecordBatch()
+		names := rec.Column(0).(*array.Uint32)
+		values := rec.Column(1).(*array.DenseUnion)
+		for i := range int(rec.NumRows()) {
+			id := flightsql.SqlInfo(names.Value(i))
+			code, ok := want[id]
+			if !ok {
+				t.Errorf("SqlInfo %v isn't checked", id)
+				continue
+			}
+			seen++
+			if got := values.TypeCode(i); got != code {
+				t.Errorf("SqlInfo %v is union member %d, want %d", id, got, code)
+			}
+		}
+	}
+	if seen != len(want) {
+		t.Errorf("got %d SqlInfo values, want %d", seen, len(want))
+	}
+}

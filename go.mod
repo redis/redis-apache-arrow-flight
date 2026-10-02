@@ -3,7 +3,7 @@ module github.com/alberttwong/redis-apache-arrow-flight
 go 1.26.6
 
 require (
-	github.com/adbc-drivers/redis/go v0.0.0-20261002155737-0522977ecbee
+	github.com/adbc-drivers/redis/go v0.0.0-20261002211440-a6ec8de0b4bf
 	github.com/apache/arrow-adbc/go/adbc v1.12.0
 	github.com/apache/arrow-go/v18 v18.8.0
 	github.com/redis/go-redis/v9 v9.22.0
@@ -49,4 +49,4 @@ require (
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 
-replace github.com/adbc-drivers/redis/go => github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261002155737-0522977ecbee
+replace github.com/adbc-drivers/redis/go => github.com/alberttwong/redis-adbc-driver-arrow-ipc/go v0.0.0-20261002211440-a6ec8de0b4bf

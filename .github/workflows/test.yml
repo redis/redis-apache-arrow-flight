@@ -68,6 +68,18 @@ jobs:
           done
           uv run examples/python/quickstart.py
 
+      # The Arrow Flight SQL JDBC driver (DBeaver's) against the same server.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/cache@v6
+        with:
+          path: bin/flight-sql-jdbc-driver-19.0.0.jar
+          key: flight-sql-jdbc-driver-19.0.0
+      - name: JDBC smoke test
+        run: make jdbc-smoke
+
       - name: Server logs
         if: failure()
         run: docker compose logs flight
