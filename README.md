@@ -316,9 +316,15 @@ jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
   `disableCertificateVerification` as needed.
 - **Sessions:** the driver keeps cookies, so each JDBC connection is a
   [session](#sessions): `SET`, `search_path` and temporary tables last from one
-  statement to the next. Query results in a session are built whole before
-  they are sent, so JDBC doesn't get [streamed](#flight-sql-support)
-  results yet.
+  statement to the next. Plain scans [stream](#flight-sql-support) from Redis
+  in a session too, so a `SELECT *` of a large table (DBeaver's data tab)
+  isn't held in the server's memory, and the connection runs other
+  statements while a `ResultSet` is read. A connection that has made a
+  temporary table reads its results whole.
+- **Browsing a large result:** a `ResultSet` left unread for longer than
+  `--stream-stall-timeout` (2 minutes) fails on its next fetch. DBeaver
+  fetches a page at a time as you scroll, so raise the timeout if people
+  leave results open.
 - **Java 17 and later:** run the JVM with
   `--add-opens=java.base/java.nio=ALL-UNNAMED`.
 - **Java 23 and later:** also add `--sun-misc-unsafe-memory-access=allow`.
@@ -336,7 +342,8 @@ jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
 
 `examples/jdbc/JdbcSmoke.java` checks prepared statements with `?` parameters,
 DatabaseMetaData (catalogs, schemas, tables, columns, table types, keys),
-update counts and the session. CI runs it on Java 17, 21 and 25 on every pull
+update counts and the session, including a 100,000-row result read while the
+connection runs other statements. CI runs it on Java 17, 21 and 25 on every pull
 request:
 
 ```bash
@@ -409,7 +416,7 @@ How statements run:
     the user's other requests have a connection (with a pool of 1, nothing
     streams). With `--auth=none`, every client is the same user. Queries
     beyond that are read whole (see below), as are queries in a
-    [session](#sessions).
+    [session](#sessions) that has made temporary tables or views.
   - A streaming result also keeps a cursor open on its table's index.
     RediSearch allows an index `search-index-cursor-limit` open cursors
     (128 by default), and the driver reads every query through one, so at
@@ -485,10 +492,26 @@ request.
 - **Ownership.** A session belongs to the Redis user that made it. With
   `--auth=redis-acl`, another user's request with the same cookie gets a
   session of its own.
-- **Results are read whole.** A query result in a session is built in
-  memory before it is sent, not [streamed](#flight-sql-support) from Redis.
-  A streaming result would keep the session's connection busy until read, and
-  clients such as JDBC run other statements while they read a result.
+- **Plain scans stream.** A query that [streams](#flight-sql-support) from
+  Redis outside a session does in a session too, on a pooled connection, so
+  the session's own stays free for its other statements (clients such as
+  JDBC run some while they read a result):
+  - The pooled connection gets the session's current schema (`search_path`)
+    and time zone, as they are when the query starts (`SET LOCAL`
+    included): a `SET` while the result is read doesn't change it. Of the
+    `SET` parameters, only these two change what a scan returns. The
+    connection's own are put back before the pool reuses it.
+  - It sees the session's writes, since every statement commits as it runs.
+  - The session's streams count against `--max-streams` and
+    `--max-table-streams` like any; past them, results are read whole within
+    `--result-memory`.
+  - A session isn't closed as idle while one of its results streams.
+  - Once the session has made a temporary table or view (or ingested a
+    temporary table), its results are read whole on its own connection
+    until the session ends: temporary objects hide other tables' names,
+    and only that connection sees them.
+  - Other queries (aggregates, joins, `SHOW`, …) run on the session's
+    connection, built whole as outside a session.
 - **Several servers.** Sessions live in one server's memory. Route a client to
   the same server each time (sticky sessions on the load balancer).
 - **Turning them off.** `--sessions=false` does so: no cookies, and every

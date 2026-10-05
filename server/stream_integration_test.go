@@ -99,14 +99,20 @@ func readIDs(rdr *flight.Reader) ([]int64, error) {
 	return ids, rdr.Err()
 }
 
-// cursors returns the number of open cursors on a table's index, or -1 on
-// a cluster, whose coordinator FT.INFO doesn't count.
+// cursors returns the number of open cursors on a public table's index,
+// or -1 on a cluster, whose coordinator FT.INFO doesn't count.
 func cursors(t *testing.T, admin goredis.UniversalClient, table string) int64 {
+	t.Helper()
+	return schemaCursors(t, admin, "public", table)
+}
+
+// schemaCursors is cursors for a table in schema.
+func schemaCursors(t *testing.T, admin goredis.UniversalClient, schema, table string) int64 {
 	t.Helper()
 	if _, ok := admin.(*goredis.ClusterClient); ok {
 		return -1
 	}
-	reply, err := admin.Do(context.Background(), "FT.INFO", "idx:public:"+table).Result()
+	reply, err := admin.Do(context.Background(), "FT.INFO", "idx:"+schema+":"+table).Result()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,8 +128,14 @@ func cursors(t *testing.T, admin goredis.UniversalClient, table string) int64 {
 // standalone Redis; on a cluster it can't tell).
 func waitCursors(t *testing.T, admin goredis.UniversalClient, table string, n int64) {
 	t.Helper()
+	waitSchemaCursors(t, admin, "public", table, n)
+}
+
+// waitSchemaCursors is waitCursors for a table in schema.
+func waitSchemaCursors(t *testing.T, admin goredis.UniversalClient, schema, table string, n int64) {
+	t.Helper()
 	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(20 * time.Millisecond) {
-		got := cursors(t, admin, table)
+		got := schemaCursors(t, admin, schema, table)
 		if got == -1 || got == n {
 			return
 		}
@@ -500,7 +512,7 @@ func TestIntegrationStreamResults(t *testing.T) {
 		waitStreamFree(t, c, admin, wide)
 	})
 
-	t.Run("in a session, results are read whole", func(t *testing.T) {
+	t.Run("in a session, a plain scan streams on a pooled connection", func(t *testing.T) {
 		c := cookieClient(t, startTestServer(t, streamConfig(uri)))
 		ctx := context.Background()
 		query(t, ctx, c, "SELECT 1") // the session starts with the next request
@@ -509,13 +521,223 @@ func TestIntegrationStreamResults(t *testing.T) {
 			t.Fatal(rdr.Err())
 		}
 		first := int(rdr.RecordBatch().NumRows())
-		if n := cursors(t, admin, table); n > 0 {
-			t.Errorf("%d cursors are open for a session's result", n)
+		if n := cursors(t, admin, table); n == 0 {
+			t.Error("no cursor is open for a session's scan: it didn't stream")
 		}
-		// The session's connection is free for its next statement.
+		// The session's connection is free for its next statements.
+		wantRows(t, query(t, ctx, c, "SELECT 2"), "2")
+		update(t, ctx, c, "SET TIME ZONE 'Asia/Tokyo'")
+		if ids, err := readIDs(rdr); err != nil || first+len(ids) != streamRows {
+			t.Errorf("%d rows, %v", first+len(ids), err)
+		}
+		waitCursors(t, admin, table, 0)
+		wantRows(t, query(t, ctx, c, "SHOW TimeZone"), "Asia/Tokyo")
+
+		// A prepared statement's too (JDBC runs every query as one).
+		ps, err := c.Prepare(ctx, scan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer ps.Close(ctx)
+		info, err := ps.Execute(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		prdr, err := c.DoGet(ctx, info.Endpoint[0].Ticket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer prdr.Release()
+		if !prdr.Next() {
+			t.Fatal(prdr.Err())
+		}
+		if n := cursors(t, admin, table); n == 0 {
+			t.Error("no cursor is open for a session's prepared scan: it didn't stream")
+		}
+		pfirst := int(prdr.RecordBatch().NumRows())
+		if ids, err := readIDs(prdr); err != nil || pfirst+len(ids) != streamRows {
+			t.Errorf("prepared scan: %d rows, %v", pfirst+len(ids), err)
+		}
+	})
+
+	t.Run("a session's stream has its search_path and time zone, and leaves the pool's", func(t *testing.T) {
+		schema := uniqueName("it_flight_ss")
+		update(t, context.Background(), setup, "CREATE SCHEMA "+schema)
+		t.Cleanup(func() {
+			_, _ = setup.ExecuteUpdate(context.Background(), "DROP TABLE IF EXISTS "+schema+".scanned")
+			_, _ = setup.ExecuteUpdate(context.Background(), "DROP SCHEMA IF EXISTS "+schema)
+		})
+		update(t, context.Background(), setup, "CREATE TABLE "+schema+".scanned AS SELECT id FROM "+table)
+
+		cfg := streamConfig(uri)
+		cfg.PoolMaxIdle = 1 // the scan's connection is the next request's
+		lis := startTestServer(t, cfg)
+		c, pool := cookieClient(t, lis), plainClient(t, lis)
+		ctx := context.Background()
+		poolZone, poolPath := query(t, ctx, pool, "SHOW TimeZone"), query(t, ctx, pool, "SHOW search_path")
+		query(t, ctx, c, "SELECT 1")
+		update(t, ctx, c, "SET search_path TO "+schema)
+		update(t, ctx, c, "SET TIME ZONE 'Asia/Tokyo'")
+		const ts = "CAST(TIMESTAMPTZ '2024-01-01 00:00:00+00' AS TEXT)"
+		want := query(t, ctx, c, "SELECT "+ts)
+		if len(want) != 1 || !strings.Contains(want[0], "09:00:00") {
+			t.Fatalf("in Asia/Tokyo, %s = %q", ts, want)
+		}
+
+		rdr := openRead(t, ctx, c, "SELECT id, "+ts+" AS ts FROM scanned") // unqualified: the session's schema
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		if n := schemaCursors(t, admin, schema, "scanned"); n == 0 {
+			t.Error("no cursor is open on the session's schema's table: the scan didn't stream")
+		}
+		// Settings changed while it streams don't change it.
+		update(t, ctx, c, "SET TIME ZONE 'UTC'")
+		update(t, ctx, c, "SET search_path TO public")
+		rows := 0
+		for ok := true; ok; ok = rdr.Next() {
+			rec := rdr.RecordBatch()
+			col := rec.Column(1).(*array.String)
+			for i := range col.Len() {
+				if col.Value(i) != want[0] {
+					t.Fatalf("row %d: ts = %q, want %q", rows+i, col.Value(i), want[0])
+				}
+			}
+			rows += int(rec.NumRows())
+		}
+		if err := rdr.Err(); err != nil || rows != streamRows {
+			t.Fatalf("%d rows, %v", rows, err)
+		}
+		waitSchemaCursors(t, admin, schema, "scanned", 0)
+		// The pooled connection is back as it was.
+		for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+			zone, path := query(t, ctx, pool, "SHOW TimeZone"), query(t, ctx, pool, "SHOW search_path")
+			if slices.Equal(zone, poolZone) && slices.Equal(path, poolPath) {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("after the session's scan, the pool's connection has TimeZone %q and search_path %q; want %q, %q",
+					zone, path, poolZone, poolPath)
+			}
+		}
+	})
+
+	t.Run("in a session with temporary objects, results are read on its connection", func(t *testing.T) {
+		shadow := uniqueName("it_flight_shadow")
+		dropTable(t, setup, shadow)
+		ingestRows(t, setup, shadow, streamRows, 0)
+		c := cookieClient(t, startTestServer(t, streamConfig(uri)))
+		ctx := context.Background()
+		query(t, ctx, c, "SELECT 1")
+		rdr := openRead(t, ctx, c, "SELECT id FROM "+shadow)
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		if n := cursors(t, admin, shadow); n == 0 {
+			t.Error("before the temporary table, the scan didn't stream")
+		}
+		if _, err := readIDs(rdr); err != nil {
+			t.Fatal(err)
+		}
+
+		// A temporary table of the same name hides the permanent one.
+		update(t, ctx, c, "CREATE TEMP TABLE "+shadow+" AS SELECT 7 AS id")
+		wantRows(t, query(t, ctx, c, "SELECT id FROM "+shadow), "7")
+		rdr = openRead(t, ctx, c, scan)
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		first := int(rdr.RecordBatch().NumRows())
+		if n := cursors(t, admin, table); n > 0 {
+			t.Errorf("%d cursors are open for the result of a session with a temporary table", n)
+		}
 		wantRows(t, query(t, ctx, c, "SELECT 2"), "2")
 		if ids, err := readIDs(rdr); err != nil || first+len(ids) != streamRows {
 			t.Errorf("%d rows, %v", first+len(ids), err)
 		}
+
+		// So does a temporary ingest.
+		c2 := cookieClient(t, startTestServer(t, streamConfig(uri)))
+		query(t, ctx, c2, "SELECT 1")
+		schema := arrow.NewSchema([]arrow.Field{{Name: "id", Type: arrow.PrimitiveTypes.Int64}}, nil)
+		b := array.NewInt64Builder(memory.DefaultAllocator)
+		b.Append(1)
+		arr := b.NewArray()
+		b.Release()
+		rec := array.NewRecordBatch(schema, []arrow.Array{arr}, 1)
+		arr.Release()
+		in, err := array.NewRecordReader(schema, []arrow.RecordBatch{rec})
+		rec.Release()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer in.Release()
+		if _, err := c2.ExecuteIngest(ctx, in, &flightsql.ExecuteIngestOpts{Table: "it_flight_tmp_ingest", Temporary: true,
+			TableDefinitionOptions: &flightsql.TableDefinitionOptions{
+				IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+				IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionFail,
+			}}); err != nil {
+			t.Fatal(err)
+		}
+		rdr = openRead(t, ctx, c2, scan)
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		if n := cursors(t, admin, table); n > 0 {
+			t.Errorf("%d cursors are open for the result of a session with a temporary ingest", n)
+		}
+		if _, err := readIDs(rdr); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("in a session, beyond MaxStreams, results are read whole", func(t *testing.T) {
+		cfg := streamConfig(uri)
+		cfg.PoolMaxOpen = 2 // one stream token
+		c := cookieClient(t, startTestServer(t, cfg))
+		ctx := context.Background()
+		query(t, ctx, c, "SELECT 1")
+		first := openRead(t, ctx, c, scan)
+		if !first.Next() {
+			t.Fatal(first.Err())
+		}
+		before := cursors(t, admin, table)
+		second := openRead(t, ctx, c, scan)
+		if !second.Next() {
+			t.Fatal(second.Err())
+		}
+		if n := cursors(t, admin, table); n != before {
+			t.Errorf("past MaxStreams, a session's scan opened a cursor (%d, then %d)", before, n)
+		}
+		for _, rdr := range []*flight.Reader{first, second} {
+			n := int(rdr.RecordBatch().NumRows())
+			if ids, err := readIDs(rdr); err != nil || n+len(ids) != streamRows {
+				t.Errorf("%d rows, %v", n+len(ids), err)
+			}
+		}
+	})
+
+	t.Run("a session isn't closed as idle while its result streams", func(t *testing.T) {
+		wide := uniqueName("it_flight_wide")
+		dropTable(t, setup, wide)
+		// Wider than gRPC buffers, so the stream is still reading.
+		ingestRows(t, setup, wide, streamRows, 200)
+		cfg := streamConfig(uri)
+		cfg.SessionIdleTimeout = 200 * time.Millisecond
+		c := cookieClient(t, startTestServer(t, cfg))
+		ctx := context.Background()
+		query(t, ctx, c, "SELECT 1")
+		update(t, ctx, c, "SET TIME ZONE 'Asia/Tokyo'")
+		rdr := openRead(t, ctx, c, "SELECT id, label FROM "+wide)
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		time.Sleep(700 * time.Millisecond)
+		n := int(rdr.RecordBatch().NumRows())
+		if ids, err := readIDs(rdr); err != nil || n+len(ids) != streamRows {
+			t.Fatalf("%d rows, %v", n+len(ids), err)
+		}
+		// Still the same session.
+		wantRows(t, query(t, ctx, c, "SHOW TimeZone"), "Asia/Tokyo")
 	})
 }

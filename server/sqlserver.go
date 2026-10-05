@@ -391,13 +391,32 @@ func streamTable(sql, defaultSchema string) (streamSource, bool) {
 }
 
 // streamable returns the table a query's result would stream from (see
-// streamTable), or false for a query the driver won't stream, or in a
-// session, whose connection serves its other requests too.
-func (s *sqlServer) streamable(ctx context.Context, sql string) (streamSource, bool) {
-	if sessionFrom(ctx) != nil {
-		return streamSource{}, false
+// streamTable), or false for a query the driver won't stream.
+//
+// In a session, the result streams on a pooled connection, since the
+// session's own serves its other requests meanwhile: streamable also
+// returns the session's settings to stream with, and resolves the table in
+// the session's schema. It returns false for a session that may have
+// temporary objects, which only its own connection sees (its results are
+// read whole there).
+func (s *sqlServer) streamable(ctx context.Context, t *tenant, sql string) (streamSource, *scanSettings, bool, error) {
+	sess := sessionFrom(ctx)
+	if sess == nil {
+		src, ok := streamTable(sql, s.defaultSchema)
+		return src, nil, ok, nil
 	}
-	return streamTable(sql, s.defaultSchema)
+	if _, ok := streamTable(sql, s.defaultSchema); !ok {
+		return streamSource{}, nil, false, nil
+	}
+	ss, err := sess.scanSettings(ctx, t)
+	if err != nil || ss == nil {
+		return streamSource{}, nil, false, err
+	}
+	src, _ := streamTable(sql, ss.want["schema"])
+	if isTempSchemaName(src.schema) {
+		return streamSource{}, nil, false, nil
+	}
+	return src, ss, true, nil
 }
 
 // takeStream takes what a result streaming from src holds besides its
@@ -432,49 +451,61 @@ func (s *sqlServer) endStream(t *tenant, table string) {
 // result keeps its pooled connection, its statement, and one of the user's
 // and the table's streams (see takeStream) until it has been sent, or the
 // client has gone. Any other result is whole in memory, so its connection
-// goes back at once. In a session, results are read whole; with no stream
-// free, they are read whole within ResultMemory (see bufferQuery).
+// goes back at once. With no stream free, a result that could stream is
+// read whole within ResultMemory (see bufferQuery).
+//
+// In a session, a scan streams on a pooled connection with the session's
+// settings (see streamable), and keeps the session from being closed as
+// idle until it has been sent. Other results are read on the session's
+// connection.
 func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	t, done, err := s.tenants.acquire(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	src, ok := s.streamable(ctx, h.Query)
-	if ok && !s.takeStream(ctx, t, src) {
+	src, ss, ok, err := s.streamable(ctx, t, h.Query)
+	if err != nil {
+		done()
+		return nil, nil, toStatus(err)
+	}
+	if !ok {
+		defer done()
+		return s.wholeQuery(ctx, t, h)
+	}
+	if !s.takeStream(ctx, t, src) {
 		defer done()
 		return s.bufferQuery(ctx, t, h)
 	}
 	table := src.key()
-	if !ok {
-		defer done()
-		var rdr array.RecordReader
-		err = t.withConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) error {
-			stmt, err := s.newStatement(ctx, conn, h, false)
-			if err != nil {
-				return err
-			}
-			defer stmt.Close(ctx)
-			rdr, _, err = stmt.ExecuteQuery(ctx)
-			return err
-		})
-		if err != nil {
-			return nil, nil, toStatus(err)
-		}
-		return rdr.Schema(), streamRecords(ctx, rdr, nil), nil
+	sess := sessionFrom(ctx)
+	if sess != nil {
+		// Not idle while its result starts, or streams.
+		sess.store.begin(sess)
 	}
-
 	live := false
 	defer func() {
 		if !live {
 			s.endStream(t, table)
+			if sess != nil {
+				sess.store.end(sess)
+			}
 			done()
 		}
 	}()
 	var (
 		rdr  array.RecordReader
 		stmt adbc.StatementWithContext
+		undo func(adbc.ConnectionWithContext) error
 	)
-	release, err := t.leaseConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) (bool, error) {
+	if ss != nil {
+		undo = func(conn adbc.ConnectionWithContext) error { return ss.undo(ctx, conn) }
+	}
+	release, err := t.leaseConn(ctx, h.Query, undo, func(conn adbc.ConnectionWithContext) (bool, error) {
+		if ss != nil {
+			if err := ss.apply(ctx, conn); err != nil {
+				return false, err
+			}
+		}
 		var err error
 		if stmt, err = s.newStatement(ctx, conn, h, true); err != nil {
 			return false, err
@@ -489,6 +520,11 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 		}
 		return true, nil
 	})
+	var se settingsError
+	if errors.As(err, &se) {
+		s.tenants.cfg.Logger.Debug("reading the result on the session's connection", "error", err)
+		return s.wholeQuery(ctx, t, h)
+	}
 	if err != nil {
 		return nil, nil, toStatus(err)
 	}
@@ -502,9 +538,31 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 			_ = stmt.Close(context.WithoutCancel(ctx))
 			release(err)
 			s.endStream(t, table)
+			if sess != nil {
+				sess.store.end(sess)
+			}
 			done()
 		},
 	}), nil
+}
+
+// wholeQuery runs h on a pooled connection, or the session's, and reads
+// its result whole (the driver doesn't stream it).
+func (s *sqlServer) wholeQuery(ctx context.Context, t *tenant, h statementHandle) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	var rdr array.RecordReader
+	err := t.withConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) error {
+		stmt, err := s.newStatement(ctx, conn, h, false)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close(ctx)
+		rdr, _, err = stmt.ExecuteQuery(ctx)
+		return err
+	})
+	if err != nil {
+		return nil, nil, toStatus(err)
+	}
+	return rdr.Schema(), streamRecords(ctx, rdr, nil), nil
 }
 
 // errResultMemory refuses a result read whole for want of a stream that
@@ -890,6 +948,9 @@ func (s *sqlServer) DoPutCommandStatementIngest(ctx context.Context, cmd flights
 	defer done()
 	var n int64
 	err = t.withConn(ctx, "", func(conn adbc.ConnectionWithContext) error {
+		if temporary {
+			markTemp(ctx)
+		}
 		if mustExist {
 			var catalog, dbSchema *string
 			if c := cmd.GetCatalog(); c != "" {

@@ -20,6 +20,10 @@ import java.util.Set;
  *   examples/jdbc/JdbcSmoke.java "jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false"
  * </pre>
  *
+ * Besides prepared statements, metadata and updates, it checks the
+ * connection's session: a large result streams while the connection runs
+ * other statements, and SET and temporary tables last.
+ *
  * It exits with status 1 if a check fails.
  */
 public class JdbcSmoke {
@@ -130,6 +134,10 @@ public class JdbcSmoke {
         }
         check(md.nullsAreSortedAtEnd(), "SqlInfo: NULLs sort at the end");
 
+        // Before the temporary table below: in a session that has one,
+        // results are read whole on its connection.
+        streamInSession(c, t);
+
         // The connection's session: SET and temporary tables last.
         try (Statement st = c.createStatement()) {
             st.execute("CREATE TEMP TABLE " + t + "_tmp AS SELECT 7 AS a");
@@ -143,5 +151,57 @@ public class JdbcSmoke {
         }
         c.setCatalog("redis"); // SetSessionOptions
         check(true, "setCatalog(\"redis\")");
+    }
+
+    /**
+     * A large result streams in the connection's session too: while it is
+     * read, the connection runs other statements, and the result keeps the
+     * session's schema and time zone as of the query.
+     */
+    private static void streamInSession(Connection c, String t) throws Exception {
+        String schema = t + "_s";
+        String ts = "CAST(TIMESTAMPTZ '2024-01-01 00:00:00+00' AS TEXT)";
+        try (Statement st = c.createStatement()) {
+            st.execute("CREATE SCHEMA " + schema);
+            try {
+                st.execute("SET search_path TO " + schema);
+                st.execute("SET TIME ZONE 'Asia/Tokyo'");
+                // More rows than the driver's stream batches (65,536).
+                st.execute("CREATE TABLE big AS SELECT x AS id FROM generate_series(0, 99999) AS g(x)");
+                String want;
+                try (ResultSet rs = st.executeQuery("SELECT " + ts)) {
+                    rs.next();
+                    want = rs.getString(1);
+                }
+                long n = 0, sum = 0;
+                boolean zones = true;
+                try (Statement big = c.createStatement();
+                        ResultSet rs = big.executeQuery("SELECT id, " + ts + " FROM big")) {
+                    while (rs.next()) {
+                        if (n == 0) {
+                            st.execute("SET TIME ZONE 'UTC'");
+                            try (ResultSet r = st.executeQuery("SELECT COUNT(*) FROM big")) {
+                                eq(r.next() ? r.getLong(1) : -1, 100000L, "COUNT(*) while a large result is read");
+                            }
+                            st.execute("SET search_path TO public");
+                            try (ResultSet r = st.executeQuery("SHOW TimeZone")) {
+                                eq(r.next() ? r.getString(1) : null, "UTC", "SET while a large result is read");
+                            }
+                        }
+                        n++;
+                        sum += rs.getLong(1);
+                        zones &= want.equals(rs.getString(2));
+                    }
+                }
+                eq(n, 100000L, "rows of a large result in the session");
+                eq(sum, 4999950000L, "sum of its ids");
+                check(zones, "its rows have the session's time zone as of the query (" + want + ")");
+            } finally {
+                st.execute("DROP TABLE IF EXISTS " + schema + ".big");
+                st.execute("DROP SCHEMA IF EXISTS " + schema);
+                st.execute("SET search_path TO public");
+                st.execute("RESET TIME ZONE");
+            }
+        }
     }
 }

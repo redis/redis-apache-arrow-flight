@@ -97,6 +97,29 @@ func TestChangesSession(t *testing.T) {
 	}
 }
 
+func TestCreatesTemp(t *testing.T) {
+	for sql, want := range map[string]bool{
+		"CREATE TEMP TABLE t (a INTEGER)":           true,
+		"CREATE TEMPORARY VIEW v AS SELECT 1 AS a":  true,
+		"CREATE TEMP TABLE t AS SELECT 1 AS a":      true,
+		"CREATE TABLE pg_temp.t (a INTEGER)":        true,
+		"CREATE VIEW PG_TEMP.v AS SELECT 1 AS a":    true,
+		"SELECT 1; CREATE TEMP TABLE x (a INTEGER)": true,
+		"SET search_path = other":                   false,
+		"BEGIN":                                     false,
+		"SELECT * FROM pg_temp.t":                   false,
+		"CREATE TABLE public.t (a INTEGER)":         false,
+		"CREATE TABLE pg_temp_x.t (a INTEGER)":      false,
+		"CREATE VIEW v AS SELECT * FROM pg_temp.t":  false,
+		"this is not SQL":                           false,
+		"":                                          false,
+	} {
+		if got := createsTemp(sql); got != want {
+			t.Errorf("createsTemp(%q) = %v, want %v", sql, got, want)
+		}
+	}
+}
+
 func TestStreamTokens(t *testing.T) {
 	for _, tc := range []struct{ maxStreams, poolMaxOpen, want int }{
 		{8, 32, 8},
@@ -120,6 +143,10 @@ func TestStreamTable(t *testing.T) {
 		"SELECT id FROM Sales.Orders LIMIT 10":           {"Sales", "Orders"},
 		`SELECT id FROM "Mixed"`:                         {"public", "Mixed"},
 		"SELECT o.id FROM t AS o WHERE o.id = $1":        {"public", "t"},
+		// Uncorrelated subqueries stream too, so in a session with
+		// temporary objects (which could be in the subquery) nothing
+		// streams on a pooled connection.
+		"SELECT id FROM t WHERE id IN (SELECT a FROM u)": {"public", "t"},
 		// The driver doesn't stream these.
 		"SELECT 1":                                  {},
 		"SELECT * FROM a JOIN b ON a.id = b.id":     {},
@@ -368,6 +395,81 @@ func TestWithConnReleasesOnPanic(t *testing.T) {
 	defer cancel()
 	if err := tn.withConn(ctx, "SELECT 1", func(adbc.ConnectionWithContext) error { return nil }); err != nil {
 		t.Errorf("withConn after a panic: %v", err)
+	}
+}
+
+// leaseConn undoes what it changed on a connection before the pool reuses
+// it, and closes one it can't undo.
+func TestLeaseConnUndo(t *testing.T) {
+	ctx := context.Background()
+	db := &fakeDB{}
+	tn := &tenant{pool: newConnPool(db, 1, 2)}
+	undos := 0
+	undo := func(err error) func(adbc.ConnectionWithContext) error {
+		return func(adbc.ConnectionWithContext) error { undos++; return err }
+	}
+	lease := func(u func(adbc.ConnectionWithContext) error, keep bool, err error) func(error) {
+		release, _ := tn.leaseConn(ctx, "SELECT * FROM t", u, func(adbc.ConnectionWithContext) (bool, error) { return keep, err })
+		return release
+	}
+
+	lease(undo(nil), false, nil)
+	if undos != 1 || db.conns[0].closed {
+		t.Fatalf("undone: %d undos, closed %v; want 1, kept", undos, db.conns[0].closed)
+	}
+	lease(undo(errors.New("RESET failed")), false, nil) // the same connection, from the pool
+	if len(db.conns) != 1 || undos != 2 || !db.conns[0].closed {
+		t.Fatalf("a failed undo: %d conns, %d undos, closed %v; want 1, 2, closed", len(db.conns), undos, db.conns[0].closed)
+	}
+	lease(undo(nil), false, errors.New("i/o timeout"))
+	if undos != 2 || !db.conns[1].closed {
+		t.Fatalf("a broken connection: %d undos, closed %v; want no undo, closed", undos, db.conns[1].closed)
+	}
+	release := lease(undo(nil), true, nil)
+	if undos != 2 {
+		t.Fatal("a kept connection was undone before its release")
+	}
+	release(nil)
+	release(nil)
+	if undos != 3 || db.conns[2].closed {
+		t.Fatalf("released twice: %d undos, closed %v; want 3, kept", undos, db.conns[2].closed)
+	}
+}
+
+// A session is marked as having temporary objects by a statement that may
+// make one, until its connection closes.
+func TestSessionTempFlag(t *testing.T) {
+	db := &fakeDB{}
+	tn := &tenant{db: db}
+	tc := &tenantCache{cfg: &Config{Auth: AuthNone}, tenants: map[string]*tenant{identity{}.key(): tn},
+		creating: map[string]chan struct{}{}}
+	st := &sessionStore{tenants: tc, log: testLogger(t), sessions: map[string]*session{}}
+	sess := st.get(strings.Repeat("a", 32), identity{}.key(), true)
+	ctx := context.WithValue(context.Background(), sessionCtxKey{}, &sessionInfo{store: st, sess: sess})
+	run := func(sql string, err error) {
+		_ = tn.withConn(ctx, sql, func(adbc.ConnectionWithContext) error { return err })
+	}
+
+	run("SELECT 1", nil)
+	if sess.temp {
+		t.Fatal("marked by SELECT 1")
+	}
+	run("CREATE TEMP TABLE x (a INTEGER)", nil)
+	run("SELECT 1", nil)
+	if !sess.temp {
+		t.Fatal("not marked after CREATE TEMP TABLE")
+	}
+	if ss, err := sess.scanSettings(ctx, tn); ss != nil || err != nil {
+		t.Errorf("scanSettings with temporary objects = %v, %v; want nil (read on the session's connection)", ss, err)
+	}
+	run("SELECT 1", errors.New("i/o timeout")) // closes the connection, and its temporary objects
+	if sess.temp || !db.conns[0].closed {
+		t.Fatalf("after the connection closed: temp %v, closed %v", sess.temp, db.conns[0].closed)
+	}
+	// Marked before it runs: a script that fails part way may have made one.
+	run("CREATE TABLE pg_temp.y (a INTEGER)", adbc.Error{Code: adbc.StatusAlreadyExists})
+	if !sess.temp {
+		t.Error("not marked by a CREATE TABLE pg_temp.y that failed")
 	}
 }
 
