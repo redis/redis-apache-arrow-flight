@@ -103,6 +103,8 @@ func run() error {
 		"Flight SQL sessions: a client that keeps the session cookie gets its own connection, so SET and temporary tables last (env FLIGHT_SESSIONS)")
 	dur(&cfg.SessionIdleTimeout, "session-idle-timeout", "FLIGHT_SESSION_IDLE_TIMEOUT", 10*time.Minute, "close a session after this long without requests")
 	num(&cfg.MaxMsgSize, "max-msg-size", "FLIGHT_MAX_MSG_SIZE", 64<<20, "largest gRPC message accepted, in bytes")
+	dur(&cfg.ShutdownTimeout, "shutdown-timeout", "FLIGHT_SHUTDOWN_TIMEOUT", 25*time.Second,
+		"on SIGTERM or SIGINT, let running calls finish for this long, then cancel them")
 	str(&logLevel, "log-level", "FLIGHT_LOG_LEVEL", "info", "debug, info, warn or error")
 	fs.Var(adbcOpts, "adbc-option", "Redis ADBC driver database option key=value, repeatable (env FLIGHT_ADBC_OPTIONS, comma-separated)")
 	fs.BoolVar(&version, "version", false, "print the version and exit")
@@ -150,12 +152,25 @@ func run() error {
 	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		s := <-sigs
-		cfg.Logger.Info("shutting down", "signal", s.String())
+	served := make(chan error, 1)
+	go func() { served <- srv.ListenAndServe() }()
+	select {
+	case err := <-served:
 		srv.Shutdown()
-	}()
-	return srv.ListenAndServe()
+		return err
+	case s := <-sigs:
+		// A second signal exits at once.
+		signal.Stop(sigs)
+		cfg.Logger.Info("shutting down", "signal", s.String(), "timeout", cfg.ShutdownTimeout)
+	}
+	// Serve returns before Shutdown has closed the sessions (and their
+	// temporary tables) and the Redis connections: exit once it is done.
+	srv.Shutdown()
+	if err := <-served; err != nil {
+		return err
+	}
+	cfg.Logger.Info("shut down")
+	return nil
 }
 
 func envOr(key, def string) string {

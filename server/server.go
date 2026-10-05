@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/flight"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
 
@@ -23,7 +25,8 @@ type Server struct {
 	log      *slog.Logger
 	tenants  *tenantCache
 	sessions *sessionStore // nil when sessions are off
-	flight   flight.Server
+	grpc     *grpc.Server
+	shutdown sync.Once
 }
 
 // New makes a Server from cfg. It connects to Redis only when requests
@@ -51,7 +54,16 @@ func New(cfg Config) (*Server, error) {
 		middleware = append(middleware, flight.CreateServerBasicAuthMiddleware(v))
 	}
 
-	opts := []grpc.ServerOption{grpc.MaxRecvMsgSize(cfg.MaxMsgSize)}
+	opts := []grpc.ServerOption{
+		grpc.MaxRecvMsgSize(cfg.MaxMsgSize),
+		// So Shutdown, once Stop has cancelled the calls still running, waits
+		// for them to give back their connections and cursors.
+		grpc.WaitForHandlers(true),
+		// Ping idle connections, so a client that has vanished doesn't hold
+		// a call (and its connection and cursor) until TCP gives up.
+		grpc.KeepaliveParams(keepalive.ServerParameters{Time: time.Minute, Timeout: 20 * time.Second}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 10 * time.Second, PermitWithoutStream: true}),
+	}
 	if cfg.TLSCertFile != "" {
 		cert, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
 		if err != nil {
@@ -83,20 +95,35 @@ func New(cfg Config) (*Server, error) {
 		ds: &datasets{tenants: tenants, prefix: cfg.KeyPrefix, ttl: cfg.DatasetTTL,
 			endpointBatches: int64(cfg.DatasetEndpointBatches), alloc: cfg.Allocator},
 	}
-	fs := flight.NewServerWithMiddleware(middleware, opts...)
-	fs.RegisterFlightService(r)
-	return &Server{cfg: cfg, log: cfg.Logger, tenants: tenants, sessions: sessions, flight: fs}, nil
+	// The gRPC server is built as flight.NewServerWithMiddleware would, but
+	// kept, so Shutdown can Stop it. (Its interceptors for a
+	// BaseFlightServer auth handler do nothing here: the router has none.)
+	var unary []grpc.UnaryServerInterceptor
+	var stream []grpc.StreamServerInterceptor
+	for _, m := range middleware {
+		if m.Unary != nil {
+			unary = append(unary, m.Unary)
+		}
+		if m.Stream != nil {
+			stream = append(stream, m.Stream)
+		}
+	}
+	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))
+	gs := grpc.NewServer(opts...)
+	flight.RegisterFlightServiceServer(gs, r)
+	return &Server{cfg: cfg, log: cfg.Logger, tenants: tenants, sessions: sessions, grpc: gs}, nil
 }
 
-// Serve serves on lis until Shutdown.
+// Serve serves on lis. Once Shutdown has stopped the gRPC server, Serve
+// returns, before Shutdown has closed the sessions and the Redis
+// connections: wait for Shutdown to return before exiting.
 func (s *Server) Serve(lis net.Listener) error {
-	s.flight.InitListener(lis)
 	s.log.Info("serving Arrow Flight", "addr", lis.Addr().String(), "redis", redactURI(s.cfg.RedisURI),
 		"auth", string(s.cfg.Auth), "tls", s.cfg.TLSCertFile != "", "sessions", !s.cfg.DisableSessions)
-	return s.flight.Serve()
+	return s.grpc.Serve(lis)
 }
 
-// ListenAndServe listens on Config.Listen and serves until Shutdown.
+// ListenAndServe listens on Config.Listen and serves, as Serve does.
 func (s *Server) ListenAndServe() error {
 	lis, err := net.Listen("tcp", s.cfg.Listen)
 	if err != nil {
@@ -105,14 +132,34 @@ func (s *Server) ListenAndServe() error {
 	return s.Serve(lis)
 }
 
-// Shutdown stops accepting calls, waits for running ones, and closes the
-// Redis connections.
+// Shutdown stops accepting calls and lets running ones finish, for up to
+// Config.ShutdownTimeout; then it cancels the rest and waits for them to
+// release what they hold (a streaming result's cursor and connection).
+// Last, it closes the sessions, which drops their temporary tables, and
+// the Redis connections. Later calls wait for the first to finish.
 func (s *Server) Shutdown() {
-	s.flight.Shutdown()
-	if s.sessions != nil {
-		s.sessions.close()
-	}
-	s.tenants.close()
+	s.shutdown.Do(func() {
+		stopped := make(chan struct{})
+		go func() {
+			s.grpc.GracefulStop()
+			close(stopped)
+		}()
+		timer := time.NewTimer(s.cfg.ShutdownTimeout)
+		defer timer.Stop()
+		select {
+		case <-stopped:
+		case <-timer.C:
+			s.log.Warn("calls still running at the shutdown timeout are cancelled", "timeout", s.cfg.ShutdownTimeout)
+			// Stop closes the connections, which cancels the calls' contexts
+			// and ends sends blocked on a client that doesn't read.
+			s.grpc.Stop()
+			<-stopped
+		}
+		if s.sessions != nil {
+			s.sessions.close()
+		}
+		s.tenants.close()
+	})
 }
 
 // redactURI hides a URI's password for logs.

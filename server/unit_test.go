@@ -440,6 +440,13 @@ func newTestServer(t *testing.T, cfg Config) *grpc.ClientConn {
 // startTestServer starts a Server on an in-memory listener.
 func startTestServer(t *testing.T, cfg Config) *bufconn.Listener {
 	t.Helper()
+	_, lis := startServer(t, cfg)
+	return lis
+}
+
+// startServer is startTestServer that also returns the Server.
+func startServer(t *testing.T, cfg Config) (*Server, *bufconn.Listener) {
+	t.Helper()
 	if cfg.Logger == nil {
 		cfg.Logger = testLogger(t)
 	}
@@ -450,7 +457,7 @@ func startTestServer(t *testing.T, cfg Config) *bufconn.Listener {
 	lis := bufconn.Listen(1 << 20)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Shutdown)
-	return lis
+	return srv, lis
 }
 
 func testDialOptions(lis *bufconn.Listener) []grpc.DialOption {
@@ -469,6 +476,57 @@ func dialTestServer(t *testing.T, lis *bufconn.Listener) *grpc.ClientConn {
 	}
 	t.Cleanup(func() { _ = cc.Close() })
 	return cc
+}
+
+func TestShutdownDrainsThenCancels(t *testing.T) {
+	// Nothing here reaches Redis: a DoPut waits for its first message.
+	const timeout = 500 * time.Millisecond
+	srv, lis := startServer(t, Config{RedisURI: "redis://127.0.0.1:1/0", ShutdownTimeout: timeout})
+	client := flight.NewFlightServiceClient(dialTestServer(t, lis))
+	ctx := context.Background()
+	open := func() flight.FlightService_DoPutClient {
+		stream, err := client.DoPut(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return stream
+	}
+	finishing, hung := open(), open()
+	time.Sleep(200 * time.Millisecond) // for both calls to reach the server
+
+	start := time.Now()
+	done := make(chan struct{})
+	go func() {
+		srv.Shutdown()
+		close(done)
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	// A call running at shutdown still finishes.
+	if err := finishing.Send(&flight.FlightData{DataHeader: []byte{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := finishing.Recv(); status.Code(err) != codes.InvalidArgument {
+		t.Errorf("a call that finished during shutdown: err = %v, want its own InvalidArgument", err)
+	}
+	// A new one is refused.
+	if stream, err := client.DoPut(ctx); err == nil {
+		if _, err = stream.Recv(); status.Code(err) != codes.Unavailable {
+			t.Errorf("a call made during shutdown: err = %v, want Unavailable", err)
+		}
+	}
+	// One that doesn't finish is cancelled at the timeout.
+	select {
+	case <-done:
+	case <-time.After(timeout + 5*time.Second):
+		t.Fatal("Shutdown didn't return after its timeout")
+	}
+	if d := time.Since(start); d < timeout {
+		t.Errorf("Shutdown returned after %v, before its timeout, with a call running", d)
+	}
+	if _, err := hung.Recv(); err == nil || status.Code(err) == codes.InvalidArgument {
+		t.Errorf("the call still running at the timeout: err = %v, want it cut off", err)
+	}
 }
 
 func TestDoPutNeedsDescriptor(t *testing.T) {
@@ -543,6 +601,7 @@ func TestConfigValidation(t *testing.T) {
 		{ADBCOptions: map[string]string{"uri": "redis://elsewhere"}},
 		{RedisURI: "http://not-redis"},
 		{MaxTableStreams: -1},
+		{ShutdownTimeout: -time.Second},
 	} {
 		cfg.Logger = testLogger(t)
 		if _, err := New(cfg); err == nil {

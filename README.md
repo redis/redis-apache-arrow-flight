@@ -556,12 +556,30 @@ Every flag can also be set with the environment variable shown.
 | `-sessions` | `FLIGHT_SESSIONS` | `true` | [Sessions](#sessions) for clients that keep cookies |
 | `-session-idle-timeout` | `FLIGHT_SESSION_IDLE_TIMEOUT` | `10m` | Close a session after this long without requests |
 | `-max-msg-size` | `FLIGHT_MAX_MSG_SIZE` | 64 MiB | Largest gRPC message accepted |
+| `-shutdown-timeout` | `FLIGHT_SHUTDOWN_TIMEOUT` | `25s` | On SIGTERM or SIGINT, let running calls finish for this long, then [cancel them](#shutdown) |
 | `-adbc-option k=v` (repeatable) | `FLIGHT_ADBC_OPTIONS` (comma-separated) | | [Redis ADBC driver options](https://github.com/alberttwong/redis-adbc-driver#options), such as `adbc.redis.aggregate_pushdown=all`, `adbc.redis.default_schema=sales`, `adbc.redis.cluster=true` |
 | `-log-level` | `FLIGHT_LOG_LEVEL` | `info` | `debug` logs every call |
 
 The server connects to Redis when the first request arrives, not at startup.
 Opening an ADBC connection takes several round trips, so connections are
 pooled per Redis user. A user's connections are closed after 10 idle minutes.
+
+### Shutdown
+
+On SIGTERM or SIGINT the server stops accepting calls and lets running
+ones (uploads, query streams) finish for up to `--shutdown-timeout` (25s).
+Then it cancels the rest, waits for them to release their connections and
+cursors, closes the sessions (dropping their temporary tables) and the
+Redis connections, and exits. A second signal exits at once.
+
+Keep `--shutdown-timeout` under the time your platform waits before it
+kills the process: Kubernetes' `terminationGracePeriodSeconds` is 30s by
+default, and `compose.yaml` sets `stop_grace_period: 30s` (Docker's
+default is 10s).
+
+The server pings a connection that has been idle for a minute, and closes
+it if the client doesn't answer within 20 seconds, so a client that has
+vanished doesn't hold a call, a connection or a cursor until TCP gives up.
 
 ## Development
 
