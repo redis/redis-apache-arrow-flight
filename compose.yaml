@@ -46,6 +46,9 @@ services:
   flight:
     build: .
     container_name: redis-flight-server
+    # Longer than -shutdown-timeout (25s), so a stop lets the server drain
+    # and clean up rather than being killed after Docker's default 10s.
+    stop_grace_period: 30s
     depends_on:
       redis:
         condition: service_healthy

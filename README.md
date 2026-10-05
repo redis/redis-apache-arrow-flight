@@ -365,8 +365,21 @@ How statements run:
   has the exact rules.
   - A streaming result keeps its pooled connection until it has been sent,
     or the client goes away. Each Redis user can have `--max-streams` (8)
-    results streaming at once; queries beyond that are read whole, as are
-    queries in a [session](#sessions).
+    results streaming at once, but always fewer than `--pool-max-open`, so
+    the user's other requests have a connection (with a pool of 1, nothing
+    streams). Queries beyond that are read whole, as are queries in a
+    [session](#sessions).
+  - A streaming result also keeps a cursor open on its table's index.
+    RediSearch allows an index `search-index-cursor-limit` open cursors
+    (128 by default), and the driver reads every query through one, so at
+    the limit every query on the table fails with `RESOURCE_EXHAUSTED`
+    until some are closed; clients can retry. The limit is shared by every
+    client of the index: other servers (replicas), other tools, and every
+    Redis user. So each server streams at most `--max-table-streams` (32)
+    results from one table at once, across all users, and reads the rest
+    whole. With several replicas, keep their total under the limit, or
+    raise `search-index-cursor-limit` in Redis (and then
+    `--max-table-streams`).
   - A client that takes longer than `--stream-stall-timeout` (2 minutes) to
     read a batch gets a `DEADLINE_EXCEEDED` error instead of the rest, and
     the server stops reading from Redis. Redis deletes a cursor that isn't
@@ -537,17 +550,36 @@ Every flag can also be set with the environment variable shown.
 | `-dataset-endpoint-batches` | `FLIGHT_DATASET_ENDPOINT_BATCHES` | `0` (one endpoint) | Give a dataset's FlightInfo one endpoint per this many batches, for [parallel reads](#datasets) |
 | `-pool-max-idle` | `FLIGHT_POOL_MAX_IDLE` | `8` | Idle ADBC connections kept per Redis user |
 | `-pool-max-open` | `FLIGHT_POOL_MAX_OPEN` | `32` | ADBC connections in use at once per Redis user |
-| `-max-streams` | `FLIGHT_MAX_STREAMS` | `8` | Query results a Redis user can have [streaming](#flight-sql-support) from Redis at once. Each keeps a connection; further queries are read whole first |
+| `-max-streams` | `FLIGHT_MAX_STREAMS` | `8` | Query results a Redis user can have [streaming](#flight-sql-support) from Redis at once, at most `-pool-max-open` minus 1. Each keeps a connection; further queries are read whole first |
+| `-max-table-streams` | `FLIGHT_MAX_TABLE_STREAMS` | `32` | Query results that can stream from one table at once, across all users. Each keeps a cursor on the table's index, which allows 128 across every client; further queries are read whole first |
 | `-stream-stall-timeout` | `FLIGHT_STREAM_STALL_TIMEOUT` | `2m` | End a streaming result whose client takes longer than this to read a batch |
 | `-sessions` | `FLIGHT_SESSIONS` | `true` | [Sessions](#sessions) for clients that keep cookies |
 | `-session-idle-timeout` | `FLIGHT_SESSION_IDLE_TIMEOUT` | `10m` | Close a session after this long without requests |
 | `-max-msg-size` | `FLIGHT_MAX_MSG_SIZE` | 64 MiB | Largest gRPC message accepted |
+| `-shutdown-timeout` | `FLIGHT_SHUTDOWN_TIMEOUT` | `25s` | On SIGTERM or SIGINT, let running calls finish for this long, then [cancel them](#shutdown) |
 | `-adbc-option k=v` (repeatable) | `FLIGHT_ADBC_OPTIONS` (comma-separated) | | [Redis ADBC driver options](https://github.com/alberttwong/redis-adbc-driver#options), such as `adbc.redis.aggregate_pushdown=all`, `adbc.redis.default_schema=sales`, `adbc.redis.cluster=true` |
 | `-log-level` | `FLIGHT_LOG_LEVEL` | `info` | `debug` logs every call |
 
 The server connects to Redis when the first request arrives, not at startup.
 Opening an ADBC connection takes several round trips, so connections are
 pooled per Redis user. A user's connections are closed after 10 idle minutes.
+
+### Shutdown
+
+On SIGTERM or SIGINT the server stops accepting calls and lets running
+ones (uploads, query streams) finish for up to `--shutdown-timeout` (25s).
+Then it cancels the rest, waits for them to release their connections and
+cursors, closes the sessions (dropping their temporary tables) and the
+Redis connections, and exits. A second signal exits at once.
+
+Keep `--shutdown-timeout` under the time your platform waits before it
+kills the process: Kubernetes' `terminationGracePeriodSeconds` is 30s by
+default, and `compose.yaml` sets `stop_grace_period: 30s` (Docker's
+default is 10s).
+
+The server pings a connection that has been idle for a minute, and closes
+it if the client doesn't answer within 20 seconds, so a client that has
+vanished doesn't hold a call, a connection or a cursor until TCP gives up.
 
 ## Development
 

@@ -34,11 +34,22 @@ func toStatus(err error) error {
 	if strings.Contains(msg, "WRONGPASS") || strings.Contains(msg, "NOAUTH") {
 		return status.Error(codes.Unauthenticated, msg)
 	}
+	if isCursorLimit(err) {
+		return status.Error(codes.ResourceExhausted, msg)
+	}
 	var ae adbc.Error
 	if errors.As(err, &ae) {
 		return status.Error(adbcCode(ae.Code), msg)
 	}
 	return status.Error(codes.Internal, msg)
+}
+
+// isCursorLimit reports whether err is RediSearch refusing a query because
+// its index has search-index-cursor-limit cursors open (128 by default,
+// across every client). The driver reads every table through a cursor, so
+// any query on the table fails until some are closed: clients can retry.
+func isCursorLimit(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "INDEX_CURSOR_LIMIT")
 }
 
 // connectStatus is the status for a failure to connect to Redis. Bad or

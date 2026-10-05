@@ -82,8 +82,16 @@ type Config struct {
 
 	// MaxStreams is the number of query results a user can have streaming
 	// from Redis at once (default 8). Each holds a pooled connection until
-	// it is read; further queries are read whole before they are sent.
+	// it is read; further queries are read whole before they are sent. At
+	// most PoolMaxOpen-1 stream, so a user always has a connection left for
+	// other requests (none stream with a pool of 1).
 	MaxStreams int
+	// MaxTableStreams is the number of query results that can stream from
+	// one table at once, across all users of the server (default 32). Each
+	// holds a cursor on the table's index, and RediSearch allows an index
+	// search-index-cursor-limit of them (128 by default), shared with other
+	// clients and servers. Further queries on the table are read whole.
+	MaxTableStreams int
 	// StreamStallTimeout ends a streaming result whose client takes longer
 	// than this to read a batch (default 2m), since Redis deletes a cursor
 	// left unread for 5 minutes.
@@ -99,6 +107,11 @@ type Config struct {
 	// MaxMsgSize is the largest gRPC message the server accepts
 	// (default 64 MiB).
 	MaxMsgSize int
+
+	// ShutdownTimeout is how long Shutdown lets running calls finish before
+	// it cancels them (default 25s, under Kubernetes' default 30s grace
+	// period).
+	ShutdownTimeout time.Duration
 
 	// ADBCOptions are passed to the Redis ADBC driver's database, for
 	// example adbc.redis.aggregate_pushdown or adbc.redis.default_schema.
@@ -140,6 +153,9 @@ func (c *Config) setDefaults() {
 	if c.MaxStreams == 0 {
 		c.MaxStreams = 8
 	}
+	if c.MaxTableStreams == 0 {
+		c.MaxTableStreams = 32
+	}
 	if c.StreamStallTimeout == 0 {
 		c.StreamStallTimeout = 2 * time.Minute
 	}
@@ -148,6 +164,9 @@ func (c *Config) setDefaults() {
 	}
 	if c.MaxMsgSize == 0 {
 		c.MaxMsgSize = 64 << 20
+	}
+	if c.ShutdownTimeout == 0 {
+		c.ShutdownTimeout = 25 * time.Second
 	}
 	if c.Logger == nil {
 		c.Logger = slog.Default()
@@ -166,13 +185,14 @@ func (c *Config) validate() error {
 	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
 		return errors.New("TLS needs both a certificate and a key file")
 	}
-	if c.DatasetEndpointBatches < 0 || c.MaxStreams < 0 {
-		return errors.New("DatasetEndpointBatches and MaxStreams must not be negative")
+	if c.DatasetEndpointBatches < 0 || c.MaxStreams < 0 || c.MaxTableStreams < 0 {
+		return errors.New("DatasetEndpointBatches, MaxStreams and MaxTableStreams must not be negative")
 	}
 	if c.PoolMaxIdle < 0 || c.PoolMaxOpen < 1 {
 		return errors.New("the pool needs PoolMaxIdle >= 0 and PoolMaxOpen >= 1")
 	}
-	if c.TokenTTL < 0 || c.DatasetTTL < 0 || c.TenantIdleTimeout < 0 || c.SessionIdleTimeout < 0 || c.StreamStallTimeout < 0 {
+	if c.TokenTTL < 0 || c.DatasetTTL < 0 || c.TenantIdleTimeout < 0 || c.SessionIdleTimeout < 0 ||
+		c.StreamStallTimeout < 0 || c.ShutdownTimeout < 0 {
 		return errors.New("durations must not be negative")
 	}
 	for _, k := range []string{"uri", "username", "password"} {

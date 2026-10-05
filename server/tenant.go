@@ -37,7 +37,7 @@ type tenant struct {
 	db   adbc.DatabaseWithContext
 	pool *connPool
 	rdb  goredis.UniversalClient
-	// streams has a token per result streaming from Redis (MaxStreams).
+	// streams has a token per result streaming from Redis (streamTokens).
 	streams chan struct{}
 
 	// Guarded by tenantCache.mu.
@@ -109,6 +109,43 @@ func (t *tenant) tryStream() bool {
 }
 
 func (t *tenant) endStream() { <-t.streams }
+
+// streamTokens is the number of results a user can have streaming at once:
+// MaxStreams, but fewer than PoolMaxOpen, so the user's other requests
+// always have a connection. With a pool of 1, nothing streams.
+func streamTokens(cfg *Config) int { return min(cfg.MaxStreams, cfg.PoolMaxOpen-1) }
+
+// tableStreams counts the results streaming from each table, across every
+// user of the server. Each holds a cursor on the table's index, and
+// RediSearch refuses every query on an index once it has
+// search-index-cursor-limit of them open (128 by default).
+type tableStreams struct {
+	max int
+
+	mu sync.Mutex
+	n  map[string]int
+}
+
+func newTableStreams(max int) *tableStreams { return &tableStreams{max: max, n: map[string]int{}} }
+
+// try counts a result streaming from table, unless max already are.
+func (ts *tableStreams) try(table string) bool {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	if ts.n[table] >= ts.max {
+		return false
+	}
+	ts.n[table]++
+	return true
+}
+
+func (ts *tableStreams) end(table string) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	if ts.n[table]--; ts.n[table] <= 0 {
+		delete(ts.n, table)
+	}
+}
 
 // tenantCache opens tenants on first use and closes them when idle.
 type tenantCache struct {
@@ -245,7 +282,7 @@ func (c *tenantCache) openTenant(ctx context.Context, id identity) (*tenant, err
 		db:      db,
 		pool:    newConnPool(db, c.cfg.PoolMaxIdle, c.cfg.PoolMaxOpen),
 		rdb:     rdb,
-		streams: make(chan struct{}, c.cfg.MaxStreams),
+		streams: make(chan struct{}, streamTokens(c.cfg)),
 	}, nil
 }
 

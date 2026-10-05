@@ -94,6 +94,86 @@ func TestChangesSession(t *testing.T) {
 	}
 }
 
+func TestStreamTokens(t *testing.T) {
+	for _, tc := range []struct{ maxStreams, poolMaxOpen, want int }{
+		{8, 32, 8},
+		{8, 9, 8},
+		{8, 8, 7},
+		{8, 2, 1},
+		{8, 1, 0}, // a pool of 1 never streams
+	} {
+		cfg := &Config{MaxStreams: tc.maxStreams, PoolMaxOpen: tc.poolMaxOpen}
+		if got := streamTokens(cfg); got != tc.want {
+			t.Errorf("streamTokens(MaxStreams %d, PoolMaxOpen %d) = %d, want %d",
+				tc.maxStreams, tc.poolMaxOpen, got, tc.want)
+		}
+	}
+}
+
+func TestStreamTable(t *testing.T) {
+	for sql, want := range map[string]string{
+		"SELECT * FROM t": "public.t",
+		"select id from Orders where id > 3 order by id": "public.orders",
+		"SELECT id FROM Sales.Orders LIMIT 10":           "sales.orders",
+		`SELECT id FROM "Mixed"`:                         "public.mixed",
+		"SELECT o.id FROM t AS o WHERE o.id = $1":        "public.t",
+		// The driver doesn't stream these.
+		"SELECT 1":                                  "",
+		"SELECT * FROM a JOIN b ON a.id = b.id":     "",
+		"SELECT * FROM a, b":                        "",
+		"WITH c AS (SELECT 1 AS a) SELECT * FROM c": "",
+		"SELECT * FROM (SELECT id FROM t) AS d":     "",
+		"SELECT id FROM a UNION SELECT id FROM b":   "",
+		"SELECT * FROM t; SELECT * FROM t":          "",
+		"INSERT INTO t VALUES (1)":                  "",
+		"this is not SQL":                           "",
+		"":                                          "",
+	} {
+		got, ok := streamTable(sql, "public")
+		if ok != (want != "") || got != want {
+			t.Errorf("streamTable(%q) = %q, %v; want %q", sql, got, ok, want)
+		}
+	}
+	if got, _ := streamTable("SELECT * FROM t", "sales"); got != "sales.t" {
+		t.Errorf("with default schema sales: %q", got)
+	}
+}
+
+func TestTableStreams(t *testing.T) {
+	ts := newTableStreams(2)
+	if !ts.try("public.a") || !ts.try("public.a") {
+		t.Fatal("refused a stream under the cap")
+	}
+	if ts.try("public.a") {
+		t.Error("allowed a stream over the cap")
+	}
+	if !ts.try("public.b") {
+		t.Error("another table's streams counted against public.a")
+	}
+	ts.end("public.a")
+	if !ts.try("public.a") {
+		t.Error("an ended stream wasn't freed")
+	}
+	ts.end("public.a")
+	ts.end("public.a")
+	ts.end("public.b")
+	if len(ts.n) != 0 {
+		t.Errorf("counts left after every stream ended: %v", ts.n)
+	}
+}
+
+func TestCursorLimitStatus(t *testing.T) {
+	// The driver wraps Redis's reply as an I/O error.
+	err := adbc.Error{Code: adbc.StatusIO,
+		Msg: "FT.AGGREGATE failed: INDEX_CURSOR_LIMIT of 128 has been reached for an index"}
+	if got := toStatus(err); status.Code(got) != codes.ResourceExhausted {
+		t.Errorf("toStatus = %v, want ResourceExhausted", got)
+	}
+	if !reusable("SELECT * FROM t", err) {
+		t.Error("an index out of cursors should keep the connection")
+	}
+}
+
 func TestReusable(t *testing.T) {
 	stmtErr := adbc.Error{Code: adbc.StatusInvalidArgument, Msg: "syntax error"}
 	ioErr := adbc.Error{Code: adbc.StatusIO, Msg: "connection reset"}
@@ -360,6 +440,13 @@ func newTestServer(t *testing.T, cfg Config) *grpc.ClientConn {
 // startTestServer starts a Server on an in-memory listener.
 func startTestServer(t *testing.T, cfg Config) *bufconn.Listener {
 	t.Helper()
+	_, lis := startServer(t, cfg)
+	return lis
+}
+
+// startServer is startTestServer that also returns the Server.
+func startServer(t *testing.T, cfg Config) (*Server, *bufconn.Listener) {
+	t.Helper()
 	if cfg.Logger == nil {
 		cfg.Logger = testLogger(t)
 	}
@@ -370,7 +457,7 @@ func startTestServer(t *testing.T, cfg Config) *bufconn.Listener {
 	lis := bufconn.Listen(1 << 20)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Shutdown)
-	return lis
+	return srv, lis
 }
 
 func testDialOptions(lis *bufconn.Listener) []grpc.DialOption {
@@ -389,6 +476,57 @@ func dialTestServer(t *testing.T, lis *bufconn.Listener) *grpc.ClientConn {
 	}
 	t.Cleanup(func() { _ = cc.Close() })
 	return cc
+}
+
+func TestShutdownDrainsThenCancels(t *testing.T) {
+	// Nothing here reaches Redis: a DoPut waits for its first message.
+	const timeout = 500 * time.Millisecond
+	srv, lis := startServer(t, Config{RedisURI: "redis://127.0.0.1:1/0", ShutdownTimeout: timeout})
+	client := flight.NewFlightServiceClient(dialTestServer(t, lis))
+	ctx := context.Background()
+	open := func() flight.FlightService_DoPutClient {
+		stream, err := client.DoPut(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return stream
+	}
+	finishing, hung := open(), open()
+	time.Sleep(200 * time.Millisecond) // for both calls to reach the server
+
+	start := time.Now()
+	done := make(chan struct{})
+	go func() {
+		srv.Shutdown()
+		close(done)
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	// A call running at shutdown still finishes.
+	if err := finishing.Send(&flight.FlightData{DataHeader: []byte{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := finishing.Recv(); status.Code(err) != codes.InvalidArgument {
+		t.Errorf("a call that finished during shutdown: err = %v, want its own InvalidArgument", err)
+	}
+	// A new one is refused.
+	if stream, err := client.DoPut(ctx); err == nil {
+		if _, err = stream.Recv(); status.Code(err) != codes.Unavailable {
+			t.Errorf("a call made during shutdown: err = %v, want Unavailable", err)
+		}
+	}
+	// One that doesn't finish is cancelled at the timeout.
+	select {
+	case <-done:
+	case <-time.After(timeout + 5*time.Second):
+		t.Fatal("Shutdown didn't return after its timeout")
+	}
+	if d := time.Since(start); d < timeout {
+		t.Errorf("Shutdown returned after %v, before its timeout, with a call running", d)
+	}
+	if _, err := hung.Recv(); err == nil || status.Code(err) == codes.InvalidArgument {
+		t.Errorf("the call still running at the timeout: err = %v, want it cut off", err)
+	}
 }
 
 func TestDoPutNeedsDescriptor(t *testing.T) {
@@ -462,6 +600,8 @@ func TestConfigValidation(t *testing.T) {
 		{TLSCertFile: "cert.pem"},
 		{ADBCOptions: map[string]string{"uri": "redis://elsewhere"}},
 		{RedisURI: "http://not-redis"},
+		{MaxTableStreams: -1},
+		{ShutdownTimeout: -time.Second},
 	} {
 		cfg.Logger = testLogger(t)
 		if _, err := New(cfg); err == nil {

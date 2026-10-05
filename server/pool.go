@@ -100,8 +100,12 @@ func reusable(sql string, err error) bool {
 }
 
 // isStatementError reports whether err is about the statement (bad SQL, a
-// missing table, a permission) rather than the connection.
+// missing table, a permission, an index out of cursors) rather than the
+// connection.
 func isStatementError(err error) bool {
+	if isCursorLimit(err) {
+		return true
+	}
 	var ae adbc.Error
 	if !errors.As(err, &ae) {
 		return false
