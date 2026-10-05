@@ -68,17 +68,28 @@ jobs:
           done
           uv run examples/python/quickstart.py
 
-      # The Arrow Flight SQL JDBC driver (DBeaver's) against the same server.
+      # The Arrow Flight SQL JDBC driver (DBeaver's) against the same server,
+      # on each LTS Java it's tested with (Java 23 and later need another JVM
+      # option, which the Makefile adds).
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: |
+            17
+            21
+            25
       - uses: actions/cache@v6
         with:
           path: bin/flight-sql-jdbc-driver-19.0.0.jar
           key: flight-sql-jdbc-driver-19.0.0
       - name: JDBC smoke test
-        run: make jdbc-smoke
+        run: |
+          for v in 17 21 25; do
+            home=JAVA_HOME_${v}_X64
+            echo "::group::Java $v"
+            make jdbc-smoke JAVA="${!home}/bin/java"
+            echo "::endgroup::"
+          done
 
       - name: Server logs
         if: failure()

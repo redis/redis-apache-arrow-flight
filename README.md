@@ -276,8 +276,8 @@ with `--dataset-endpoint-batches`.
 ### JDBC (DBeaver and others)
 
 Use the [Arrow Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html)
-(`org.apache.arrow:flight-sql-jdbc-driver`). Tested with 19.0.0 on Java 17 and
-21. The URL is:
+(`org.apache.arrow:flight-sql-jdbc-driver`). Tested with 19.0.0 on Java 17, 21
+and 25. The URL is:
 
 ```text
 jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
@@ -294,19 +294,33 @@ jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
   they are sent, so JDBC doesn't get [streamed](#flight-sql-support)
   results yet.
 - **Java 17 and later:** run the JVM with
-  `--add-opens=java.base/java.nio=ALL-UNNAMED`. In DBeaver, add it to
-  `dbeaver.ini`.
+  `--add-opens=java.base/java.nio=ALL-UNNAMED`.
+- **Java 23 and later:** also add `--sun-misc-unsafe-memory-access=allow`.
+  Without it the driver fails before it connects, with an
+  `ExceptionInInitializerError` in `DefaultAllocationManagerFactory`. Java 17
+  to 22 don't know the option and refuse to start with it.
+- **DBeaver:** add the options to `dbeaver.ini`, one per line after `-vmargs`
+  (the second one only if DBeaver runs on Java 23 or later):
+
+  ```text
+  -vmargs
+  --add-opens=java.base/java.nio=ALL-UNNAMED
+  --sun-misc-unsafe-memory-access=allow
+  ```
 
 `examples/jdbc/JdbcSmoke.java` checks prepared statements with `?` parameters,
 DatabaseMetaData (catalogs, schemas, tables, columns, table types, keys),
-update counts and the session. CI runs it on every pull request:
+update counts and the session. CI runs it on Java 17, 21 and 25 on every pull
+request:
 
 ```bash
 make jdbc-smoke
 ```
 
 That target downloads the jar into `bin/` (checking its SHA-1) and runs the
-smoke test against a server on `localhost:8815`.
+smoke test against a server on `localhost:8815`, with the JVM options for the
+`java` on the `PATH`. Pick another with `JAVA=/path/to/bin/java`, and another
+server with `JDBC_URL=…`.
 
 Known limits of the JDBC driver (19.0.0):
 - **Statements without a result schema run as updates.** The driver treats a
@@ -645,6 +659,7 @@ push to `main`:
 - every test, on standalone Redis and on the 3-shard cluster
 - a check that the binary is statically linked
 - the Python quickstart against the Docker image
+- the JDBC smoke test against it, on Java 17, 21 and 25
 
 The driver dependency is pinned in `go.mod` with a `replace` to a commit of
 `github.com/alberttwong/redis-adbc-driver/go`. To build against a local
