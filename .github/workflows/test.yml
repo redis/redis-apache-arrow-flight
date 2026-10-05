@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # The release workflow runs it on the tag it releases.
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit to test (default the event's)
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -19,6 +26,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod

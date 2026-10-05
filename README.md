@@ -200,6 +200,7 @@ sequenceDiagram
 ## Quick start
 
 You need Go 1.26+, Docker and, for the Python example, [uv](https://docs.astral.sh/uv/).
+(To run a released build instead of building it, see [Install](#install).)
 
 ```bash
 docker compose up --detach --wait redis
@@ -225,6 +226,28 @@ docker compose up --detach --build --wait
 
 `--wait` returns once the server's [health check](#health-checks) passes:
 it serves, and Redis answers.
+
+### Install
+
+Each [release](https://github.com/alberttwong/redis-apache-arrow-flight/releases)
+has a static binary for Linux (amd64, arm64) and macOS (arm64), with a
+SHA-256 checksum, and a multi-arch image on the GitHub Container Registry.
+For example (set `VERSION` to the release's tag):
+
+```bash
+curl -fsSL --remote-name-all https://github.com/alberttwong/redis-apache-arrow-flight/releases/download/$VERSION/redis-flight-server-$VERSION-linux-amd64.tar.gz{,.sha256}
+```
+
+```bash
+shasum -a 256 -c redis-flight-server-$VERSION-linux-amd64.tar.gz.sha256 && tar -xzf redis-flight-server-$VERSION-linux-amd64.tar.gz
+```
+
+```bash
+docker run --rm -p 8815:8815 -e REDIS_URI=redis://host.docker.internal:6379/0 ghcr.io/alberttwong/redis-apache-arrow-flight:${VERSION#v}
+```
+
+Image tags are the version without the `v` (`1.2.3`), its minor version
+(`1.2`) and `latest`; a prerelease (`1.2.3-rc1`) gets only its own.
 
 ## Using it
 
@@ -716,6 +739,15 @@ push to `main`:
 - a check that the binary is statically linked
 - the Python quickstart against the Docker image
 - the JDBC smoke test against it, on Java 17, 21 and 25
+
+Releases: push a tag `vX.Y.Z` (or `vX.Y.Z-rc1` for a prerelease). The
+release workflow (`.github/workflows/release.yml`) runs the tests on it,
+builds the binaries (`make dist`, which works locally too) and the image,
+runs each binary on its own platform, then pushes the image and attaches the
+binaries to the tag's GitHub release, making the release if there is none.
+Run it by hand (`workflow_dispatch`) to rebuild an existing tag. A pull
+request that changes it, the Dockerfile or the Makefile builds and checks
+everything without publishing.
 
 The driver dependency is pinned in `go.mod` with a `replace` to a commit of
 `github.com/alberttwong/redis-adbc-driver/go`. To build against a local
