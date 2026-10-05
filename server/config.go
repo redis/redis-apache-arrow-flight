@@ -133,6 +133,9 @@ type Config struct {
 	// redisHook, if set, is added to every go-redis client the server opens
 	// for requests (tests use it to make Redis replies fail).
 	redisHook goredis.Hook
+	// healthInterval is how often the health service pings Redis (default
+	// healthInterval; tests shorten it).
+	healthInterval time.Duration
 }
 
 func (c *Config) setDefaults() {
@@ -186,6 +189,9 @@ func (c *Config) setDefaults() {
 	}
 	if c.Allocator == nil {
 		c.Allocator = memory.DefaultAllocator
+	}
+	if c.healthInterval == 0 {
+		c.healthInterval = healthInterval
 	}
 }
 

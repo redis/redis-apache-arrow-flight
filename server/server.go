@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
@@ -26,11 +27,15 @@ type Server struct {
 	tenants  *tenantCache
 	sessions *sessionStore // nil when sessions are off
 	grpc     *grpc.Server
-	shutdown sync.Once
+	health   *redisHealth
+	// stopDrain ends the health service's Watch streams at Shutdown.
+	stopDrain context.CancelFunc
+	shutdown  sync.Once
 }
 
-// New makes a Server from cfg. It connects to Redis only when requests
-// come in, so it starts even if Redis is down.
+// New makes a Server from cfg. It opens ADBC connections only when
+// requests come in, and pings Redis in the background for its health
+// status, so it starts even if Redis is down.
 func New(cfg Config) (*Server, error) {
 	cfg.setDefaults()
 	if err := cfg.validate(); err != nil {
@@ -40,7 +45,9 @@ func New(cfg Config) (*Server, error) {
 		return nil, err
 	}
 
-	middleware := []flight.ServerMiddleware{recoverMiddleware(cfg.Logger), logMiddleware(cfg.Logger)}
+	// Health checks skip logging (probes call often), authentication and
+	// sessions.
+	middleware := []flight.ServerMiddleware{recoverMiddleware(cfg.Logger), skipHealth(logMiddleware(cfg.Logger))}
 	if cfg.Auth == AuthRedisACL {
 		sealer, err := newTokenSealer(cfg.TokenSecret)
 		if err != nil {
@@ -51,7 +58,7 @@ func New(cfg Config) (*Server, error) {
 				"and other servers won't accept them")
 		}
 		v := &aclValidator{uri: cfg.RedisURI, sealer: sealer, ttl: cfg.TokenTTL, now: time.Now}
-		middleware = append(middleware, flight.CreateServerBasicAuthMiddleware(v))
+		middleware = append(middleware, skipHealth(flight.CreateServerBasicAuthMiddleware(v)))
 	}
 
 	opts := []grpc.ServerOption{
@@ -80,7 +87,7 @@ func New(cfg Config) (*Server, error) {
 	if !cfg.DisableSessions {
 		// After authentication: a session belongs to who made it.
 		sessions = newSessionStore(tenants, cfg.SessionIdleTimeout, cfg.Logger)
-		middleware = append(middleware, sessions.middleware())
+		middleware = append(middleware, skipHealth(sessions.middleware()))
 	}
 	sql, err := newSQLServer(tenants, cfg.Allocator, cfg.KeyPrefix)
 	if err != nil {
@@ -90,6 +97,16 @@ func New(cfg Config) (*Server, error) {
 		tenants.close()
 		return nil, err
 	}
+	health, err := newRedisHealth(&cfg)
+	if err != nil {
+		if sessions != nil {
+			sessions.close()
+		}
+		tenants.close()
+		return nil, err
+	}
+	drain, stopDrain := context.WithCancel(context.Background())
+	middleware = append(middleware, flight.ServerMiddleware{Stream: healthDrain(drain)})
 	r := &router{
 		sql: flightsql.NewFlightServerWithAllocator(sql, cfg.Allocator),
 		ds: &datasets{tenants: tenants, prefix: cfg.KeyPrefix, ttl: cfg.DatasetTTL,
@@ -111,7 +128,9 @@ func New(cfg Config) (*Server, error) {
 	opts = append(opts, grpc.ChainUnaryInterceptor(unary...), grpc.ChainStreamInterceptor(stream...))
 	gs := grpc.NewServer(opts...)
 	flight.RegisterFlightServiceServer(gs, r)
-	return &Server{cfg: cfg, log: cfg.Logger, tenants: tenants, sessions: sessions, grpc: gs}, nil
+	healthpb.RegisterHealthServer(gs, health.hs)
+	return &Server{cfg: cfg, log: cfg.Logger, tenants: tenants, sessions: sessions, grpc: gs,
+		health: health, stopDrain: stopDrain}, nil
 }
 
 // Serve serves on lis. Once Shutdown has stopped the gRPC server, Serve
@@ -136,9 +155,12 @@ func (s *Server) ListenAndServe() error {
 // Config.ShutdownTimeout; then it cancels the rest and waits for them to
 // release what they hold (a streaming result's cursor and connection).
 // Last, it closes the sessions, which drops their temporary tables, and
-// the Redis connections. Later calls wait for the first to finish.
+// the Redis connections. Health checks report NOT_SERVING from the start.
+// Later calls wait for the first to finish.
 func (s *Server) Shutdown() {
 	s.shutdown.Do(func() {
+		s.health.shutdown()
+		s.stopDrain()
 		stopped := make(chan struct{})
 		go func() {
 			s.grpc.GracefulStop()

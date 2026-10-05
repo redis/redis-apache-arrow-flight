@@ -223,6 +223,9 @@ To run Redis and the server together in Docker instead:
 docker compose up --detach --build --wait
 ```
 
+`--wait` returns once the server's [health check](#health-checks) passes:
+it serves, and Redis answers.
+
 ## Using it
 
 ### Flight SQL from Python (ADBC)
@@ -564,6 +567,9 @@ client.authenticate_basic_token("alice", "…")  # pyarrow.flight: returns the h
   `examples/python/quickstart.py`. A read-only user (the driver's read-only
   list plus the read commands above) can query and read datasets. Its writes
   fail with `PermissionDenied`.
+- **Health checks** need no login, so load balancers and probes can call
+  them (see [Health checks](#health-checks)). They tell only whether the
+  server serves.
 
 ## Configuration
 
@@ -591,7 +597,9 @@ Every flag can also be set with the environment variable shown.
 | `-max-msg-size` | `FLIGHT_MAX_MSG_SIZE` | 64 MiB | Largest gRPC message accepted |
 | `-shutdown-timeout` | `FLIGHT_SHUTDOWN_TIMEOUT` | `25s` | On SIGTERM or SIGINT, let running calls finish for this long, then [cancel them](#shutdown) |
 | `-adbc-option k=v` (repeatable) | `FLIGHT_ADBC_OPTIONS` (comma-separated) | | [Redis ADBC driver options](https://github.com/alberttwong/redis-adbc-driver#options), such as `adbc.redis.aggregate_pushdown=all`, `adbc.redis.default_schema=sales`, `adbc.redis.cluster=true` |
-| `-log-level` | `FLIGHT_LOG_LEVEL` | `info` | `debug` logs every call |
+| `-log-level` | `FLIGHT_LOG_LEVEL` | `info` | `debug` logs every call but health checks |
+| `-healthcheck` | | | Check the server at `-listen` with the [gRPC health service](#health-checks) and exit: 0 if it serves, 1 if not. Trusts only `-tls-cert` when that is set |
+| `-version` | | | Print the version and exit |
 
 The server connects to Redis when the first request arrives, not at startup.
 Opening an ADBC connection takes several round trips, so connections are
@@ -614,6 +622,53 @@ The server pings a connection that has been idle for a minute, and closes
 it if the client doesn't answer within 20 seconds, so a client that has
 vanished doesn't hold a call, a connection or a cursor until TCP gives up.
 
+## Monitoring
+
+### Health checks
+
+The server has the standard
+[gRPC health service](https://github.com/grpc/grpc/blob/master/doc/health-checking.md)
+(`grpc.health.v1.Health`), on the Flight port. Its calls need no
+authentication, even with `--auth=redis-acl`, and aren't logged.
+
+- **SERVING** while Redis answers a PING. The server pings every 5 seconds,
+  on a connection of its own, so checks cost Redis nothing. With
+  `--auth=redis-acl`, an authentication error counts as an answer (each
+  client brings its own credentials). With `--auth=none` it doesn't, since
+  every request uses the server's. On a cluster, the node in `--redis-uri`
+  is pinged.
+- **NOT_SERVING** while Redis doesn't answer, and from the start of a
+  [shutdown](#shutdown).
+- The service names are `""` (the server) and
+  `arrow.flight.protocol.FlightService`.
+
+`redis-flight-server -healthcheck` asks the server at `-listen` (an
+all-interfaces address is checked on the loopback address) and exits 0 if
+it serves, 1 if not. With `-tls-cert` it uses TLS and trusts only that
+certificate. The Docker image's `HEALTHCHECK` and the compose service run
+it; it reads the same environment variables as the server, not the
+server's flags. Any gRPC health client works too, such as
+[`grpc_health_probe`](https://github.com/grpc-ecosystem/grpc-health-probe):
+
+```bash
+grpc_health_probe -addr=localhost:8815
+```
+
+On Kubernetes, use a gRPC readiness probe, so a server whose Redis is down
+gets no traffic, and a TCP liveness probe, so it isn't restarted for that:
+
+```yaml
+readinessProbe:
+  grpc:
+    port: 8815
+livenessProbe:
+  tcpSocket:
+    port: 8815
+```
+
+The kubelet's gRPC probe doesn't do TLS. With TLS, use an `exec` probe that
+runs `/redis-flight-server -healthcheck`.
+
 ## Development
 
 Code layout:
@@ -627,6 +682,7 @@ Code layout:
 | `server/tenant.go`, `server/pool.go` | Each Redis user's ADBC database, connection pool and go-redis client |
 | `server/session.go` | Sessions: the cookie middleware, each session's connection, and the session options |
 | `server/auth.go` | Redis ACL login and tokens |
+| `server/health.go`, `cmd/redis-flight-server/healthcheck.go` | The gRPC health service, and `-healthcheck` |
 
 Tests:
 

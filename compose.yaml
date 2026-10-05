@@ -59,3 +59,9 @@ services:
       # FLIGHT_TOKEN_SECRET: change-me
     ports:
       - "127.0.0.1:${FLIGHT_PORT:-8815}:8815"
+    # Healthy once it serves and Redis answers (gRPC health service).
+    healthcheck:
+      test: ["CMD", "/redis-flight-server", "-healthcheck"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
