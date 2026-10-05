@@ -82,32 +82,40 @@ func chunks(rec arrow.RecordBatch) []arrow.RecordBatch {
 
 // recordSize is the size of rec's buffers. A sliced array counts its whole
 // buffers, so slices are overestimated, which only makes chunks smaller.
-func recordSize(rec arrow.RecordBatch) int64 {
+func recordSize(rec arrow.RecordBatch) int64 { return recordBytes(rec, (*memory.Buffer).Len) }
+
+// recordMemory is the memory rec's buffers hold, which can be more than
+// their size: builders grow buffers ahead of the data.
+func recordMemory(rec arrow.RecordBatch) int64 { return recordBytes(rec, (*memory.Buffer).Cap) }
+
+func recordBytes(rec arrow.RecordBatch, size func(*memory.Buffer) int) int64 {
 	var n int64
 	for _, col := range rec.Columns() {
-		n += dataSize(col.Data())
+		n += dataBytes(col.Data(), size)
 	}
 	return n
 }
 
-func dataSize(d arrow.ArrayData) int64 {
+func dataBytes(d arrow.ArrayData, size func(*memory.Buffer) int) int64 {
 	var n int64
 	for _, b := range d.Buffers() {
 		if b != nil {
-			n += int64(b.Len())
+			n += int64(size(b))
 		}
 	}
 	for _, c := range d.Children() {
-		n += dataSize(c)
+		n += dataBytes(c, size)
 	}
 	// Dictionary() is a nil *Data, not a nil interface, on other types.
 	if d.DataType().ID() == arrow.DICTIONARY {
-		n += dataSize(d.Dictionary())
+		n += dataBytes(d.Dictionary(), size)
 	}
 	return n
 }
 
-// liveResult is a result streaming from Redis as it is read (see
+// liveResult is a result that holds something until it has been sent: a
+// connection and a cursor, for one streaming from Redis as it is read, or
+// a share of ResultMemory, for one read whole for want of a stream (see
 // executeQuery).
 type liveResult struct {
 	// stall is how long the client may take to read a batch.
@@ -174,11 +182,11 @@ func streamRecords(ctx context.Context, rdr array.RecordReader, live *liveResult
 				if ok, stuck := send(flight.StreamChunk{Data: part}); !ok {
 					releaseAll(parts[i+1:])
 					if stuck {
-						// Free the cursor and the connection now, and tell
-						// the client, if it comes back, that rows are missing.
+						// Free what the result holds now, and tell the
+						// client, if it comes back, that rows are missing.
 						release()
 						sendErr(status.Errorf(codes.DeadlineExceeded, "the client took longer than %s to read a "+
-							"batch of the result, so the server stopped reading it from Redis (--stream-stall-timeout)", live.stall))
+							"batch of the result, so the server stopped sending it (--stream-stall-timeout)", live.stall))
 					}
 					return
 				}

@@ -73,6 +73,20 @@ func openRead(t *testing.T, ctx context.Context, c *flightsql.Client, sql string
 	return rdr
 }
 
+// tryQuery runs sql and reads its result's first column.
+func tryQuery(ctx context.Context, c *flightsql.Client, sql string) ([]int64, error) {
+	info, err := c.Execute(ctx, sql)
+	if err != nil {
+		return nil, err
+	}
+	rdr, err := c.DoGet(ctx, info.Endpoint[0].Ticket)
+	if err != nil {
+		return nil, err
+	}
+	defer rdr.Release()
+	return readIDs(rdr)
+}
+
 // readIDs reads the rest of a stream's first column.
 func readIDs(rdr *flight.Reader) ([]int64, error) {
 	var ids []int64
@@ -338,6 +352,51 @@ func TestIntegrationStreamResults(t *testing.T) {
 		}
 	})
 
+	t.Run("results read whole for want of a stream take at most ResultMemory", func(t *testing.T) {
+		wide := uniqueName("it_flight_stream_budget")
+		dropTable(t, setup, wide)
+		ingestRows(t, setup, wide, streamRows, 200) // about 5.4 MB, more than gRPC buffers
+		wideScan := "SELECT id, label FROM " + wide
+		ctx := context.Background()
+		cfg := streamConfig(uri)
+		cfg.PoolMaxOpen, cfg.ResultMemory = 2, 8<<20 // one stream; room for one result read whole
+		c := newClients(t, cfg).sql
+
+		stream := openRead(t, ctx, c, scan) // the user's one stream
+		if !stream.Next() {
+			t.Fatal(stream.Err())
+		}
+		held := openRead(t, ctx, c, wideScan) // read whole, and left unread
+		if !held.Next() {
+			t.Fatal(held.Err())
+		}
+		first := int(held.RecordBatch().NumRows())
+		if n := cursors(t, admin, wide); n > 0 {
+			t.Errorf("a result read whole kept %d cursors open", n)
+		}
+		_, err := tryQuery(ctx, c, wideScan)
+		if status.Code(err) != codes.ResourceExhausted || !strings.Contains(err.Error(), "-result-memory") {
+			t.Errorf("a second result past ResultMemory: err = %v, want ResourceExhausted", err)
+		}
+		if n := cursors(t, admin, wide); n > 0 {
+			t.Errorf("a result refused for ResultMemory left %d cursors open", n)
+		}
+		if !connFree(t, c) {
+			t.Error("a result refused for ResultMemory kept its connection")
+		}
+
+		// Read to the end, the held result gives its memory back.
+		if ids, err := readIDs(held); err != nil || first+len(ids) != streamRows {
+			t.Fatalf("the held result: %d rows, %v", first+len(ids), err)
+		}
+		if ids, err := tryQuery(ctx, c, wideScan); err != nil || len(ids) != streamRows {
+			t.Errorf("after the held result was read: %d rows, %v", len(ids), err)
+		}
+		if ids, err := readIDs(stream); err != nil || len(ids)+500 != streamRows {
+			t.Errorf("the stream: %d rows, %v", len(ids)+500, err)
+		}
+	})
+
 	t.Run("an index out of cursors is RESOURCE_EXHAUSTED", func(t *testing.T) {
 		if _, ok := admin.(*goredis.ClusterClient); ok {
 			t.Skip("a cluster's shards count their own cursors")
@@ -354,15 +413,7 @@ func TestIntegrationStreamResults(t *testing.T) {
 		ingestRows(t, setup, full, 10, 0)
 		openCursors(t, admin, full, limit)
 		c := newClients(t, streamConfig(uri)).sql
-		info, err := c.Execute(ctx, "SELECT id FROM "+full)
-		if err == nil {
-			var rdr *flight.Reader
-			if rdr, err = c.DoGet(ctx, info.Endpoint[0].Ticket); err == nil {
-				_, err = readIDs(rdr)
-				rdr.Release()
-			}
-		}
-		if status.Code(err) != codes.ResourceExhausted {
+		if _, err := tryQuery(ctx, c, "SELECT id FROM "+full); status.Code(err) != codes.ResourceExhausted {
 			t.Errorf("a query on an index with %d cursors open: err = %v, want ResourceExhausted", limit, err)
 		}
 	})
