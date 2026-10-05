@@ -167,7 +167,7 @@ sequenceDiagram
     S->>R: HGETALL ds:{features/v1}
     S-->>C: FlightInfo: the schema, counts, one or more tickets
     C->>S: DoGet(ticket)
-    loop 64 batches at a time
+    loop about 8 MiB of batches at a time
         S->>R: LRANGE ds:{features/v1}:gN
     end
     S-->>C: FlightData: the ticket's columns and batches
@@ -474,7 +474,9 @@ request.
   `{"dataset": "features/v1", "columns": ["id", "label"], "batches": [0, 4]}`
   reads two columns of its first four batches. The stored batches are the
   uploaded ones, split to about 2 MiB each; the PutResult and the FlightInfo's
-  app metadata count them (`batches`).
+  app metadata count them (`batches`). A read takes them from Redis about
+  8 MiB at a time (up to 64 small ones), so it holds about that much of the
+  dataset, whatever its size.
 - **Parallel reads.** With `--dataset-endpoint-batches=N`, GetFlightInfo,
   PollFlightInfo and ListFlights return one endpoint per N batches. Clients can
   read the endpoints in parallel, and must read them all; together, in order,

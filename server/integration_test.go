@@ -1184,6 +1184,118 @@ func TestIntegrationDatasetReads(t *testing.T) {
 	}
 }
 
+// lrangeHook records the element ranges of the LRANGEs on keys containing
+// match.
+type lrangeHook struct {
+	match  string
+	mu     sync.Mutex
+	ranges [][2]int64
+}
+
+func (h *lrangeHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+
+func (h *lrangeHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return next
+}
+
+func (h *lrangeHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		if args := cmd.Args(); cmd.Name() == "lrange" && len(args) == 4 && strings.Contains(fmt.Sprint(args[1]), h.match) {
+			start, _ := args[2].(int64)
+			stop, _ := args[3].(int64)
+			h.mu.Lock()
+			h.ranges = append(h.ranges, [2]int64{start, stop})
+			h.mu.Unlock()
+		}
+		return next(ctx, cmd)
+	}
+}
+
+// A dataset read takes about readPageBytes of batches per LRANGE, so it
+// holds a few large batches at a time, and still many small ones.
+func TestIntegrationDatasetReadPages(t *testing.T) {
+	uri := redisURI(t)
+	ctx := context.Background()
+	const prefix = "it_flight_pages:"
+	admin := adminClient(t, uri)
+	t.Cleanup(func() { deleteKeys(admin, keysMatching(t, admin, prefix+"*")) })
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "n", Type: arrow.PrimitiveTypes.Int64},
+		{Name: "label", Type: arrow.BinaryTypes.String},
+	}, nil)
+	// upload stores batches of rows rows with labels of pad bytes, and
+	// returns the dataset's name.
+	upload := func(batches, rows, pad int) string {
+		t.Helper()
+		fill := strings.Repeat("x", pad)
+		var recs []arrow.RecordBatch
+		defer func() { releaseAll(recs) }()
+		for b := range batches {
+			bld := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+			for i := b * rows; i < (b+1)*rows; i++ {
+				bld.Field(0).(*array.Int64Builder).Append(int64(i))
+				bld.Field(1).(*array.StringBuilder).Append(fill)
+			}
+			recs = append(recs, bld.NewRecordBatch())
+			bld.Release()
+		}
+		name := uniqueName("it_flight_pages")
+		fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix}).fl
+		if m := putDataset(t, ctx, fc, datasetDesc(name), schema, recs...); m.Batches != int64(batches) {
+			t.Fatalf("stored %d batches, want %d", m.Batches, batches)
+		}
+		return name
+	}
+	// read reads a dataset whole, checks its n column counts up from 0,
+	// and returns the elements each LRANGE asked for.
+	read := func(name string, rows int) []int64 {
+		t.Helper()
+		hook := &lrangeHook{match: name}
+		fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, redisHook: hook}).fl
+		stream, err := fc.DoGet(ctx, &flight.Ticket{Ticket: []byte(`{"dataset": "` + name + `"}`)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		rdr, err := flight.NewRecordReader(stream)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rdr.Release()
+		var n int64
+		for rdr.Next() {
+			col := rdr.RecordBatch().Column(0).(*array.Int64)
+			for i := range col.Len() {
+				if col.Value(i) != n {
+					t.Fatalf("row %d has n = %d", n, col.Value(i))
+				}
+				n++
+			}
+		}
+		if err := rdr.Err(); err != nil || n != int64(rows) {
+			t.Fatalf("read %d rows, want %d: %v", n, rows, err)
+		}
+		var lens []int64
+		next := int64(0)
+		for _, r := range hook.ranges {
+			if r[0] != next {
+				t.Fatalf("LRANGEs %v don't cover the list in order", hook.ranges)
+			}
+			lens, next = append(lens, r[1]-r[0]+1), r[1]+1
+		}
+		return lens
+	}
+
+	// About 1.5 MiB each: 4 elements (the schema and 3 batches), then 5
+	// batches per page (8 MiB / 1.5 MiB).
+	if lens := read(upload(12, 1000, 1500), 12_000); !slices.Equal(lens, []int64{4, 5, 4}) {
+		t.Errorf("batches of 1.5 MiB were read %v elements at a time, want [4 5 4]", lens)
+	}
+	// Small batches: 4 elements, then the rest at once.
+	if lens := read(upload(10, 100, 10), 1000); !slices.Equal(lens, []int64{4, 7}) {
+		t.Errorf("small batches were read %v elements at a time, want [4 7]", lens)
+	}
+}
+
 // holdCommitHook holds the first dataset commit until release is closed,
 // after closing held.
 type holdCommitHook struct {

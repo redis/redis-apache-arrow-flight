@@ -53,10 +53,23 @@ const (
 	// commitTimeout bounds an upload's commit, which runs even if the
 	// client has gone.
 	commitTimeout = 30 * time.Second
+	// A read takes up to readPage list elements, and about readPageBytes,
+	// per LRANGE (see pageLen).
 	readPage      = 64
+	readPageBytes = 8 << 20
 	flushValues   = 64
 	flushBytes    = 8 << 20
 )
+
+// pageLen is the number of list elements a read takes next, given the
+// largest batch it has read so far: about readPageBytes of them, from 1 to
+// readPage.
+func pageLen(largest int64) int64 {
+	if largest <= 0 {
+		return readPage
+	}
+	return min(max(readPageBytes/largest, 1), readPage)
+}
 
 type datasets struct {
 	tenants *tenantCache
@@ -572,10 +585,20 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 		}
 		return nil
 	}
+	// largest is the largest batch read so far, which sizes the next page.
+	// Until one has been read, pages are sized for batches of
+	// maxChunkBytes, the most an upload stores in one unless a row is
+	// larger. A batch much larger than those before it can make one page
+	// go over readPageBytes.
+	var largest int64
 	// read sends the list elements [from, to).
 	read := func(from, to int64) error {
-		for start := from; start < to; start += readPage {
-			end := min(start+readPage, to)
+		for start := from; start < to; {
+			size := largest
+			if size == 0 {
+				size = maxChunkBytes
+			}
+			end := min(start+pageLen(size), to)
 			vals, err := t.rdb.LRange(ctx, key, start, end-1).Result()
 			if err != nil {
 				return toStatus(err)
@@ -583,11 +606,15 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 			if int64(len(vals)) < end-start {
 				return gone() // expired while being read
 			}
-			for _, v := range vals {
+			for i, v := range vals {
+				if start+int64(i) > 0 { // element 0 is the schema alone
+					largest = max(largest, int64(len(v)))
+				}
 				if err := send(v); err != nil {
 					return err
 				}
 			}
+			start = end
 		}
 		return nil
 	}

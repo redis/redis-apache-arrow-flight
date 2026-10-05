@@ -442,6 +442,22 @@ func TestChunks(t *testing.T) {
 	}
 }
 
+func TestPageLen(t *testing.T) {
+	for _, tc := range []struct{ largest, want int64 }{
+		{0, readPage},
+		{1, readPage},
+		{100 << 10, readPage}, // 81 fit
+		{1 << 20, 8},
+		{maxChunkBytes, 4},
+		{3 << 20, 2},
+		{9 << 20, 1}, // one row larger than a page
+	} {
+		if got := pageLen(tc.largest); got != tc.want {
+			t.Errorf("pageLen(%d) = %d, want %d", tc.largest, got, tc.want)
+		}
+	}
+}
+
 func TestDatasetKeys(t *testing.T) {
 	d := &datasets{prefix: "af:"}
 	for _, name := range []string{"sales", "a/b/c", "with {braces}", "odd*?[]\\ name", "ünïcödé"} {
