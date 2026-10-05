@@ -82,8 +82,16 @@ type Config struct {
 
 	// MaxStreams is the number of query results a user can have streaming
 	// from Redis at once (default 8). Each holds a pooled connection until
-	// it is read; further queries are read whole before they are sent.
+	// it is read; further queries are read whole before they are sent. At
+	// most PoolMaxOpen-1 stream, so a user always has a connection left for
+	// other requests (none stream with a pool of 1).
 	MaxStreams int
+	// MaxTableStreams is the number of query results that can stream from
+	// one table at once, across all users of the server (default 32). Each
+	// holds a cursor on the table's index, and RediSearch allows an index
+	// search-index-cursor-limit of them (128 by default), shared with other
+	// clients and servers. Further queries on the table are read whole.
+	MaxTableStreams int
 	// StreamStallTimeout ends a streaming result whose client takes longer
 	// than this to read a batch (default 2m), since Redis deletes a cursor
 	// left unread for 5 minutes.
@@ -140,6 +148,9 @@ func (c *Config) setDefaults() {
 	if c.MaxStreams == 0 {
 		c.MaxStreams = 8
 	}
+	if c.MaxTableStreams == 0 {
+		c.MaxTableStreams = 32
+	}
 	if c.StreamStallTimeout == 0 {
 		c.StreamStallTimeout = 2 * time.Minute
 	}
@@ -166,8 +177,8 @@ func (c *Config) validate() error {
 	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
 		return errors.New("TLS needs both a certificate and a key file")
 	}
-	if c.DatasetEndpointBatches < 0 || c.MaxStreams < 0 {
-		return errors.New("DatasetEndpointBatches and MaxStreams must not be negative")
+	if c.DatasetEndpointBatches < 0 || c.MaxStreams < 0 || c.MaxTableStreams < 0 {
+		return errors.New("DatasetEndpointBatches, MaxStreams and MaxTableStreams must not be negative")
 	}
 	if c.PoolMaxIdle < 0 || c.PoolMaxOpen < 1 {
 		return errors.New("the pool needs PoolMaxIdle >= 0 and PoolMaxOpen >= 1")

@@ -37,6 +37,10 @@ type sqlServer struct {
 	flightsql.BaseServer
 	tenants   *tenantCache
 	keyPrefix string
+	// tables counts the results streaming from each table (MaxTableStreams).
+	tables *tableStreams
+	// defaultSchema is the driver's schema for unqualified table names.
+	defaultSchema string
 }
 
 // trace logs a Flight SQL command at debug level, with the start of its SQL.
@@ -60,7 +64,11 @@ var errNoTransactions = status.Error(codes.InvalidArgument,
 	"transactions are not supported: the Redis driver runs every statement in autocommit mode")
 
 func newSQLServer(tenants *tenantCache, alloc memory.Allocator, keyPrefix string) (*sqlServer, error) {
-	s := &sqlServer{tenants: tenants, keyPrefix: keyPrefix}
+	s := &sqlServer{tenants: tenants, keyPrefix: keyPrefix, tables: newTableStreams(tenants.cfg.MaxTableStreams),
+		defaultSchema: tenants.cfg.ADBCOptions[redis.OptionStringDefaultSchema]}
+	if s.defaultSchema == "" {
+		s.defaultSchema = "public"
+	}
 	s.Alloc = alloc
 	info := map[flightsql.SqlInfo]any{
 		flightsql.SqlInfoFlightSqlServerName:                        ServerName,
@@ -348,19 +356,65 @@ func (s *sqlServer) streamResult(ctx context.Context, h statementHandle) (*arrow
 	return schema, streamRecords(ctx, rdr, nil), nil
 }
 
+// streamTable returns the table a query would stream from, as
+// "schema.table" in lower case, or false if the driver won't stream it: it
+// streams only a single SELECT from one table, without a CTE, a join, a
+// derived table or a set operation. Folding case can merge two tables'
+// counts, but never splits one's.
+func streamTable(sql, defaultSchema string) (string, bool) {
+	stmts, err := redis.ParseScript(sql)
+	if err != nil || len(stmts) != 1 {
+		return "", false
+	}
+	sel, ok := stmts[0].Stmt.(*redis.SelectStmt)
+	if !ok || sel.SetOp != nil || len(sel.With) > 0 || sel.From == nil || sel.FromSelect != nil || len(sel.Joins) > 0 {
+		return "", false
+	}
+	schema := sel.From.Schema
+	if schema == "" {
+		schema = defaultSchema
+	}
+	return strings.ToLower(schema + "." + sel.From.Name), true
+}
+
+// tryStream takes what a result streaming from Redis holds besides its
+// connection: one of the user's streams (streamTokens), and one of its
+// table's (MaxTableStreams). It takes nothing, and returns false, for a
+// query the driver won't stream, or in a session, whose connection serves
+// its other requests too.
+func (s *sqlServer) tryStream(ctx context.Context, t *tenant, sql string) (table string, ok bool) {
+	if sessionFrom(ctx) != nil {
+		return "", false
+	}
+	if table, ok = streamTable(sql, s.defaultSchema); !ok || !t.tryStream() {
+		return "", false
+	}
+	if !s.tables.try(table) {
+		t.endStream()
+		return "", false
+	}
+	return table, true
+}
+
+func (s *sqlServer) endStream(t *tenant, table string) {
+	s.tables.end(table)
+	t.endStream()
+}
+
 // executeQuery runs h and streams its result. The driver streams some
 // results from Redis as they are read (a plain scan of a table): such a
-// result keeps its pooled connection, its statement and one of the user's
-// MaxStreams until it has been sent, or the client has gone. Any other
-// result is whole in memory, so its connection goes back at once. In a
-// session, or with no stream free, results are read whole: a session's
-// connection serves its other requests too.
+// result keeps its pooled connection, its statement, and one of the user's
+// and the table's streams (see tryStream) until it has been sent, or the
+// client has gone. Any other result is whole in memory, so its connection
+// goes back at once. In a session, or with no stream free, results are
+// read whole.
 func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	t, done, err := s.tenants.acquire(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	if sessionFrom(ctx) != nil || !t.tryStream() {
+	table, ok := s.tryStream(ctx, t, h.Query)
+	if !ok {
 		defer done()
 		var rdr array.RecordReader
 		err = t.withConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) error {
@@ -381,7 +435,7 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 	live := false
 	defer func() {
 		if !live {
-			t.endStream()
+			s.endStream(t, table)
 			done()
 		}
 	}()
@@ -416,7 +470,7 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 		done: func(err error) {
 			_ = stmt.Close(context.WithoutCancel(ctx))
 			release(err)
-			t.endStream()
+			s.endStream(t, table)
 			done()
 		},
 	}), nil

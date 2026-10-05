@@ -94,6 +94,86 @@ func TestChangesSession(t *testing.T) {
 	}
 }
 
+func TestStreamTokens(t *testing.T) {
+	for _, tc := range []struct{ maxStreams, poolMaxOpen, want int }{
+		{8, 32, 8},
+		{8, 9, 8},
+		{8, 8, 7},
+		{8, 2, 1},
+		{8, 1, 0}, // a pool of 1 never streams
+	} {
+		cfg := &Config{MaxStreams: tc.maxStreams, PoolMaxOpen: tc.poolMaxOpen}
+		if got := streamTokens(cfg); got != tc.want {
+			t.Errorf("streamTokens(MaxStreams %d, PoolMaxOpen %d) = %d, want %d",
+				tc.maxStreams, tc.poolMaxOpen, got, tc.want)
+		}
+	}
+}
+
+func TestStreamTable(t *testing.T) {
+	for sql, want := range map[string]string{
+		"SELECT * FROM t": "public.t",
+		"select id from Orders where id > 3 order by id": "public.orders",
+		"SELECT id FROM Sales.Orders LIMIT 10":           "sales.orders",
+		`SELECT id FROM "Mixed"`:                         "public.mixed",
+		"SELECT o.id FROM t AS o WHERE o.id = $1":        "public.t",
+		// The driver doesn't stream these.
+		"SELECT 1":                                  "",
+		"SELECT * FROM a JOIN b ON a.id = b.id":     "",
+		"SELECT * FROM a, b":                        "",
+		"WITH c AS (SELECT 1 AS a) SELECT * FROM c": "",
+		"SELECT * FROM (SELECT id FROM t) AS d":     "",
+		"SELECT id FROM a UNION SELECT id FROM b":   "",
+		"SELECT * FROM t; SELECT * FROM t":          "",
+		"INSERT INTO t VALUES (1)":                  "",
+		"this is not SQL":                           "",
+		"":                                          "",
+	} {
+		got, ok := streamTable(sql, "public")
+		if ok != (want != "") || got != want {
+			t.Errorf("streamTable(%q) = %q, %v; want %q", sql, got, ok, want)
+		}
+	}
+	if got, _ := streamTable("SELECT * FROM t", "sales"); got != "sales.t" {
+		t.Errorf("with default schema sales: %q", got)
+	}
+}
+
+func TestTableStreams(t *testing.T) {
+	ts := newTableStreams(2)
+	if !ts.try("public.a") || !ts.try("public.a") {
+		t.Fatal("refused a stream under the cap")
+	}
+	if ts.try("public.a") {
+		t.Error("allowed a stream over the cap")
+	}
+	if !ts.try("public.b") {
+		t.Error("another table's streams counted against public.a")
+	}
+	ts.end("public.a")
+	if !ts.try("public.a") {
+		t.Error("an ended stream wasn't freed")
+	}
+	ts.end("public.a")
+	ts.end("public.a")
+	ts.end("public.b")
+	if len(ts.n) != 0 {
+		t.Errorf("counts left after every stream ended: %v", ts.n)
+	}
+}
+
+func TestCursorLimitStatus(t *testing.T) {
+	// The driver wraps Redis's reply as an I/O error.
+	err := adbc.Error{Code: adbc.StatusIO,
+		Msg: "FT.AGGREGATE failed: INDEX_CURSOR_LIMIT of 128 has been reached for an index"}
+	if got := toStatus(err); status.Code(got) != codes.ResourceExhausted {
+		t.Errorf("toStatus = %v, want ResourceExhausted", got)
+	}
+	if !reusable("SELECT * FROM t", err) {
+		t.Error("an index out of cursors should keep the connection")
+	}
+}
+
 func TestReusable(t *testing.T) {
 	stmtErr := adbc.Error{Code: adbc.StatusInvalidArgument, Msg: "syntax error"}
 	ioErr := adbc.Error{Code: adbc.StatusIO, Msg: "connection reset"}
@@ -462,6 +542,7 @@ func TestConfigValidation(t *testing.T) {
 		{TLSCertFile: "cert.pem"},
 		{ADBCOptions: map[string]string{"uri": "redis://elsewhere"}},
 		{RedisURI: "http://not-redis"},
+		{MaxTableStreams: -1},
 	} {
 		cfg.Logger = testLogger(t)
 		if _, err := New(cfg); err == nil {
