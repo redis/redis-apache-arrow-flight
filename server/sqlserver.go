@@ -39,6 +39,8 @@ type sqlServer struct {
 	keyPrefix string
 	// tables counts the results streaming from each table (MaxTableStreams).
 	tables *tableStreams
+	// cursors tracks the open cursors of the indexes results stream from.
+	cursors *indexCursors
 	// results counts the memory of results read whole for want of a
 	// stream (ResultMemory).
 	results *resultBudget
@@ -68,7 +70,8 @@ var errNoTransactions = status.Error(codes.InvalidArgument,
 
 func newSQLServer(tenants *tenantCache, alloc memory.Allocator, keyPrefix string) (*sqlServer, error) {
 	s := &sqlServer{tenants: tenants, keyPrefix: keyPrefix, tables: newTableStreams(tenants.cfg.MaxTableStreams),
-		results: newResultBudget(tenants.cfg.ResultMemory), defaultSchema: tenants.cfg.ADBCOptions[redis.OptionStringDefaultSchema]}
+		cursors: newIndexCursors(), results: newResultBudget(tenants.cfg.ResultMemory),
+		defaultSchema: tenants.cfg.ADBCOptions[redis.OptionStringDefaultSchema]}
 	if s.defaultSchema == "" {
 		s.defaultSchema = "public"
 	}
@@ -359,47 +362,61 @@ func (s *sqlServer) streamResult(ctx context.Context, h statementHandle) (*arrow
 	return schema, streamRecords(ctx, rdr, nil), nil
 }
 
-// streamTable returns the table a query would stream from, as
-// "schema.table" in lower case, or false if the driver won't stream it: it
-// streams only a single SELECT from one table, without a CTE, a join, a
-// derived table or a set operation. Folding case can merge two tables'
-// counts, but never splits one's.
-func streamTable(sql, defaultSchema string) (string, bool) {
+// streamSource is the table a query streams from, named as the driver
+// stores it.
+type streamSource struct{ schema, name string }
+
+// key is what tableStreams counts the table's streams by: "schema.table" in
+// lower case. Folding case can merge two tables' counts, but never splits
+// one's.
+func (src streamSource) key() string { return strings.ToLower(src.schema + "." + src.name) }
+
+// streamTable returns the table a query would stream from, or false if the
+// driver won't stream it: it streams only a single SELECT from one table,
+// without a CTE, a join, a derived table or a set operation.
+func streamTable(sql, defaultSchema string) (streamSource, bool) {
 	stmts, err := redis.ParseScript(sql)
 	if err != nil || len(stmts) != 1 {
-		return "", false
+		return streamSource{}, false
 	}
 	sel, ok := stmts[0].Stmt.(*redis.SelectStmt)
 	if !ok || sel.SetOp != nil || len(sel.With) > 0 || sel.From == nil || sel.FromSelect != nil || len(sel.Joins) > 0 {
-		return "", false
+		return streamSource{}, false
 	}
 	schema := sel.From.Schema
 	if schema == "" {
 		schema = defaultSchema
 	}
-	return strings.ToLower(schema + "." + sel.From.Name), true
+	return streamSource{schema: schema, name: sel.From.Name}, true
 }
 
 // streamable returns the table a query's result would stream from (see
 // streamTable), or false for a query the driver won't stream, or in a
 // session, whose connection serves its other requests too.
-func (s *sqlServer) streamable(ctx context.Context, sql string) (table string, ok bool) {
+func (s *sqlServer) streamable(ctx context.Context, sql string) (streamSource, bool) {
 	if sessionFrom(ctx) != nil {
-		return "", false
+		return streamSource{}, false
 	}
 	return streamTable(sql, s.defaultSchema)
 }
 
-// takeStream takes what a result streaming from table holds besides its
+// takeStream takes what a result streaming from src holds besides its
 // connection: one of the user's streams (streamTokens), and one of the
 // table's (MaxTableStreams). It takes neither, and returns false, if
-// either has none free.
-func (s *sqlServer) takeStream(t *tenant, table string) bool {
+// either has none free, or if the table's index has too many cursors open
+// already, counting every client (see indexCursors).
+func (s *sqlServer) takeStream(ctx context.Context, t *tenant, src streamSource) bool {
 	if !t.tryStream() {
 		return false
 	}
-	if !s.tables.try(table) {
+	if !s.tables.try(src.key()) {
 		t.endStream()
+		return false
+	}
+	if !s.cursors.allow(ctx, t, src) {
+		s.tenants.cfg.Logger.Debug("the table's index is near its cursor limit: reading the result whole",
+			"table", src.schema+"."+src.name)
+		s.endStream(t, src.key())
 		return false
 	}
 	return true
@@ -422,11 +439,12 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 	if err != nil {
 		return nil, nil, err
 	}
-	table, ok := s.streamable(ctx, h.Query)
-	if ok && !s.takeStream(t, table) {
+	src, ok := s.streamable(ctx, h.Query)
+	if ok && !s.takeStream(ctx, t, src) {
 		defer done()
 		return s.bufferQuery(ctx, t, h)
 	}
+	table := src.key()
 	if !ok {
 		defer done()
 		var rdr array.RecordReader

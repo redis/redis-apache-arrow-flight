@@ -91,8 +91,10 @@ type Config struct {
 	// one table at once, across all users of the server (default 32). Each
 	// holds a cursor on the table's index, and RediSearch allows an index
 	// search-index-cursor-limit of them (128 by default), shared with other
-	// clients and servers. Further queries on the table are read whole
-	// (see ResultMemory).
+	// clients and servers. On standalone Redis, results also stop
+	// streaming once the index has three quarters of its cursors open,
+	// counting every client (FT.INFO); a cluster doesn't report the count.
+	// Further queries on the table are read whole (see ResultMemory).
 	MaxTableStreams int
 	// ResultMemory is the most memory, in bytes, that results which could
 	// have streamed but found no stream free (MaxStreams, MaxTableStreams)

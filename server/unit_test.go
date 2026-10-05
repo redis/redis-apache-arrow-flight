@@ -17,6 +17,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	"github.com/apache/arrow-go/v18/arrow/flight/flightsql"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	goredis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -113,31 +114,104 @@ func TestStreamTokens(t *testing.T) {
 }
 
 func TestStreamTable(t *testing.T) {
-	for sql, want := range map[string]string{
-		"SELECT * FROM t": "public.t",
-		"select id from Orders where id > 3 order by id": "public.orders",
-		"SELECT id FROM Sales.Orders LIMIT 10":           "sales.orders",
-		`SELECT id FROM "Mixed"`:                         "public.mixed",
-		"SELECT o.id FROM t AS o WHERE o.id = $1":        "public.t",
+	for sql, want := range map[string]streamSource{
+		"SELECT * FROM t": {"public", "t"},
+		"select id from Orders where id > 3 order by id": {"public", "Orders"},
+		"SELECT id FROM Sales.Orders LIMIT 10":           {"Sales", "Orders"},
+		`SELECT id FROM "Mixed"`:                         {"public", "Mixed"},
+		"SELECT o.id FROM t AS o WHERE o.id = $1":        {"public", "t"},
 		// The driver doesn't stream these.
-		"SELECT 1":                                  "",
-		"SELECT * FROM a JOIN b ON a.id = b.id":     "",
-		"SELECT * FROM a, b":                        "",
-		"WITH c AS (SELECT 1 AS a) SELECT * FROM c": "",
-		"SELECT * FROM (SELECT id FROM t) AS d":     "",
-		"SELECT id FROM a UNION SELECT id FROM b":   "",
-		"SELECT * FROM t; SELECT * FROM t":          "",
-		"INSERT INTO t VALUES (1)":                  "",
-		"this is not SQL":                           "",
-		"":                                          "",
+		"SELECT 1":                                  {},
+		"SELECT * FROM a JOIN b ON a.id = b.id":     {},
+		"SELECT * FROM a, b":                        {},
+		"WITH c AS (SELECT 1 AS a) SELECT * FROM c": {},
+		"SELECT * FROM (SELECT id FROM t) AS d":     {},
+		"SELECT id FROM a UNION SELECT id FROM b":   {},
+		"SELECT * FROM t; SELECT * FROM t":          {},
+		"INSERT INTO t VALUES (1)":                  {},
+		"this is not SQL":                           {},
+		"":                                          {},
 	} {
 		got, ok := streamTable(sql, "public")
-		if ok != (want != "") || got != want {
-			t.Errorf("streamTable(%q) = %q, %v; want %q", sql, got, ok, want)
+		if ok != (want != streamSource{}) || got != want {
+			t.Errorf("streamTable(%q) = %+v, %v; want %+v", sql, got, ok, want)
 		}
 	}
-	if got, _ := streamTable("SELECT * FROM t", "sales"); got != "sales.t" {
-		t.Errorf("with default schema sales: %q", got)
+	if got, _ := streamTable("SELECT * FROM t", "sales"); got != (streamSource{"sales", "t"}) {
+		t.Errorf("with default schema sales: %+v", got)
+	}
+	// Streams are counted by the table's name in lower case.
+	if key := (streamSource{"Sales", "Orders"}).key(); key != "sales.orders" {
+		t.Errorf("key = %q, want sales.orders", key)
+	}
+}
+
+func TestIndexCursors(t *testing.T) {
+	now := time.Unix(0, 0)
+	var (
+		fetches        int
+		open, capacity int64 = 90, 128
+		fetchErr       error
+	)
+	ic := newIndexCursors()
+	ic.now = func() time.Time { return now }
+	ic.fetch = func(context.Context, goredis.UniversalClient, streamSource) (int64, int64, error) {
+		fetches++
+		return open, capacity, fetchErr
+	}
+	tn := &tenant{rdb: goredis.NewClient(&goredis.Options{Addr: "localhost:0"})}
+	defer tn.rdb.Close()
+	ctx := context.Background()
+	src := streamSource{"public", "t"}
+
+	// 90 open, so 6 more stream before three quarters (96) are open.
+	for i := range 6 {
+		if !ic.allow(ctx, tn, src) {
+			t.Fatalf("stream %d refused with %d of %d cursors open", i+1, open+int64(i), capacity)
+		}
+	}
+	if ic.allow(ctx, tn, src) {
+		t.Error("a stream was allowed with three quarters of the cursors open")
+	}
+	if fetches != 1 {
+		t.Errorf("FT.INFO was read %d times within the interval, want 1", fetches)
+	}
+	if !ic.allow(ctx, tn, streamSource{"public", "u"}) {
+		t.Error("another table's index counted against this one")
+	}
+
+	// After the interval, the count is read again.
+	now = now.Add(cursorCheckInterval)
+	open = 10
+	if !ic.allow(ctx, tn, src) || fetches != 3 {
+		t.Errorf("after the interval: fetches = %d, want 3", fetches)
+	}
+
+	// Without a count (FT.INFO refused, no such index), MaxTableStreams alone applies.
+	now = now.Add(cursorCheckInterval)
+	open, fetchErr = 200, errors.New("Unknown index name")
+	if !ic.allow(ctx, tn, src) {
+		t.Error("refused a stream without a count")
+	}
+
+	// A cluster's FT.INFO doesn't count cursors: it isn't read.
+	cluster := &tenant{rdb: goredis.NewClusterClient(&goredis.ClusterOptions{Addrs: []string{"localhost:0"}})}
+	defer cluster.rdb.Close()
+	before := fetches
+	if !ic.allow(ctx, cluster, streamSource{"public", "c"}) || fetches != before {
+		t.Error("read FT.INFO on a cluster")
+	}
+}
+
+func TestEscapeKeyPart(t *testing.T) {
+	for in, want := range map[string]string{
+		"orders":      "orders",
+		"Mixed Case":  "Mixed%20Case",
+		"a:b{c}%d*e?": "a%3Ab%7Bc%7D%25d%2Ae%3F",
+	} {
+		if got := escapeKeyPart(in); got != want {
+			t.Errorf("escapeKeyPart(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 

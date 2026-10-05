@@ -118,22 +118,6 @@ func cursors(t *testing.T, admin goredis.UniversalClient, table string) int64 {
 	return n.(int64)
 }
 
-// replyField reads a field of a RESP2 (flat list) or RESP3 (map) reply.
-func replyField(reply any, name string) (any, bool) {
-	switch r := reply.(type) {
-	case map[any]any:
-		v, ok := r[name]
-		return v, ok
-	case []any:
-		for i := 0; i+1 < len(r); i += 2 {
-			if r[i] == name {
-				return r[i+1], true
-			}
-		}
-	}
-	return nil, false
-}
-
 // waitCursors waits for a table's index to have n open cursors (on
 // standalone Redis; on a cluster it can't tell).
 func waitCursors(t *testing.T, admin goredis.UniversalClient, table string, n int64) {
@@ -194,18 +178,32 @@ func waitStreamFree(t *testing.T, c *flightsql.Client, admin goredis.UniversalCl
 	}
 }
 
-// openCursors opens n cursors on a table's index, as other clients would,
-// and deletes them when the test ends.
-func openCursors(t *testing.T, admin goredis.UniversalClient, table string, n int) {
+// cursorLimit is Redis's search-index-cursor-limit.
+func cursorLimit(admin goredis.UniversalClient) int {
+	limit := 128
+	if cfg, err := admin.ConfigGet(context.Background(), "search-index-cursor-limit").Result(); err == nil {
+		if v, err := strconv.Atoi(cfg["search-index-cursor-limit"]); err == nil {
+			limit = v
+		}
+	}
+	return limit
+}
+
+// openCursors opens n cursors on a table's index, as other clients would.
+// It returns a function that deletes them, which also runs when the test
+// ends.
+func openCursors(t *testing.T, admin goredis.UniversalClient, table string, n int) func() {
 	t.Helper()
 	ctx := context.Background()
 	index := "idx:public:" + table
 	var ids []int64
-	t.Cleanup(func() {
+	del := func() {
 		for _, id := range ids {
 			_ = admin.Do(ctx, "FT.CURSOR", "DEL", index, id).Err()
 		}
-	})
+		ids = nil
+	}
+	t.Cleanup(del)
 	for range n {
 		reply, err := admin.Do(ctx, "FT.AGGREGATE", index, "*", "WITHCURSOR", "COUNT", 1).Slice()
 		if err != nil {
@@ -217,6 +215,7 @@ func openCursors(t *testing.T, admin goredis.UniversalClient, table string, n in
 		}
 		ids = append(ids, id)
 	}
+	return del
 }
 
 func TestIntegrationStreamResults(t *testing.T) {
@@ -397,17 +396,80 @@ func TestIntegrationStreamResults(t *testing.T) {
 		}
 	})
 
+	t.Run("the server finds a table's index, also after a rename", func(t *testing.T) {
+		ctx := context.Background()
+		check := func(name string) {
+			t.Helper()
+			index, err := tableIndex(ctx, admin, streamSource{"public", name})
+			if err != nil {
+				t.Fatalf("tableIndex(%s): %v", name, err)
+			}
+			if err := admin.Do(ctx, "FT.INFO", index).Err(); err != nil {
+				t.Errorf("FT.INFO %s, the index of %s: %v", index, name, err)
+			}
+		}
+		check(table)
+		old, renamed := uniqueName("it_flight_stream_old"), uniqueName("it_flight_stream_renamed")
+		dropTable(t, setup, old)
+		dropTable(t, setup, renamed)
+		ingestRows(t, setup, old, 10, 0)
+		update(t, ctx, setup, "ALTER TABLE "+old+" RENAME TO "+renamed)
+		check(renamed)
+	})
+
+	t.Run("streams stop at three quarters of the index's cursors, counting other clients", func(t *testing.T) {
+		if _, ok := admin.(*goredis.ClusterClient); ok {
+			t.Skip("a cluster's FT.INFO doesn't count cursors")
+		}
+		ctx := context.Background()
+		waitCursors(t, admin, table, 0)
+		limit := cursorLimit(admin)
+		others := limit - limit/4 - 1 // one short of three quarters
+		closeOthers := openCursors(t, admin, table, others)
+		c := newClients(t, streamConfig(uri)).sql
+		var readers []*flight.Reader
+		var firsts []int
+		for i := range 2 {
+			rdr := openRead(t, ctx, c, scan)
+			if !rdr.Next() {
+				t.Fatal(rdr.Err())
+			}
+			readers, firsts = append(readers, rdr), append(firsts, int(rdr.RecordBatch().NumRows()))
+			// The first streams, to three quarters; the second is read whole.
+			if n := cursors(t, admin, table); n != int64(others+1) {
+				t.Errorf("after scan %d, with %d of %d cursors open to other clients: %d open, want %d",
+					i+1, others, limit, n, others+1)
+			}
+		}
+		for i, rdr := range readers {
+			if ids, err := readIDs(rdr); err != nil || firsts[i]+len(ids) != streamRows {
+				t.Errorf("result %d: %d rows, %v", i+1, firsts[i]+len(ids), err)
+			}
+		}
+
+		// Once the other client's cursors are gone, and the count is read
+		// again, results stream again.
+		closeOthers()
+		waitCursors(t, admin, table, 0)
+		time.Sleep(cursorCheckInterval)
+		rdr := openRead(t, ctx, c, scan)
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		if n := cursors(t, admin, table); n != 1 {
+			t.Errorf("after the other client's cursors were closed, a scan left %d cursors open, want 1", n)
+		}
+		if _, err := readIDs(rdr); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("an index out of cursors is RESOURCE_EXHAUSTED", func(t *testing.T) {
 		if _, ok := admin.(*goredis.ClusterClient); ok {
 			t.Skip("a cluster's shards count their own cursors")
 		}
 		ctx := context.Background()
-		limit := 128
-		if cfg, err := admin.ConfigGet(ctx, "search-index-cursor-limit").Result(); err == nil {
-			if v, err := strconv.Atoi(cfg["search-index-cursor-limit"]); err == nil {
-				limit = v
-			}
-		}
+		limit := cursorLimit(admin)
 		full := uniqueName("it_flight_stream_full")
 		dropTable(t, setup, full)
 		ingestRows(t, setup, full, 10, 0)
