@@ -39,6 +39,9 @@ type sqlServer struct {
 	keyPrefix string
 	// tables counts the results streaming from each table (MaxTableStreams).
 	tables *tableStreams
+	// results counts the memory of results read whole for want of a
+	// stream (ResultMemory).
+	results *resultBudget
 	// defaultSchema is the driver's schema for unqualified table names.
 	defaultSchema string
 }
@@ -65,7 +68,7 @@ var errNoTransactions = status.Error(codes.InvalidArgument,
 
 func newSQLServer(tenants *tenantCache, alloc memory.Allocator, keyPrefix string) (*sqlServer, error) {
 	s := &sqlServer{tenants: tenants, keyPrefix: keyPrefix, tables: newTableStreams(tenants.cfg.MaxTableStreams),
-		defaultSchema: tenants.cfg.ADBCOptions[redis.OptionStringDefaultSchema]}
+		results: newResultBudget(tenants.cfg.ResultMemory), defaultSchema: tenants.cfg.ADBCOptions[redis.OptionStringDefaultSchema]}
 	if s.defaultSchema == "" {
 		s.defaultSchema = "public"
 	}
@@ -377,23 +380,29 @@ func streamTable(sql, defaultSchema string) (string, bool) {
 	return strings.ToLower(schema + "." + sel.From.Name), true
 }
 
-// tryStream takes what a result streaming from Redis holds besides its
-// connection: one of the user's streams (streamTokens), and one of its
-// table's (MaxTableStreams). It takes nothing, and returns false, for a
-// query the driver won't stream, or in a session, whose connection serves
-// its other requests too.
-func (s *sqlServer) tryStream(ctx context.Context, t *tenant, sql string) (table string, ok bool) {
+// streamable returns the table a query's result would stream from (see
+// streamTable), or false for a query the driver won't stream, or in a
+// session, whose connection serves its other requests too.
+func (s *sqlServer) streamable(ctx context.Context, sql string) (table string, ok bool) {
 	if sessionFrom(ctx) != nil {
 		return "", false
 	}
-	if table, ok = streamTable(sql, s.defaultSchema); !ok || !t.tryStream() {
-		return "", false
+	return streamTable(sql, s.defaultSchema)
+}
+
+// takeStream takes what a result streaming from table holds besides its
+// connection: one of the user's streams (streamTokens), and one of the
+// table's (MaxTableStreams). It takes neither, and returns false, if
+// either has none free.
+func (s *sqlServer) takeStream(t *tenant, table string) bool {
+	if !t.tryStream() {
+		return false
 	}
 	if !s.tables.try(table) {
 		t.endStream()
-		return "", false
+		return false
 	}
-	return table, true
+	return true
 }
 
 func (s *sqlServer) endStream(t *tenant, table string) {
@@ -404,16 +413,20 @@ func (s *sqlServer) endStream(t *tenant, table string) {
 // executeQuery runs h and streams its result. The driver streams some
 // results from Redis as they are read (a plain scan of a table): such a
 // result keeps its pooled connection, its statement, and one of the user's
-// and the table's streams (see tryStream) until it has been sent, or the
+// and the table's streams (see takeStream) until it has been sent, or the
 // client has gone. Any other result is whole in memory, so its connection
-// goes back at once. In a session, or with no stream free, results are
-// read whole.
+// goes back at once. In a session, results are read whole; with no stream
+// free, they are read whole within ResultMemory (see bufferQuery).
 func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	t, done, err := s.tenants.acquire(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	table, ok := s.tryStream(ctx, t, h.Query)
+	table, ok := s.streamable(ctx, h.Query)
+	if ok && !s.takeStream(t, table) {
+		defer done()
+		return s.bufferQuery(ctx, t, h)
+	}
 	if !ok {
 		defer done()
 		var rdr array.RecordReader
@@ -474,6 +487,64 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 			done()
 		},
 	}), nil
+}
+
+// errResultMemory refuses a result read whole for want of a stream that
+// doesn't fit in what is left of ResultMemory.
+var errResultMemory = status.Error(codes.ResourceExhausted,
+	"no stream from Redis was free for this query (-max-streams, -max-table-streams), and its result doesn't fit "+
+		"in the memory left for results read whole (-result-memory): retry, or read fewer rows or columns")
+
+// bufferQuery runs h, whose result could stream from Redis but finds no
+// stream free, and reads the result whole before sending it. The result
+// counts against ResultMemory, across the server, until it has been sent
+// or the client has stalled (StreamStallTimeout) or gone. A result that
+// doesn't fit fails with errResultMemory as soon as it is past the limit,
+// and its cursor and connection are freed at once.
+func (s *sqlServer) bufferQuery(ctx context.Context, t *tenant, h statementHandle) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	var (
+		schema *arrow.Schema
+		recs   []arrow.RecordBatch
+		held   int64
+	)
+	err := t.withConn(ctx, h.Query, func(conn adbc.ConnectionWithContext) error {
+		// Streamed, so that each batch is counted as it is read.
+		stmt, err := s.newStatement(ctx, conn, h, true)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close(ctx)
+		rdr, _, err := stmt.ExecuteQuery(ctx)
+		if err != nil {
+			return err
+		}
+		defer rdr.Release() // deletes the cursor, if the result isn't read to the end
+		schema = rdr.Schema()
+		for rdr.Next() {
+			rec := rdr.RecordBatch()
+			n := recordMemory(rec)
+			if !s.results.reserve(n) {
+				return errResultMemory
+			}
+			held += n
+			rec.Retain()
+			recs = append(recs, rec)
+		}
+		return rdr.Err()
+	})
+	if err == nil {
+		var rdr array.RecordReader
+		if rdr, err = array.NewRecordReader(schema, recs); err == nil {
+			releaseAll(recs)
+			return schema, streamRecords(ctx, rdr, &liveResult{
+				stall: s.tenants.cfg.StreamStallTimeout,
+				done:  func(error) { s.results.release(held) },
+			}), nil
+		}
+	}
+	releaseAll(recs)
+	s.results.release(held)
+	return nil, nil, toStatus(err)
 }
 
 // executeUpdate runs h, with params bound instead of h's parameters if

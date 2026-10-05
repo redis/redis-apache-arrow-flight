@@ -167,7 +167,7 @@ sequenceDiagram
     S->>R: HGETALL ds:{features/v1}
     S-->>C: FlightInfo: the schema, counts, one or more tickets
     C->>S: DoGet(ticket)
-    loop 64 batches at a time
+    loop about 8 MiB of batches at a time
         S->>R: LRANGE ds:{features/v1}:gN
     end
     S-->>C: FlightData: the ticket's columns and batches
@@ -367,7 +367,8 @@ How statements run:
     or the client goes away. Each Redis user can have `--max-streams` (8)
     results streaming at once, but always fewer than `--pool-max-open`, so
     the user's other requests have a connection (with a pool of 1, nothing
-    streams). Queries beyond that are read whole, as are queries in a
+    streams). With `--auth=none`, every client is the same user. Queries
+    beyond that are read whole (see below), as are queries in a
     [session](#sessions).
   - A streaming result also keeps a cursor open on its table's index.
     RediSearch allows an index `search-index-cursor-limit` open cursors
@@ -380,6 +381,13 @@ How statements run:
     whole. With several replicas, keep their total under the limit, or
     raise `search-index-cursor-limit` in Redis (and then
     `--max-table-streams`).
+  - A query that could stream but finds no stream free (past
+    `--max-streams` or `--max-table-streams`) is read into memory before
+    it is sent, and its connection and cursor are given back at once. Such
+    results share `--result-memory` (1 GiB) across the server until they
+    have been sent. One that doesn't fit fails with `RESOURCE_EXHAUSTED`
+    as soon as it would go over, and clients can retry, or read fewer rows
+    or columns.
   - A client that takes longer than `--stream-stall-timeout` (2 minutes) to
     read a batch gets a `DEADLINE_EXCEEDED` error instead of the rest, and
     the server stops reading from Redis. Redis deletes a cursor that isn't
@@ -466,7 +474,9 @@ request.
   `{"dataset": "features/v1", "columns": ["id", "label"], "batches": [0, 4]}`
   reads two columns of its first four batches. The stored batches are the
   uploaded ones, split to about 2 MiB each; the PutResult and the FlightInfo's
-  app metadata count them (`batches`).
+  app metadata count them (`batches`). A read takes them from Redis about
+  8 MiB at a time (up to 64 small ones), so it holds about that much of the
+  dataset, whatever its size.
 - **Parallel reads.** With `--dataset-endpoint-batches=N`, GetFlightInfo,
   PollFlightInfo and ListFlights return one endpoint per N batches. Clients can
   read the endpoints in parallel, and must read them all; together, in order,
@@ -550,8 +560,9 @@ Every flag can also be set with the environment variable shown.
 | `-dataset-endpoint-batches` | `FLIGHT_DATASET_ENDPOINT_BATCHES` | `0` (one endpoint) | Give a dataset's FlightInfo one endpoint per this many batches, for [parallel reads](#datasets) |
 | `-pool-max-idle` | `FLIGHT_POOL_MAX_IDLE` | `8` | Idle ADBC connections kept per Redis user |
 | `-pool-max-open` | `FLIGHT_POOL_MAX_OPEN` | `32` | ADBC connections in use at once per Redis user |
-| `-max-streams` | `FLIGHT_MAX_STREAMS` | `8` | Query results a Redis user can have [streaming](#flight-sql-support) from Redis at once, at most `-pool-max-open` minus 1. Each keeps a connection; further queries are read whole first |
-| `-max-table-streams` | `FLIGHT_MAX_TABLE_STREAMS` | `32` | Query results that can stream from one table at once, across all users. Each keeps a cursor on the table's index, which allows 128 across every client; further queries are read whole first |
+| `-max-streams` | `FLIGHT_MAX_STREAMS` | `8` | Query results a Redis user can have [streaming](#flight-sql-support) from Redis at once, at most `-pool-max-open` minus 1. Each keeps a connection; further queries are read whole first, within `-result-memory` |
+| `-max-table-streams` | `FLIGHT_MAX_TABLE_STREAMS` | `32` | Query results that can stream from one table at once, across all users. Each keeps a cursor on the table's index, which allows 128 across every client; further queries are read whole first, within `-result-memory` |
+| `-result-memory` | `FLIGHT_RESULT_MEMORY` | 1 GiB | Bytes of memory that query results read whole for want of a stream may take at once, across the server. A result that doesn't fit fails with `RESOURCE_EXHAUSTED` |
 | `-stream-stall-timeout` | `FLIGHT_STREAM_STALL_TIMEOUT` | `2m` | End a streaming result whose client takes longer than this to read a batch |
 | `-sessions` | `FLIGHT_SESSIONS` | `true` | [Sessions](#sessions) for clients that keep cookies |
 | `-session-idle-timeout` | `FLIGHT_SESSION_IDLE_TIMEOUT` | `10m` | Close a session after this long without requests |

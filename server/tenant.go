@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"maps"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	redis "github.com/adbc-drivers/redis/go"
@@ -146,6 +147,30 @@ func (ts *tableStreams) end(table string) {
 		delete(ts.n, table)
 	}
 }
+
+// resultBudget counts the memory that results read whole for want of a
+// stream take, across every user of the server (Config.ResultMemory).
+type resultBudget struct {
+	max  int64
+	used atomic.Int64
+}
+
+func newResultBudget(max int) *resultBudget { return &resultBudget{max: int64(max)} }
+
+// reserve counts n more bytes, unless that would go over max.
+func (b *resultBudget) reserve(n int64) bool {
+	for {
+		used := b.used.Load()
+		if used+n > b.max {
+			return false
+		}
+		if b.used.CompareAndSwap(used, used+n) {
+			return true
+		}
+	}
+}
+
+func (b *resultBudget) release(n int64) { b.used.Add(-n) }
 
 // tenantCache opens tenants on first use and closes them when idle.
 type tenantCache struct {

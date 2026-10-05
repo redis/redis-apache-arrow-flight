@@ -6,6 +6,8 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -159,6 +161,46 @@ func TestTableStreams(t *testing.T) {
 	ts.end("public.b")
 	if len(ts.n) != 0 {
 		t.Errorf("counts left after every stream ended: %v", ts.n)
+	}
+}
+
+func TestResultBudget(t *testing.T) {
+	b := newResultBudget(100)
+	if !b.reserve(60) || !b.reserve(40) {
+		t.Fatal("refused memory within the budget")
+	}
+	if b.reserve(1) {
+		t.Error("went over the budget")
+	}
+	b.release(40)
+	if b.reserve(41) {
+		t.Error("reserved more than was released")
+	}
+	if !b.reserve(40) {
+		t.Error("released memory wasn't freed")
+	}
+	b.release(100)
+
+	var wg sync.WaitGroup
+	var over atomic.Bool
+	for range 8 {
+		wg.Go(func() {
+			for range 1000 {
+				if b.reserve(30) {
+					if b.used.Load() > b.max {
+						over.Store(true)
+					}
+					b.release(30)
+				}
+			}
+		})
+	}
+	wg.Wait()
+	if over.Load() {
+		t.Error("concurrent reservations went over the budget")
+	}
+	if n := b.used.Load(); n != 0 {
+		t.Errorf("%d bytes still counted after every release", n)
 	}
 }
 
@@ -400,6 +442,22 @@ func TestChunks(t *testing.T) {
 	}
 }
 
+func TestPageLen(t *testing.T) {
+	for _, tc := range []struct{ largest, want int64 }{
+		{0, readPage},
+		{1, readPage},
+		{100 << 10, readPage}, // 81 fit
+		{1 << 20, 8},
+		{maxChunkBytes, 4},
+		{3 << 20, 2},
+		{9 << 20, 1}, // one row larger than a page
+	} {
+		if got := pageLen(tc.largest); got != tc.want {
+			t.Errorf("pageLen(%d) = %d, want %d", tc.largest, got, tc.want)
+		}
+	}
+}
+
 func TestDatasetKeys(t *testing.T) {
 	d := &datasets{prefix: "af:"}
 	for _, name := range []string{"sales", "a/b/c", "with {braces}", "odd*?[]\\ name", "ünïcödé"} {
@@ -601,6 +659,7 @@ func TestConfigValidation(t *testing.T) {
 		{ADBCOptions: map[string]string{"uri": "redis://elsewhere"}},
 		{RedisURI: "http://not-redis"},
 		{MaxTableStreams: -1},
+		{ResultMemory: -1},
 		{ShutdownTimeout: -time.Second},
 	} {
 		cfg.Logger = testLogger(t)

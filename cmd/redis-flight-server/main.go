@@ -94,9 +94,12 @@ func run() error {
 	num(&cfg.PoolMaxIdle, "pool-max-idle", "FLIGHT_POOL_MAX_IDLE", 8, "idle ADBC connections kept per Redis user")
 	num(&cfg.PoolMaxOpen, "pool-max-open", "FLIGHT_POOL_MAX_OPEN", 32, "ADBC connections in use at once per Redis user")
 	num(&cfg.MaxStreams, "max-streams", "FLIGHT_MAX_STREAMS", 8,
-		"query results a Redis user can stream from Redis at once, at most -pool-max-open minus 1; others are read whole first")
+		"query results a Redis user can stream from Redis at once, at most -pool-max-open minus 1; others are read whole first, within -result-memory")
 	num(&cfg.MaxTableStreams, "max-table-streams", "FLIGHT_MAX_TABLE_STREAMS", 32,
 		"query results that can stream from one table at once, across all users; keep well under Redis's search-index-cursor-limit (128)")
+	num(&cfg.ResultMemory, "result-memory", "FLIGHT_RESULT_MEMORY", 1<<30,
+		"bytes of memory that query results read whole for want of a stream (-max-streams, -max-table-streams) may take at once, "+
+			"across the server; a result that doesn't fit fails with RESOURCE_EXHAUSTED")
 	dur(&cfg.StreamStallTimeout, "stream-stall-timeout", "FLIGHT_STREAM_STALL_TIMEOUT", 2*time.Minute,
 		"end a streaming result whose client takes longer than this to read a batch")
 	fs.BoolVar(&sessions, "sessions", envOr("FLIGHT_SESSIONS", "true") != "false",
