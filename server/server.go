@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -28,6 +30,9 @@ type Server struct {
 	sessions *sessionStore // nil when sessions are off
 	grpc     *grpc.Server
 	health   *redisHealth
+	metrics  *metrics
+	// metricsHTTP serves metrics, with ServeMetrics.
+	metricsHTTP *http.Server
 	// stopDrain ends the health service's Watch streams at Shutdown.
 	stopDrain context.CancelFunc
 	shutdown  sync.Once
@@ -45,9 +50,11 @@ func New(cfg Config) (*Server, error) {
 		return nil, err
 	}
 
-	// Health checks skip logging (probes call often), authentication and
-	// sessions.
-	middleware := []flight.ServerMiddleware{recoverMiddleware(cfg.Logger), skipHealth(logMiddleware(cfg.Logger))}
+	// Health checks skip logging and metrics (probes call often),
+	// authentication and sessions. The log comes first, so a panic is
+	// logged and counted as the Internal error it becomes.
+	m := newMetrics()
+	middleware := []flight.ServerMiddleware{skipHealth(logMiddleware(cfg.Logger, m)), recoverMiddleware(cfg.Logger)}
 	if cfg.Auth == AuthRedisACL {
 		sealer, err := newTokenSealer(cfg.TokenSecret)
 		if err != nil {
@@ -83,6 +90,7 @@ func New(cfg Config) (*Server, error) {
 	}
 
 	tenants := newTenantCache(&cfg)
+	tenants.metrics = m
 	var sessions *sessionStore
 	if !cfg.DisableSessions {
 		// After authentication: a session belongs to who made it.
@@ -105,6 +113,7 @@ func New(cfg Config) (*Server, error) {
 		tenants.close()
 		return nil, err
 	}
+	m.watch(tenants, sessions, sql.results, health)
 	drain, stopDrain := context.WithCancel(context.Background())
 	middleware = append(middleware, flight.ServerMiddleware{Stream: healthDrain(drain)})
 	r := &router{
@@ -129,8 +138,25 @@ func New(cfg Config) (*Server, error) {
 	gs := grpc.NewServer(opts...)
 	flight.RegisterFlightServiceServer(gs, r)
 	healthpb.RegisterHealthServer(gs, health.hs)
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", m.handler())
 	return &Server{cfg: cfg, log: cfg.Logger, tenants: tenants, sessions: sessions, grpc: gs,
-		health: health, stopDrain: stopDrain}, nil
+		health: health, metrics: m, stopDrain: stopDrain,
+		metricsHTTP: &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}}, nil
+}
+
+// MetricsHandler serves the server's Prometheus metrics, for a server of
+// your own (ListenAndServe serves them on Config.MetricsListen).
+func (s *Server) MetricsHandler() http.Handler { return s.metrics.handler() }
+
+// ServeMetrics serves the Prometheus metrics at /metrics on lis, over plain
+// HTTP without authentication, until Shutdown.
+func (s *Server) ServeMetrics(lis net.Listener) error {
+	s.log.Info("serving metrics", "addr", lis.Addr().String())
+	if err := s.metricsHTTP.Serve(lis); !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
 
 // Serve serves on lis. Once Shutdown has stopped the gRPC server, Serve
@@ -142,11 +168,24 @@ func (s *Server) Serve(lis net.Listener) error {
 	return s.grpc.Serve(lis)
 }
 
-// ListenAndServe listens on Config.Listen and serves, as Serve does.
+// ListenAndServe listens on Config.Listen and serves, as Serve does, and
+// serves metrics on Config.MetricsListen, if set (see ServeMetrics).
 func (s *Server) ListenAndServe() error {
 	lis, err := net.Listen("tcp", s.cfg.Listen)
 	if err != nil {
 		return err
+	}
+	if s.cfg.MetricsListen != "" {
+		mlis, err := net.Listen("tcp", s.cfg.MetricsListen)
+		if err != nil {
+			_ = lis.Close()
+			return fmt.Errorf("metrics: %w", err)
+		}
+		go func() {
+			if err := s.ServeMetrics(mlis); err != nil {
+				s.log.Error("serving metrics failed", "error", err)
+			}
+		}()
 	}
 	return s.Serve(lis)
 }
@@ -181,6 +220,8 @@ func (s *Server) Shutdown() {
 			s.sessions.close()
 		}
 		s.tenants.close()
+		// Last, so the drain can be watched.
+		_ = s.metricsHTTP.Close()
 	})
 }
 
@@ -218,20 +259,28 @@ func recoverMiddleware(log *slog.Logger) flight.ServerMiddleware {
 	}
 }
 
-// logMiddleware logs each call: at debug level when it succeeds, at info
-// level for client errors, and at warn level for server errors.
-func logMiddleware(log *slog.Logger) flight.ServerMiddleware {
+// logMiddleware logs and counts each call: it logs at debug level when it
+// succeeds, at info level for client errors, and at warn level for server
+// errors and for a limit reached (an index out of cursors, a result over
+// ResultMemory).
+func logMiddleware(log *slog.Logger, m *metrics) flight.ServerMiddleware {
 	done := func(ctx context.Context, method string, start time.Time, err error) {
-		code := status.Code(err)
+		code, took := status.Code(err), time.Since(start)
+		m.call(method, code, took)
+		cursorLimit := isCursorLimit(err)
+		if cursorLimit {
+			m.cursorLimitError()
+		}
 		level := slog.LevelDebug
-		switch code {
-		case codes.OK, codes.Canceled:
-		case codes.Internal, codes.Unknown, codes.Unavailable, codes.DataLoss:
+		switch {
+		case code == codes.OK, code == codes.Canceled:
+		case code == codes.Internal, code == codes.Unknown, code == codes.Unavailable, code == codes.DataLoss,
+			cursorLimit, errors.Is(err, errResultMemory):
 			level = slog.LevelWarn
 		default:
 			level = slog.LevelInfo
 		}
-		attrs := []any{"method", method, "code", code.String(), "duration", time.Since(start)}
+		attrs := []any{"method", method, "code", code.String(), "duration", took}
 		if err != nil {
 			attrs = append(attrs, "error", status.Convert(err).Message())
 		}

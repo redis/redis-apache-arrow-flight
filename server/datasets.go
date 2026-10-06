@@ -531,6 +531,7 @@ func (d *datasets) DoPut(stream flight.FlightService_DoPutServer, first *flight.
 		// The commit went through, and only its reply was lost.
 	}
 	m.Superseded = superseded
+	d.tenants.metrics.datasetWritten(m.Rows, m.Bytes)
 
 	res, _ := json.Marshal(m)
 	return stream.Send(&flight.PutResult{AppMetadata: res})
@@ -639,6 +640,7 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 		return status.Errorf(codes.NotFound, "dataset %q generation %d not found", dt.Dataset, gen)
 	}
 	r := &datasetRead{rdb: t.rdb, key: key, dt: dt, gen: gen, gone: gone, alloc: d.alloc}
+	defer func() { d.tenants.metrics.datasetRead(r.rows, r.bytes) }()
 	head, err := t.rdb.HMGet(ctx, key, "layout", "schema", "batches").Result()
 	switch {
 	case isWrongType(err):
@@ -673,6 +675,8 @@ type datasetRead struct {
 	gen   int64
 	gone  func() error // the error for a generation no longer there
 	alloc memory.Allocator
+	// rows sent, and bytes read from Redis, so far.
+	rows, bytes int64
 }
 
 func (r *datasetRead) corrupt(err error) error {
@@ -743,7 +747,11 @@ func (r *datasetRead) columns(ctx context.Context, stream flight.FlightService_D
 				return r.corrupt(err)
 			}
 			largest = max(largest, size)
+			r.bytes += size
 			err = w.Write(rec)
+			if err == nil {
+				r.rows += rec.NumRows()
+			}
 			rec.Release()
 			if err != nil {
 				return err
@@ -800,6 +808,7 @@ func (r *datasetRead) list(ctx context.Context, stream flight.FlightService_DoGe
 			if err := w.Write(rec); err != nil {
 				return err
 			}
+			r.rows += rec.NumRows()
 		}
 		return nil
 	}
@@ -825,6 +834,7 @@ func (r *datasetRead) list(ctx context.Context, stream flight.FlightService_DoGe
 				return r.gone() // expired while being read
 			}
 			for i, v := range vals {
+				r.bytes += int64(len(v))
 				if start+int64(i) > 0 { // element 0 is the schema alone
 					largest = max(largest, int64(len(v)))
 				}

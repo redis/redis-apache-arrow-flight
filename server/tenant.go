@@ -186,8 +186,9 @@ func (b *resultBudget) release(n int64) { b.used.Add(-n) }
 
 // tenantCache opens tenants on first use and closes them when idle.
 type tenantCache struct {
-	cfg    *Config
-	driver databaseOpener
+	cfg     *Config
+	metrics *metrics // may be nil
+	driver  databaseOpener
 	// open opens a tenant (openTenant; tests replace it).
 	open func(context.Context, identity) (*tenant, error)
 
@@ -314,13 +315,35 @@ func (c *tenantCache) openTenant(ctx context.Context, id identity) (*tenant, err
 		_ = rdb.Close()
 		return nil, toStatus(err)
 	}
+	pool := newConnPool(db, c.cfg.PoolMaxIdle, c.cfg.PoolMaxOpen)
+	pool.metrics = c.metrics
 	return &tenant{
 		id:      id,
 		db:      db,
-		pool:    newConnPool(db, c.cfg.PoolMaxIdle, c.cfg.PoolMaxOpen),
+		pool:    pool,
 		rdb:     rdb,
 		streams: make(chan struct{}, streamTokens(c.cfg)),
 	}, nil
+}
+
+// poolStats returns the number of tenants, and their pools' connections in
+// use and idle.
+func (c *tenantCache) poolStats() (tenants, inUse, idle int) {
+	c.mu.Lock()
+	pools := make([]*connPool, 0, len(c.tenants))
+	for _, t := range c.tenants {
+		if t.pool != nil {
+			pools = append(pools, t.pool)
+		}
+	}
+	c.mu.Unlock()
+	for _, p := range pools {
+		inUse += len(p.sem)
+		p.mu.Lock()
+		idle += len(p.idle)
+		p.mu.Unlock()
+	}
+	return len(pools), inUse, idle
 }
 
 func (c *tenantCache) evictLoop() {

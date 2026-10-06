@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
@@ -46,9 +47,14 @@ type command struct {
 	addr   string
 	exited chan struct{}
 	err    error // once exited is closed
+	// metricsAddr gets the metrics' address, if it serves them.
+	metricsAddr chan string
 }
 
-var servingAddr = regexp.MustCompile(`msg="serving Arrow Flight" addr=(\S+)`)
+var (
+	servingAddr = regexp.MustCompile(`msg="serving Arrow Flight" addr=(\S+)`)
+	metricsAddr = regexp.MustCompile(`msg="serving metrics" addr=(\S+)`)
+)
 
 // startCommand runs the command on a free port, with env added to the
 // environment, and waits for it to serve. Its log goes to the test's.
@@ -63,7 +69,7 @@ func startCommand(t *testing.T, env []string, args ...string) *command {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	c := &command{cmd: cmd, exited: make(chan struct{})}
+	c := &command{cmd: cmd, exited: make(chan struct{}), metricsAddr: make(chan string, 1)}
 	addr := make(chan string, 1)
 	go func() {
 		sc := bufio.NewScanner(stderr)
@@ -71,6 +77,9 @@ func startCommand(t *testing.T, env []string, args ...string) *command {
 			t.Log(sc.Text())
 			if m := servingAddr.FindStringSubmatch(sc.Text()); m != nil {
 				addr <- m[1]
+			}
+			if m := metricsAddr.FindStringSubmatch(sc.Text()); m != nil {
+				c.metricsAddr <- m[1]
 			}
 		}
 		// Wait closes stderr, so it comes after the last read.
@@ -417,5 +426,25 @@ func TestIntegrationSIGTERM(t *testing.T) {
 	defer drdr.Release()
 	if got, err := read(drdr); err != nil || got != 200 {
 		t.Errorf("the dataset uploaded during shutdown has %d rows, %v; want 200", got, err)
+	}
+}
+
+// -metrics-listen serves the Prometheus metrics.
+func TestMetricsListenFlag(t *testing.T) {
+	c := startCommand(t, []string{"REDIS_URI=redis://127.0.0.1:1/0"}, "-metrics-listen", "127.0.0.1:0")
+	var addr string
+	select {
+	case addr = <-c.metricsAddr:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the server didn't log serving metrics")
+	}
+	res, err := http.Get("http://" + addr + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	body, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusOK || !strings.Contains(string(body), "redis_flight_build_info") {
+		t.Errorf("GET /metrics: %d\n%s", res.StatusCode, body)
 	}
 }

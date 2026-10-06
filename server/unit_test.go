@@ -935,6 +935,7 @@ func TestConfigValidation(t *testing.T) {
 		{MaxTableStreams: -1},
 		{ResultMemory: -1},
 		{ShutdownTimeout: -time.Second},
+		{MetricsListen: "nonsense"},
 	} {
 		cfg.Logger = testLogger(t)
 		if _, err := New(cfg); err == nil {

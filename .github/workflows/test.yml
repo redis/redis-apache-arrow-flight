@@ -73,6 +73,8 @@ jobs:
         run: |
           docker compose up --detach --build --wait flight
           uv run examples/python/quickstart.py
+          curl -fsS http://127.0.0.1:9815/metrics | grep '^redis_flight_calls_total'
+          curl -fsS http://127.0.0.1:9815/metrics | grep -q '^redis_flight_dataset_rows_read_total [1-9]'
 
       # The Arrow Flight SQL JDBC driver (DBeaver's) against the same server,
       # on each LTS Java it's tested with (Java 23 and later need another JVM

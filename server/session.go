@@ -137,6 +137,7 @@ func (s *session) open(ctx context.Context, t *tenant) error {
 		}
 	}
 	s.conn, s.release = conn, release
+	s.store.metrics().sessionConn(1)
 	s.store.log.Debug("session connection opened", "session", s.token[:8])
 	return nil
 }
@@ -149,6 +150,7 @@ func (s *session) dropConn() {
 	_ = s.conn.Close(context.Background())
 	s.release()
 	s.conn, s.release, s.temp = nil, nil, false
+	s.store.metrics().sessionConn(-1)
 }
 
 // markTemp records that the request's session connection may now have
@@ -313,6 +315,7 @@ func (st *sessionStore) get(token, owner string, confirmed bool) *session {
 	}
 	if len(st.sessions) >= maxSessions {
 		st.log.Warn("too many sessions; this request uses the pool", "max", maxSessions)
+		st.metrics().sessionStoreFull()
 		return nil
 	}
 	s := &session{token: token, owner: owner, store: st, opts: map[string]string{},
@@ -320,6 +323,21 @@ func (st *sessionStore) get(token, owner string, confirmed bool) *session {
 	st.sessions[token] = s
 	st.log.Debug("session started", "session", token[:8])
 	return s
+}
+
+// metrics returns the server's metrics, if any.
+func (st *sessionStore) metrics() *metrics {
+	if st.tenants == nil {
+		return nil
+	}
+	return st.tenants.metrics
+}
+
+// count returns the number of sessions the store keeps.
+func (st *sessionStore) count() int {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return len(st.sessions)
 }
 
 func (st *sessionStore) begin(s *session) {

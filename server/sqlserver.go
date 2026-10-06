@@ -391,54 +391,58 @@ func streamTable(sql, defaultSchema string) (streamSource, bool) {
 }
 
 // streamable returns the table a query's result would stream from (see
-// streamTable), or false for a query the driver won't stream.
+// streamTable), or why it is read whole instead: wholeQuery for a query the
+// driver won't stream.
 //
 // In a session, the result streams on a pooled connection, since the
 // session's own serves its other requests meanwhile: streamable also
 // returns the session's settings to stream with, and resolves the table in
-// the session's schema. It returns false for a session that may have
-// temporary objects, which only its own connection sees (its results are
-// read whole there).
-func (s *sqlServer) streamable(ctx context.Context, t *tenant, sql string) (streamSource, *scanSettings, bool, error) {
+// the session's schema. It returns wholeSession for a session that may
+// have temporary objects, which only its own connection sees (its results
+// are read whole there).
+func (s *sqlServer) streamable(ctx context.Context, t *tenant, sql string) (streamSource, *scanSettings, wholeReason, error) {
 	sess := sessionFrom(ctx)
 	if sess == nil {
-		src, ok := streamTable(sql, s.defaultSchema)
-		return src, nil, ok, nil
+		if src, ok := streamTable(sql, s.defaultSchema); ok {
+			return src, nil, "", nil
+		}
+		return streamSource{}, nil, wholeQuery, nil
 	}
 	if _, ok := streamTable(sql, s.defaultSchema); !ok {
-		return streamSource{}, nil, false, nil
+		return streamSource{}, nil, wholeQuery, nil
 	}
 	ss, err := sess.scanSettings(ctx, t)
 	if err != nil || ss == nil {
-		return streamSource{}, nil, false, err
+		return streamSource{}, nil, wholeSession, err
 	}
 	src, _ := streamTable(sql, ss.want["schema"])
 	if isTempSchemaName(src.schema) {
-		return streamSource{}, nil, false, nil
+		return streamSource{}, nil, wholeSession, nil
 	}
-	return src, ss, true, nil
+	return src, ss, "", nil
 }
 
 // takeStream takes what a result streaming from src holds besides its
 // connection: one of the user's streams (streamTokens), and one of the
-// table's (MaxTableStreams). It takes neither, and returns false, if
-// either has none free, or if the table's index has too many cursors open
-// already, counting every client (see indexCursors).
-func (s *sqlServer) takeStream(ctx context.Context, t *tenant, src streamSource) bool {
+// table's (MaxTableStreams). It takes neither, and returns why, if either
+// has none free, or if the table's index has too many cursors open
+// already, counting every client (see indexCursors). It returns "" once
+// it has taken them.
+func (s *sqlServer) takeStream(ctx context.Context, t *tenant, src streamSource) wholeReason {
 	if !t.tryStream() {
-		return false
+		return wholeUserLimit
 	}
 	if !s.tables.try(src.key()) {
 		t.endStream()
-		return false
+		return wholeTableLimit
 	}
 	if !s.cursors.allow(ctx, t, src) {
 		s.tenants.cfg.Logger.Debug("the table's index is near its cursor limit: reading the result whole",
 			"table", src.schema+"."+src.name)
 		s.endStream(t, src.key())
-		return false
+		return wholeIndexCursors
 	}
-	return true
+	return ""
 }
 
 func (s *sqlServer) endStream(t *tenant, table string) {
@@ -463,17 +467,20 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 	if err != nil {
 		return nil, nil, err
 	}
-	src, ss, ok, err := s.streamable(ctx, t, h.Query)
+	m := s.tenants.metrics
+	src, ss, why, err := s.streamable(ctx, t, h.Query)
 	if err != nil {
 		done()
 		return nil, nil, toStatus(err)
 	}
-	if !ok {
+	if why != "" {
 		defer done()
+		m.queryReadWhole(why)
 		return s.wholeQuery(ctx, t, h)
 	}
-	if !s.takeStream(ctx, t, src) {
+	if why := s.takeStream(ctx, t, src); why != "" {
 		defer done()
+		m.queryReadWhole(why)
 		return s.bufferQuery(ctx, t, h)
 	}
 	table := src.key()
@@ -523,17 +530,21 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 	var se settingsError
 	if errors.As(err, &se) {
 		s.tenants.cfg.Logger.Debug("reading the result on the session's connection", "error", err)
+		m.queryReadWhole(wholeSession)
 		return s.wholeQuery(ctx, t, h)
 	}
 	if err != nil {
 		return nil, nil, toStatus(err)
 	}
 	if release == nil {
+		m.queryReadWhole(wholeQuery)
 		return rdr.Schema(), streamRecords(ctx, rdr, nil), nil
 	}
 	live = true
+	m.streamStarted()
 	return rdr.Schema(), streamRecords(ctx, rdr, &liveResult{
-		stall: s.tenants.cfg.StreamStallTimeout,
+		stall:   s.tenants.cfg.StreamStallTimeout,
+		stalled: m.resultStalled,
 		done: func(err error) {
 			_ = stmt.Close(context.WithoutCancel(ctx))
 			release(err)
@@ -541,6 +552,7 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 			if sess != nil {
 				sess.store.end(sess)
 			}
+			m.streamEnded()
 			done()
 		},
 	}), nil
@@ -600,6 +612,7 @@ func (s *sqlServer) bufferQuery(ctx context.Context, t *tenant, h statementHandl
 			rec := rdr.RecordBatch()
 			n := recordMemory(rec)
 			if !s.results.reserve(n) {
+				s.tenants.metrics.resultMemoryRefused()
 				return errResultMemory
 			}
 			held += n
@@ -613,8 +626,9 @@ func (s *sqlServer) bufferQuery(ctx context.Context, t *tenant, h statementHandl
 		if rdr, err = array.NewRecordReader(schema, recs); err == nil {
 			releaseAll(recs)
 			return schema, streamRecords(ctx, rdr, &liveResult{
-				stall: s.tenants.cfg.StreamStallTimeout,
-				done:  func(error) { s.results.release(held) },
+				stall:   s.tenants.cfg.StreamStallTimeout,
+				stalled: s.tenants.metrics.resultStalled,
+				done:    func(error) { s.results.release(held) },
 			}), nil
 		}
 	}

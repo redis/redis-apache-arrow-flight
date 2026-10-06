@@ -49,7 +49,7 @@ flowchart LR
     end
 
     subgraph server["redis-flight-server (gRPC)"]
-        mw["Middleware<br/>recover → log → auth → sessions"]
+        mw["Middleware<br/>log + metrics → recover → auth → sessions"]
         router{"router.go"}
         sql["Flight SQL handlers<br/>sqlserver.go, metadata.go"]
         ds["Dataset store<br/>datasets.go"]
@@ -85,7 +85,8 @@ flowchart LR
 ```
 
 - **Middleware.** `auth` is there only with `--auth=redis-acl`, and `sessions`
-  unless `--sessions=false`.
+  unless `--sessions=false`. [Health checks](#health-checks) skip all but
+  `recover`.
 - **Tenants.** Each Redis user gets its own ADBC database, connection pool and
   go-redis client, so every command runs with that user's ACLs.
 - **The router** tells the two paths apart by the descriptor type and the
@@ -662,6 +663,7 @@ Every flag can also be set with the environment variable shown.
 | `-max-msg-size` | `FLIGHT_MAX_MSG_SIZE` | 64 MiB | Largest gRPC message accepted |
 | `-shutdown-timeout` | `FLIGHT_SHUTDOWN_TIMEOUT` | `25s` | On SIGTERM or SIGINT, let running calls finish for this long, then [cancel them](#shutdown) |
 | `-adbc-option k=v` (repeatable) | `FLIGHT_ADBC_OPTIONS` (comma-separated) | | [Redis ADBC driver options](https://github.com/alberttwong/redis-adbc-driver#options), such as `adbc.redis.aggregate_pushdown=all`, `adbc.redis.default_schema=sales`, `adbc.redis.cluster=true` |
+| `-metrics-listen` | `FLIGHT_METRICS_LISTEN` | off | Address to serve [Prometheus metrics](#metrics) on, at `/metrics` (plain HTTP, no auth) |
 | `-log-level` | `FLIGHT_LOG_LEVEL` | `info` | `debug` logs every call but health checks |
 | `-healthcheck` | | | Check the server at `-listen` with the [gRPC health service](#health-checks) and exit: 0 if it serves, 1 if not. Trusts only `-tls-cert` when that is set |
 | `-version` | | | Print the version and exit |
@@ -734,6 +736,65 @@ livenessProbe:
 The kubelet's gRPC probe doesn't do TLS. With TLS, use an `exec` probe that
 runs `/redis-flight-server -healthcheck`.
 
+### Metrics
+
+With `--metrics-listen` (`FLIGHT_METRICS_LISTEN`), the server serves
+[Prometheus](https://prometheus.io/) metrics at `/metrics` on that address.
+It is off by default. The endpoint is plain HTTP without authentication, so
+bind it to a private address; its labels never name a Redis user or a table.
+`compose.yaml` serves it on `localhost:9815`.
+
+```bash
+curl -s localhost:9815/metrics | grep '^redis_flight_'
+```
+
+| Metric | Type | What it counts |
+|-|-|-|
+| `redis_flight_calls_total{method, code}` | counter | Calls finished, by method (`DoGet`, `GetFlightInfo`, …) and gRPC code. Health checks aren't counted |
+| `redis_flight_call_duration_seconds{method}` | histogram | How long calls took. A `DoGet` or `DoPut` lasts until its stream ends, so it mostly measures the client |
+| `redis_flight_queries_streamed_total` | counter | Query results [streamed](#flight-sql-support) from Redis |
+| `redis_flight_queries_read_whole_total{reason}` | counter | Query results read whole into memory first, by why (below) |
+| `redis_flight_query_streams_open` | gauge | Results streaming now, each holding a pooled connection and a cursor |
+| `redis_flight_query_results_stalled_total` | counter | Results ended by `--stream-stall-timeout` |
+| `redis_flight_result_memory_bytes` | gauge | Memory held by results read whole for want of a stream, counted against `--result-memory` |
+| `redis_flight_result_memory_refusals_total` | counter | Results refused with `RESOURCE_EXHAUSTED` for not fitting in `--result-memory` |
+| `redis_flight_index_cursor_limit_errors_total` | counter | Calls that failed because an index had no cursor left (`INDEX_CURSOR_LIMIT`) |
+| `redis_flight_pool_connections{state}` | gauge | Pooled ADBC connections, across Redis users: `in_use` (including ones being opened) and `idle` |
+| `redis_flight_pool_wait_seconds` | histogram | How long requests that found `--pool-max-open` connections in use waited for one. Its `_count` is how many waited |
+| `redis_flight_session_connections` | gauge | ADBC connections of [sessions](#sessions), outside the pool |
+| `redis_flight_sessions_open` | gauge | Sessions the server keeps (with sessions on) |
+| `redis_flight_sessions_full_total` | counter | Requests that used the pool because the server had 10,000 sessions |
+| `redis_flight_tenants_open` | gauge | Redis users with an ADBC database, a connection pool and a Redis client open |
+| `redis_flight_dataset_rows_written_total`, `redis_flight_dataset_bytes_written_total` | counter | Rows and Arrow IPC bytes of [dataset](#datasets) uploads committed |
+| `redis_flight_dataset_rows_read_total`, `redis_flight_dataset_bytes_read_total` | counter | Rows of datasets sent, and their bytes read from Redis (only the ticket's columns) |
+| `redis_flight_redis_up` | gauge | 1 while Redis answers the [health check](#health-checks)'s PING |
+| `redis_flight_build_info{version}` | gauge | Always 1; the label is the server's version |
+
+The Prometheus client adds the Go runtime's (`go_*`: heap, goroutines, GC)
+and the process's (`process_*`: CPU, memory, open files).
+
+`reason` is one of:
+- `query`: the driver doesn't stream the query (aggregates, joins, CTEs, …),
+  or returned a small result whole
+- `session`: a [session](#sessions) that has made temporary tables reads
+  its results on its own connection
+- `user_limit`: the Redis user had `--max-streams` results streaming (with
+  `--auth=none`, every client is one user)
+- `table_limit`: the table had `--max-table-streams`
+- `index_cursors`: the table's index had three quarters of its cursors open
+
+The limits worth an alert:
+
+```text
+rate(redis_flight_queries_read_whole_total{reason=~"user_limit|table_limit|index_cursors"}[5m]) > 0
+histogram_quantile(0.99, rate(redis_flight_pool_wait_seconds_bucket[5m])) > 1
+increase(redis_flight_index_cursor_limit_errors_total[5m]) > 0
+increase(redis_flight_result_memory_refusals_total[5m]) > 0
+```
+
+An index out of cursors and a result over `--result-memory` are also logged
+at warn level.
+
 ## Development
 
 Code layout:
@@ -748,6 +809,7 @@ Code layout:
 | `server/session.go` | Sessions: the cookie middleware, each session's connection, and the session options |
 | `server/auth.go` | Redis ACL login and tokens |
 | `server/health.go`, `cmd/redis-flight-server/healthcheck.go` | The gRPC health service, and `-healthcheck` |
+| `server/metrics.go` | The Prometheus metrics |
 
 Tests:
 
@@ -781,6 +843,7 @@ push to `main`:
 - a check that the binary is statically linked
 - the Python quickstart against the Docker image
 - the JDBC smoke test against it, on Java 17, 21 and 25
+- a check that it serves metrics
 
 Releases: push a tag `vX.Y.Z` (or `vX.Y.Z-rc1` for a prerelease). The
 release workflow (`.github/workflows/release.yml`) runs the tests on it,

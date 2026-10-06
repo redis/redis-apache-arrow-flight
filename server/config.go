@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow/memory"
@@ -123,6 +124,11 @@ type Config struct {
 	// period).
 	ShutdownTimeout time.Duration
 
+	// MetricsListen is the address ListenAndServe serves Prometheus metrics
+	// on, at /metrics, over plain HTTP without authentication (default
+	// none: off).
+	MetricsListen string
+
 	// ADBCOptions are passed to the Redis ADBC driver's database, for
 	// example adbc.redis.aggregate_pushdown or adbc.redis.default_schema.
 	ADBCOptions map[string]string
@@ -213,6 +219,11 @@ func (c *Config) validate() error {
 	if c.TokenTTL < 0 || c.DatasetTTL < 0 || c.TenantIdleTimeout < 0 || c.SessionIdleTimeout < 0 ||
 		c.StreamStallTimeout < 0 || c.ShutdownTimeout < 0 {
 		return errors.New("durations must not be negative")
+	}
+	if c.MetricsListen != "" {
+		if _, _, err := net.SplitHostPort(c.MetricsListen); err != nil {
+			return fmt.Errorf("invalid metrics address %q: %w", c.MetricsListen, err)
+		}
 	}
 	for _, k := range []string{"uri", "username", "password"} {
 		if _, ok := c.ADBCOptions[k]; ok {

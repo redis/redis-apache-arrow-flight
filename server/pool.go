@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	redis "github.com/adbc-drivers/redis/go"
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -19,8 +20,9 @@ import (
 // may have changed that state gets its connection closed rather than
 // returned (see reusable), so no request sees another's session.
 type connPool struct {
-	db  adbc.DatabaseWithContext
-	sem chan struct{} // one token per connection in use
+	db      adbc.DatabaseWithContext
+	sem     chan struct{} // one token per connection in use
+	metrics *metrics      // may be nil
 
 	mu     sync.Mutex
 	idle   []adbc.ConnectionWithContext
@@ -39,8 +41,15 @@ var errPoolClosed = errors.New("the connection pool is closed")
 func (p *connPool) get(ctx context.Context) (adbc.ConnectionWithContext, error) {
 	select {
 	case p.sem <- struct{}{}:
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	default:
+		start := time.Now()
+		select {
+		case p.sem <- struct{}{}:
+			p.metrics.poolWaited(time.Since(start))
+		case <-ctx.Done():
+			p.metrics.poolWaited(time.Since(start))
+			return nil, ctx.Err()
+		}
 	}
 	p.mu.Lock()
 	if p.closed {
