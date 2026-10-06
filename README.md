@@ -9,7 +9,7 @@ and out of Redis:
 |-|-|-|
 | Requests | Flight SQL commands (`CMD` descriptors) | `PATH` descriptors, such as `["sales", "2026-10"]` |
 | What you do | SQL: filters, `GROUP BY`, joins, windows, `INSERT` / `UPDATE` / `DELETE`, DDL, bulk ingest, catalog metadata | Upload a whole table by name, download it, list and drop |
-| Storage in Redis | One HASH per row, plus a RediSearch index per table, so other Redis clients can read it too | The Arrow IPC bytes, unchanged |
+| Storage in Redis | One HASH per row, plus a RediSearch index per table, so other Redis clients can read it too | The Arrow IPC bytes, unchanged, stored by column |
 | Arrow types | The SQL types (integers, floats, decimals, strings, binary, dates, times, timestamps, intervals) | Any type, including lists, structs, maps and dictionaries |
 | Redis needed | The Query Engine (Redis 8, Redis Stack, Redis Cloud / Software with Search). Redis Flex is refused | Any Redis, including Flex and Cluster |
 | Clients | ADBC Flight SQL driver (Python, Go, R, …), the Arrow Flight SQL JDBC driver | Any Flight client (`pyarrow.flight`, arrow-go, Arrow Java, …) |
@@ -33,8 +33,8 @@ Measured with 100,000 rows × 4 columns, on an Apple Silicon laptop with Redis
 | Point lookup (`WHERE order_id = 4242`) | 2.4 ms | not available |
 
 Datasets are 25–50× faster for whole-table transfers, since nothing is
-converted per row. A dataset read can pick columns and a range of batches,
-but only SQL can filter rows by value. Both can be combined: for example,
+converted per row. A dataset read can pick columns (and takes only those
+from Redis) and a range of batches, but only SQL can filter rows by value. Both can be combined: for example,
 upload a dataset, then bulk-ingest the rows you want to query into a SQL
 table.
 
@@ -49,7 +49,7 @@ flowchart LR
     end
 
     subgraph server["redis-flight-server (gRPC)"]
-        mw["Middleware<br/>recover → log → auth → sessions"]
+        mw["Middleware<br/>log + metrics → recover → auth → sessions"]
         router{"router.go"}
         sql["Flight SQL handlers<br/>sqlserver.go, metadata.go"]
         ds["Dataset store<br/>datasets.go"]
@@ -63,7 +63,7 @@ flowchart LR
 
     subgraph redis["Redis 8"]
         tables[("SQL tables<br/>a HASH per row,<br/>a RediSearch index per table")]
-        dsk[("Datasets<br/>Arrow IPC in a LIST<br/>per generation")]
+        dsk[("Datasets<br/>Arrow IPC in a HASH<br/>per generation")]
         res[("Large statement results<br/>kept 10 minutes")]
     end
 
@@ -80,12 +80,13 @@ flowchart LR
     drv -- "FT.AGGREGATE, FT.SEARCH,<br/>HSET, …" --> tables
     sql --> gr
     ds --> gr
-    gr -- "RPUSH, LRANGE,<br/>EVAL" --> dsk
+    gr -- "HSET, HMGET,<br/>EVAL" --> dsk
     gr -- "SET, GET" --> res
 ```
 
 - **Middleware.** `auth` is there only with `--auth=redis-acl`, and `sessions`
-  unless `--sessions=false`.
+  unless `--sessions=false`. [Health checks](#health-checks) skip all but
+  `recover`.
 - **Tenants.** Each Redis user gets its own ADBC database, connection pool and
   go-redis client, so every command runs with that user's ACLs.
 - **The router** tells the two paths apart by the descriptor type and the
@@ -159,7 +160,7 @@ sequenceDiagram
     C->>S: DoPut(PATH ["features", "v1"]), the schema, then batches
     S->>R: INCR ds:{features/v1}:seq → generation N
     loop every 64 batches or 8 MiB
-        S->>R: RPUSH ds:{features/v1}:gN, one IPC stream per batch
+        S->>R: HSET ds:{features/v1}:gN, an IPC stream per column of each batch
     end
     S->>R: EVAL commit: point the HASH at N, unless a newer upload won
     S-->>C: PutResult {dataset, generation, rows, …}
@@ -167,8 +168,9 @@ sequenceDiagram
     S->>R: HGETALL ds:{features/v1}
     S-->>C: FlightInfo: the schema, counts, one or more tickets
     C->>S: DoGet(ticket)
-    loop about 8 MiB of batches at a time
-        S->>R: LRANGE ds:{features/v1}:gN
+    S->>R: HMGET ds:{features/v1}:gN layout schema batches
+    loop about 8 MiB of the ticket's columns at a time
+        S->>R: HMGET ds:{features/v1}:gN, those columns of the next batches
     end
     S-->>C: FlightData: the ticket's columns and batches
 ```
@@ -200,6 +202,7 @@ sequenceDiagram
 ## Quick start
 
 You need Go 1.26+, Docker and, for the Python example, [uv](https://docs.astral.sh/uv/).
+(To run a released build instead of building it, see [Install](#install).)
 
 ```bash
 docker compose up --detach --wait redis
@@ -222,6 +225,31 @@ To run Redis and the server together in Docker instead:
 ```bash
 docker compose up --detach --build --wait
 ```
+
+`--wait` returns once the server's [health check](#health-checks) passes:
+it serves, and Redis answers.
+
+### Install
+
+Each [release](https://github.com/alberttwong/redis-apache-arrow-flight/releases)
+has a static binary for Linux (amd64, arm64) and macOS (arm64), with a
+SHA-256 checksum, and a multi-arch image on the GitHub Container Registry.
+For example (set `VERSION` to the release's tag):
+
+```bash
+curl -fsSL --remote-name-all https://github.com/alberttwong/redis-apache-arrow-flight/releases/download/$VERSION/redis-flight-server-$VERSION-linux-amd64.tar.gz{,.sha256}
+```
+
+```bash
+shasum -a 256 -c redis-flight-server-$VERSION-linux-amd64.tar.gz.sha256 && tar -xzf redis-flight-server-$VERSION-linux-amd64.tar.gz
+```
+
+```bash
+docker run --rm -p 8815:8815 -e REDIS_URI=redis://host.docker.internal:6379/0 ghcr.io/alberttwong/redis-apache-arrow-flight:${VERSION#v}
+```
+
+Image tags are the version without the `v` (`1.2.3`), its minor version
+(`1.2`) and `latest`; a prerelease (`1.2.3-rc1`) gets only its own.
 
 ## Using it
 
@@ -276,8 +304,8 @@ with `--dataset-endpoint-batches`.
 ### JDBC (DBeaver and others)
 
 Use the [Arrow Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html)
-(`org.apache.arrow:flight-sql-jdbc-driver`). Tested with 19.0.0 on Java 17 and
-21. The URL is:
+(`org.apache.arrow:flight-sql-jdbc-driver`). Tested with 19.0.0 on Java 17, 21
+and 25. The URL is:
 
 ```text
 jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
@@ -290,23 +318,44 @@ jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
   `disableCertificateVerification` as needed.
 - **Sessions:** the driver keeps cookies, so each JDBC connection is a
   [session](#sessions): `SET`, `search_path` and temporary tables last from one
-  statement to the next. Query results in a session are built whole before
-  they are sent, so JDBC doesn't get [streamed](#flight-sql-support)
-  results yet.
+  statement to the next. Plain scans [stream](#flight-sql-support) from Redis
+  in a session too, so a `SELECT *` of a large table (DBeaver's data tab)
+  isn't held in the server's memory, and the connection runs other
+  statements while a `ResultSet` is read. A connection that has made a
+  temporary table reads its results whole.
+- **Browsing a large result:** a `ResultSet` left unread for longer than
+  `--stream-stall-timeout` (2 minutes) fails on its next fetch. DBeaver
+  fetches a page at a time as you scroll, so raise the timeout if people
+  leave results open.
 - **Java 17 and later:** run the JVM with
-  `--add-opens=java.base/java.nio=ALL-UNNAMED`. In DBeaver, add it to
-  `dbeaver.ini`.
+  `--add-opens=java.base/java.nio=ALL-UNNAMED`.
+- **Java 23 and later:** also add `--sun-misc-unsafe-memory-access=allow`.
+  Without it the driver fails before it connects, with an
+  `ExceptionInInitializerError` in `DefaultAllocationManagerFactory`. Java 17
+  to 22 don't know the option and refuse to start with it.
+- **DBeaver:** add the options to `dbeaver.ini`, one per line after `-vmargs`
+  (the second one only if DBeaver runs on Java 23 or later):
+
+  ```text
+  -vmargs
+  --add-opens=java.base/java.nio=ALL-UNNAMED
+  --sun-misc-unsafe-memory-access=allow
+  ```
 
 `examples/jdbc/JdbcSmoke.java` checks prepared statements with `?` parameters,
 DatabaseMetaData (catalogs, schemas, tables, columns, table types, keys),
-update counts and the session. CI runs it on every pull request:
+update counts and the session, including a 100,000-row result read while the
+connection runs other statements. CI runs it on Java 17, 21 and 25 on every pull
+request:
 
 ```bash
 make jdbc-smoke
 ```
 
 That target downloads the jar into `bin/` (checking its SHA-1) and runs the
-smoke test against a server on `localhost:8815`.
+smoke test against a server on `localhost:8815`, with the JVM options for the
+`java` on the `PATH`. Pick another with `JAVA=/path/to/bin/java`, and another
+server with `JDBC_URL=…`.
 
 Known limits of the JDBC driver (19.0.0):
 - **Statements without a result schema run as updates.** The driver treats a
@@ -369,7 +418,7 @@ How statements run:
     the user's other requests have a connection (with a pool of 1, nothing
     streams). With `--auth=none`, every client is the same user. Queries
     beyond that are read whole (see below), as are queries in a
-    [session](#sessions).
+    [session](#sessions) that has made temporary tables or views.
   - A streaming result also keeps a cursor open on its table's index.
     RediSearch allows an index `search-index-cursor-limit` open cursors
     (128 by default), and the driver reads every query through one, so at
@@ -445,10 +494,26 @@ request.
 - **Ownership.** A session belongs to the Redis user that made it. With
   `--auth=redis-acl`, another user's request with the same cookie gets a
   session of its own.
-- **Results are read whole.** A query result in a session is built in
-  memory before it is sent, not [streamed](#flight-sql-support) from Redis.
-  A streaming result would keep the session's connection busy until read, and
-  clients such as JDBC run other statements while they read a result.
+- **Plain scans stream.** A query that [streams](#flight-sql-support) from
+  Redis outside a session does in a session too, on a pooled connection, so
+  the session's own stays free for its other statements (clients such as
+  JDBC run some while they read a result):
+  - The pooled connection gets the session's current schema (`search_path`)
+    and time zone, as they are when the query starts (`SET LOCAL`
+    included): a `SET` while the result is read doesn't change it. Of the
+    `SET` parameters, only these two change what a scan returns. The
+    connection's own are put back before the pool reuses it.
+  - It sees the session's writes, since every statement commits as it runs.
+  - The session's streams count against `--max-streams` and
+    `--max-table-streams` like any; past them, results are read whole within
+    `--result-memory`.
+  - A session isn't closed as idle while one of its results streams.
+  - Once the session has made a temporary table or view (or ingested a
+    temporary table), its results are read whole on its own connection
+    until the session ends: temporary objects hide other tables' names,
+    and only that connection sees them.
+  - Other queries (aggregates, joins, `SHOW`, …) run on the session's
+    connection, built whole as outside a session.
 - **Several servers.** Sessions live in one server's memory. Route a client to
   the same server each time (sticky sessions on the load balancer).
 - **Turning them off.** `--sessions=false` does so: no cookies, and every
@@ -482,9 +547,13 @@ request.
   `{"dataset": "features/v1", "columns": ["id", "label"], "batches": [0, 4]}`
   reads two columns of its first four batches. The stored batches are the
   uploaded ones, split to about 2 MiB each; the PutResult and the FlightInfo's
-  app metadata count them (`batches`). A read takes them from Redis about
-  8 MiB at a time (up to 64 small ones), so it holds about that much of the
-  dataset, whatever its size.
+  app metadata count them (`batches`). Each column of a batch is stored on
+  its own, so a read takes only the ticket's columns from Redis. Reading one
+  column of 100,000 rows × 10 took a tenth of the bytes from Redis, a sixth
+  of its CPU time and a tenth of the server's memory, in a third of the time
+  of reading all ten. A read takes the columns about 8 MiB at a time (up to
+  64 batches), so it holds about that much of the dataset, whatever its
+  size.
 - **Parallel reads.** With `--dataset-endpoint-batches=N`, GetFlightInfo,
   PollFlightInfo and ListFlights return one endpoint per N batches. Clients can
   read the endpoints in parallel, and must read them all; together, in order,
@@ -503,11 +572,23 @@ slot:
 | Key | Type | Holds |
 |-|-|-|
 | `arrowflight:ds:{<name>}` | HASH | `gen`, `schema` (IPC), `rows`, `batches`, `bytes`, `updated` |
-| `arrowflight:ds:{<name>}:g<N>` | LIST | Generation N: an IPC stream with the schema alone, then one IPC stream per batch (about 2 MiB each) |
+| `arrowflight:ds:{<name>}:g<N>` | HASH | Generation N, by column: `layout` (`2`); `schema`, an IPC stream with the schema alone; `batches`, the number of batches (written last, so a generation without it is an unfinished upload); and for each batch `b` (from 0), `<b>:rows`, its row count, and `<b>:<c>`, an IPC stream of its column `c` alone (counted from 0, in the schema's order) |
+| `arrowflight:ds:{<name>}:g<N>` | LIST | A generation stored by an earlier server: an IPC stream with the schema alone, then one IPC stream per batch. It stays readable, but a read of some columns takes them all from Redis |
 | `arrowflight:ds:{<name>}:seq` | STRING | The last generation number. It never expires, not even with `--dataset-ttl` or a drop, so generation numbers never repeat |
 | `arrowflight:result:{<id>}` | STRING | A statement result too big for its ticket (expires after 10 minutes) |
 
 The name in a key is URL-path-escaped.
+
+Storing each column of a batch on its own takes more of Redis's memory than
+storing batches whole: in our measurements, 5–9% for 100,000 rows of 10
+columns, and up to 25% when the upload's batches are small (1,000 rows),
+since each column of each batch is a value of its own.
+
+**Upgrading.** Servers before the HASH layout fail to read the generations
+newer ones store (Redis answers their `LLEN` with `WRONGTYPE`), so upgrade
+every replica before uploading again. Generations they stored stay readable
+by newer servers; upload a dataset again to read its columns separately.
+Commits and drops work across versions.
 
 ## Authentication and TLS
 
@@ -543,13 +624,18 @@ client.authenticate_basic_token("alice", "…")  # pyarrow.flight: returns the h
   [Redis ADBC driver lists](https://github.com/alberttwong/redis-adbc-driver#server-requirements)
   for SQL. For datasets, it also needs the key pattern `~arrowflight:*` and
   these commands:
-  - to write: `+incr +rpush +pexpire +persist +hset +unlink +del +eval +evalsha`
-  - to read: `+hget +hgetall +llen +lrange +scan +get`
+  - to write: `+incr +hset +pexpire +persist +unlink +del +eval +evalsha`
+    (servers before the HASH layout also need `+rpush`)
+  - to read: `+hget +hgetall +hmget +scan +get`, and `+llen +lrange` for
+    generations stored by servers before the HASH layout
 
   A user with exactly the driver's commands plus these ran
   `examples/python/quickstart.py`. A read-only user (the driver's read-only
   list plus the read commands above) can query and read datasets. Its writes
   fail with `PermissionDenied`.
+- **Health checks** need no login, so load balancers and probes can call
+  them (see [Health checks](#health-checks)). They tell only whether the
+  server serves.
 
 ## Configuration
 
@@ -577,7 +663,10 @@ Every flag can also be set with the environment variable shown.
 | `-max-msg-size` | `FLIGHT_MAX_MSG_SIZE` | 64 MiB | Largest gRPC message accepted |
 | `-shutdown-timeout` | `FLIGHT_SHUTDOWN_TIMEOUT` | `25s` | On SIGTERM or SIGINT, let running calls finish for this long, then [cancel them](#shutdown) |
 | `-adbc-option k=v` (repeatable) | `FLIGHT_ADBC_OPTIONS` (comma-separated) | | [Redis ADBC driver options](https://github.com/alberttwong/redis-adbc-driver#options), such as `adbc.redis.aggregate_pushdown=all`, `adbc.redis.default_schema=sales`, `adbc.redis.cluster=true` |
-| `-log-level` | `FLIGHT_LOG_LEVEL` | `info` | `debug` logs every call |
+| `-metrics-listen` | `FLIGHT_METRICS_LISTEN` | off | Address to serve [Prometheus metrics](#metrics) on, at `/metrics` (plain HTTP, no auth) |
+| `-log-level` | `FLIGHT_LOG_LEVEL` | `info` | `debug` logs every call but health checks |
+| `-healthcheck` | | | Check the server at `-listen` with the [gRPC health service](#health-checks) and exit: 0 if it serves, 1 if not. Trusts only `-tls-cert` when that is set |
+| `-version` | | | Print the version and exit |
 
 The server connects to Redis when the first request arrives, not at startup.
 Opening an ADBC connection takes several round trips, so connections are
@@ -600,6 +689,112 @@ The server pings a connection that has been idle for a minute, and closes
 it if the client doesn't answer within 20 seconds, so a client that has
 vanished doesn't hold a call, a connection or a cursor until TCP gives up.
 
+## Monitoring
+
+### Health checks
+
+The server has the standard
+[gRPC health service](https://github.com/grpc/grpc/blob/master/doc/health-checking.md)
+(`grpc.health.v1.Health`), on the Flight port. Its calls need no
+authentication, even with `--auth=redis-acl`, and aren't logged.
+
+- **SERVING** while Redis answers a PING. The server pings every 5 seconds,
+  on a connection of its own, so checks cost Redis nothing. With
+  `--auth=redis-acl`, an authentication error counts as an answer (each
+  client brings its own credentials). With `--auth=none` it doesn't, since
+  every request uses the server's. On a cluster, the node in `--redis-uri`
+  is pinged.
+- **NOT_SERVING** while Redis doesn't answer, and from the start of a
+  [shutdown](#shutdown).
+- The service names are `""` (the server) and
+  `arrow.flight.protocol.FlightService`.
+
+`redis-flight-server -healthcheck` asks the server at `-listen` (an
+all-interfaces address is checked on the loopback address) and exits 0 if
+it serves, 1 if not. With `-tls-cert` it uses TLS and trusts only that
+certificate. The Docker image's `HEALTHCHECK` and the compose service run
+it; it reads the same environment variables as the server, not the
+server's flags. Any gRPC health client works too, such as
+[`grpc_health_probe`](https://github.com/grpc-ecosystem/grpc-health-probe):
+
+```bash
+grpc_health_probe -addr=localhost:8815
+```
+
+On Kubernetes, use a gRPC readiness probe, so a server whose Redis is down
+gets no traffic, and a TCP liveness probe, so it isn't restarted for that:
+
+```yaml
+readinessProbe:
+  grpc:
+    port: 8815
+livenessProbe:
+  tcpSocket:
+    port: 8815
+```
+
+The kubelet's gRPC probe doesn't do TLS. With TLS, use an `exec` probe that
+runs `/redis-flight-server -healthcheck`.
+
+### Metrics
+
+With `--metrics-listen` (`FLIGHT_METRICS_LISTEN`), the server serves
+[Prometheus](https://prometheus.io/) metrics at `/metrics` on that address.
+It is off by default. The endpoint is plain HTTP without authentication, so
+bind it to a private address; its labels never name a Redis user or a table.
+`compose.yaml` serves it on `localhost:9815`.
+
+```bash
+curl -s localhost:9815/metrics | grep '^redis_flight_'
+```
+
+| Metric | Type | What it counts |
+|-|-|-|
+| `redis_flight_calls_total{method, code}` | counter | Calls finished, by method (`DoGet`, `GetFlightInfo`, …) and gRPC code. Health checks aren't counted |
+| `redis_flight_call_duration_seconds{method}` | histogram | How long calls took. A `DoGet` or `DoPut` lasts until its stream ends, so it mostly measures the client |
+| `redis_flight_queries_streamed_total` | counter | Query results [streamed](#flight-sql-support) from Redis |
+| `redis_flight_queries_read_whole_total{reason}` | counter | Query results read whole into memory first, by why (below) |
+| `redis_flight_query_streams_open` | gauge | Results streaming now, each holding a pooled connection and a cursor |
+| `redis_flight_query_results_stalled_total` | counter | Results ended by `--stream-stall-timeout` |
+| `redis_flight_result_memory_bytes` | gauge | Memory held by results read whole for want of a stream, counted against `--result-memory` |
+| `redis_flight_result_memory_refusals_total` | counter | Results refused with `RESOURCE_EXHAUSTED` for not fitting in `--result-memory` |
+| `redis_flight_index_cursor_limit_errors_total` | counter | Calls that failed because an index had no cursor left (`INDEX_CURSOR_LIMIT`) |
+| `redis_flight_pool_connections{state}` | gauge | Pooled ADBC connections, across Redis users: `in_use` (including ones being opened) and `idle` |
+| `redis_flight_pool_wait_seconds` | histogram | How long requests that found `--pool-max-open` connections in use waited for one. Its `_count` is how many waited |
+| `redis_flight_session_connections` | gauge | ADBC connections of [sessions](#sessions), outside the pool |
+| `redis_flight_sessions_open` | gauge | Sessions the server keeps (with sessions on) |
+| `redis_flight_sessions_full_total` | counter | Requests that used the pool because the server had 10,000 sessions |
+| `redis_flight_tenants_open` | gauge | Redis users with an ADBC database, a connection pool and a Redis client open |
+| `redis_flight_dataset_rows_written_total`, `redis_flight_dataset_bytes_written_total` | counter | Rows and Arrow IPC bytes of [dataset](#datasets) uploads committed |
+| `redis_flight_dataset_rows_read_total`, `redis_flight_dataset_bytes_read_total` | counter | Rows of datasets sent, and their bytes read from Redis (only the ticket's columns) |
+| `redis_flight_redis_up` | gauge | 1 while Redis answers the [health check](#health-checks)'s PING |
+| `redis_flight_build_info{version}` | gauge | Always 1; the label is the server's version |
+
+The Prometheus client adds the Go runtime's (`go_*`: heap, goroutines, GC)
+and the process's (`process_*`: CPU, memory, open files).
+
+`reason` is one of:
+- `query`: the driver doesn't stream the query (aggregates, joins, CTEs, …),
+  or returned a small result whole
+- `session`: a [session](#sessions) that has made temporary tables reads
+  its results on its own connection
+- `user_limit`: the Redis user had `--max-streams` results streaming (with
+  `--auth=none`, every client is one user)
+- `table_limit`: the table had `--max-table-streams`
+- `index_cursors`: the table's index had three quarters of its cursors open
+
+The limits worth an alert:
+
+```text
+rate(redis_flight_queries_read_whole_total{reason=~"user_limit|table_limit|index_cursors"}[5m]) > 0
+histogram_quantile(0.99, rate(redis_flight_pool_wait_seconds_bucket[5m])) > 1
+increase(redis_flight_index_cursor_limit_errors_total[5m]) > 0
+increase(redis_flight_result_memory_refusals_total[5m]) > 0
+```
+
+An index out of cursors and a result over `--result-memory` are also logged
+at warn level.
+
 ## Development
 
 Code layout:
@@ -613,6 +808,8 @@ Code layout:
 | `server/tenant.go`, `server/pool.go` | Each Redis user's ADBC database, connection pool and go-redis client |
 | `server/session.go` | Sessions: the cookie middleware, each session's connection, and the session options |
 | `server/auth.go` | Redis ACL login and tokens |
+| `server/health.go`, `cmd/redis-flight-server/healthcheck.go` | The gRPC health service, and `-healthcheck` |
+| `server/metrics.go` | The Prometheus metrics |
 
 Tests:
 
@@ -645,6 +842,17 @@ push to `main`:
 - every test, on standalone Redis and on the 3-shard cluster
 - a check that the binary is statically linked
 - the Python quickstart against the Docker image
+- the JDBC smoke test against it, on Java 17, 21 and 25
+- a check that it serves metrics
+
+Releases: push a tag `vX.Y.Z` (or `vX.Y.Z-rc1` for a prerelease). The
+release workflow (`.github/workflows/release.yml`) runs the tests on it,
+builds the binaries (`make dist`, which works locally too) and the image,
+runs each binary on its own platform, then pushes the image and attaches the
+binaries to the tag's GitHub release, making the release if there is none.
+Run it by hand (`workflow_dispatch`) to rebuild an existing tag. A pull
+request that changes it, the Dockerfile or the Makefile builds and checks
+everything without publishing.
 
 The driver dependency is pinned in `go.mod` with a `replace` to a commit of
 `github.com/alberttwong/redis-adbc-driver/go`. To build against a local

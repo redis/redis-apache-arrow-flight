@@ -97,6 +97,29 @@ func TestChangesSession(t *testing.T) {
 	}
 }
 
+func TestCreatesTemp(t *testing.T) {
+	for sql, want := range map[string]bool{
+		"CREATE TEMP TABLE t (a INTEGER)":           true,
+		"CREATE TEMPORARY VIEW v AS SELECT 1 AS a":  true,
+		"CREATE TEMP TABLE t AS SELECT 1 AS a":      true,
+		"CREATE TABLE pg_temp.t (a INTEGER)":        true,
+		"CREATE VIEW PG_TEMP.v AS SELECT 1 AS a":    true,
+		"SELECT 1; CREATE TEMP TABLE x (a INTEGER)": true,
+		"SET search_path = other":                   false,
+		"BEGIN":                                     false,
+		"SELECT * FROM pg_temp.t":                   false,
+		"CREATE TABLE public.t (a INTEGER)":         false,
+		"CREATE TABLE pg_temp_x.t (a INTEGER)":      false,
+		"CREATE VIEW v AS SELECT * FROM pg_temp.t":  false,
+		"this is not SQL":                           false,
+		"":                                          false,
+	} {
+		if got := createsTemp(sql); got != want {
+			t.Errorf("createsTemp(%q) = %v, want %v", sql, got, want)
+		}
+	}
+}
+
 func TestStreamTokens(t *testing.T) {
 	for _, tc := range []struct{ maxStreams, poolMaxOpen, want int }{
 		{8, 32, 8},
@@ -120,6 +143,10 @@ func TestStreamTable(t *testing.T) {
 		"SELECT id FROM Sales.Orders LIMIT 10":           {"Sales", "Orders"},
 		`SELECT id FROM "Mixed"`:                         {"public", "Mixed"},
 		"SELECT o.id FROM t AS o WHERE o.id = $1":        {"public", "t"},
+		// Uncorrelated subqueries stream too, so in a session with
+		// temporary objects (which could be in the subquery) nothing
+		// streams on a pooled connection.
+		"SELECT id FROM t WHERE id IN (SELECT a FROM u)": {"public", "t"},
 		// The driver doesn't stream these.
 		"SELECT 1":                                  {},
 		"SELECT * FROM a JOIN b ON a.id = b.id":     {},
@@ -371,6 +398,81 @@ func TestWithConnReleasesOnPanic(t *testing.T) {
 	}
 }
 
+// leaseConn undoes what it changed on a connection before the pool reuses
+// it, and closes one it can't undo.
+func TestLeaseConnUndo(t *testing.T) {
+	ctx := context.Background()
+	db := &fakeDB{}
+	tn := &tenant{pool: newConnPool(db, 1, 2)}
+	undos := 0
+	undo := func(err error) func(adbc.ConnectionWithContext) error {
+		return func(adbc.ConnectionWithContext) error { undos++; return err }
+	}
+	lease := func(u func(adbc.ConnectionWithContext) error, keep bool, err error) func(error) {
+		release, _ := tn.leaseConn(ctx, "SELECT * FROM t", u, func(adbc.ConnectionWithContext) (bool, error) { return keep, err })
+		return release
+	}
+
+	lease(undo(nil), false, nil)
+	if undos != 1 || db.conns[0].closed {
+		t.Fatalf("undone: %d undos, closed %v; want 1, kept", undos, db.conns[0].closed)
+	}
+	lease(undo(errors.New("RESET failed")), false, nil) // the same connection, from the pool
+	if len(db.conns) != 1 || undos != 2 || !db.conns[0].closed {
+		t.Fatalf("a failed undo: %d conns, %d undos, closed %v; want 1, 2, closed", len(db.conns), undos, db.conns[0].closed)
+	}
+	lease(undo(nil), false, errors.New("i/o timeout"))
+	if undos != 2 || !db.conns[1].closed {
+		t.Fatalf("a broken connection: %d undos, closed %v; want no undo, closed", undos, db.conns[1].closed)
+	}
+	release := lease(undo(nil), true, nil)
+	if undos != 2 {
+		t.Fatal("a kept connection was undone before its release")
+	}
+	release(nil)
+	release(nil)
+	if undos != 3 || db.conns[2].closed {
+		t.Fatalf("released twice: %d undos, closed %v; want 3, kept", undos, db.conns[2].closed)
+	}
+}
+
+// A session is marked as having temporary objects by a statement that may
+// make one, until its connection closes.
+func TestSessionTempFlag(t *testing.T) {
+	db := &fakeDB{}
+	tn := &tenant{db: db}
+	tc := &tenantCache{cfg: &Config{Auth: AuthNone}, tenants: map[string]*tenant{identity{}.key(): tn},
+		creating: map[string]chan struct{}{}}
+	st := &sessionStore{tenants: tc, log: testLogger(t), sessions: map[string]*session{}}
+	sess := st.get(strings.Repeat("a", 32), identity{}.key(), true)
+	ctx := context.WithValue(context.Background(), sessionCtxKey{}, &sessionInfo{store: st, sess: sess})
+	run := func(sql string, err error) {
+		_ = tn.withConn(ctx, sql, func(adbc.ConnectionWithContext) error { return err })
+	}
+
+	run("SELECT 1", nil)
+	if sess.temp {
+		t.Fatal("marked by SELECT 1")
+	}
+	run("CREATE TEMP TABLE x (a INTEGER)", nil)
+	run("SELECT 1", nil)
+	if !sess.temp {
+		t.Fatal("not marked after CREATE TEMP TABLE")
+	}
+	if ss, err := sess.scanSettings(ctx, tn); ss != nil || err != nil {
+		t.Errorf("scanSettings with temporary objects = %v, %v; want nil (read on the session's connection)", ss, err)
+	}
+	run("SELECT 1", errors.New("i/o timeout")) // closes the connection, and its temporary objects
+	if sess.temp || !db.conns[0].closed {
+		t.Fatalf("after the connection closed: temp %v, closed %v", sess.temp, db.conns[0].closed)
+	}
+	// Marked before it runs: a script that fails part way may have made one.
+	run("CREATE TABLE pg_temp.y (a INTEGER)", adbc.Error{Code: adbc.StatusAlreadyExists})
+	if !sess.temp {
+		t.Error("not marked by a CREATE TABLE pg_temp.y that failed")
+	}
+}
+
 func TestAcquireAfterPanicInOpen(t *testing.T) {
 	cfg := Config{Logger: testLogger(t)}
 	cfg.setDefaults()
@@ -516,6 +618,104 @@ func TestChunks(t *testing.T) {
 	}
 }
 
+// Each column of a batch round-trips through its own IPC stream, and a
+// batch is put together from any of its columns, checked.
+func TestColumnChunks(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64},
+		{Name: "tags", Type: arrow.ListOf(arrow.BinaryTypes.String), Nullable: true},
+		{Name: "point", Type: arrow.StructOf(
+			arrow.Field{Name: "x", Type: arrow.PrimitiveTypes.Float64},
+			arrow.Field{Name: "y", Type: arrow.PrimitiveTypes.Float64}), Nullable: true},
+		{Name: "kind", Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.BinaryTypes.String}},
+	}, nil)
+	rec, _, err := array.RecordFromJSON(mem, schema, strings.NewReader(`[
+		{"id": 1, "tags": ["a", "b"], "point": {"x": 1, "y": 2}, "kind": "click"},
+		{"id": 2, "tags": null, "point": null, "kind": "view"},
+		{"id": 3, "tags": [], "point": {"x": -1.5, "y": 0}, "kind": "click"}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rec.Release()
+	part := rec.NewSlice(1, 3) // a chunk of an upload starts past 0
+	defer part.Release()
+
+	enc, err := encodeColumns(columnSchemas(schema), part, mem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cols := make([]string, len(enc))
+	var total int64
+	for i, b := range enc {
+		cols[i], total = string(b), total+int64(len(b))
+	}
+	got, size, err := assemble(schema, cols, mem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRows(t, rowStrings(got), `2|(null)|(null)|view`, `3|[]|{"x":-1.5,"y":0}|click`)
+	got.Release()
+	if size != total {
+		t.Errorf("size = %d, want %d", size, total)
+	}
+
+	_, sub, err := projection(schema, []string{"kind", "id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _, err = assemble(sub, []string{cols[3], cols[0]}, mem); err != nil {
+		t.Fatal(err)
+	}
+	wantRows(t, rowStrings(got), "view|2", "click|3")
+	got.Release()
+
+	if got, _, err = assemble(arrow.NewSchema(nil, nil), []string{"2"}, mem); err != nil || got.NumRows() != 2 || got.NumCols() != 0 {
+		t.Errorf("no columns: %v, %v", got, err)
+	} else {
+		got.Release()
+	}
+
+	// Columns that don't fit the schema, or each other, are refused.
+	other, err := encodeColumns(columnSchemas(schema), rec, mem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, vals := range map[string][]string{
+		"swapped types":    {cols[0], cols[3]},
+		"different length": {cols[3], string(other[0])},
+		"not IPC":          {"nope", cols[0]},
+	} {
+		if got, _, err := assemble(sub, vals, mem); err == nil {
+			got.Release()
+			t.Errorf("%s: assembled", name)
+		}
+	}
+	if _, _, err := assemble(arrow.NewSchema(nil, nil), []string{"-1"}, mem); err == nil {
+		t.Error("a negative row count was accepted")
+	}
+}
+
+func TestBatchRange(t *testing.T) {
+	for _, tc := range []struct {
+		batches           []int64
+		n, wantLo, wantHi int64
+	}{
+		{nil, 10, 0, 10},
+		{nil, 0, 0, 0},
+		{[]int64{2, 5}, 10, 2, 5},
+		{[]int64{8, 99}, 10, 8, 10},
+		{[]int64{5, 5}, 10, 5, 5},
+		{[]int64{12, 20}, 10, 10, 10},
+	} {
+		lo, hi := datasetTicket{Batches: tc.batches}.batchRange(tc.n)
+		if lo != tc.wantLo || hi != tc.wantHi {
+			t.Errorf("batches %v of %d: [%d, %d), want [%d, %d)", tc.batches, tc.n, lo, hi, tc.wantLo, tc.wantHi)
+		}
+	}
+}
+
 func TestPageLen(t *testing.T) {
 	for _, tc := range []struct{ largest, want int64 }{
 		{0, readPage},
@@ -564,20 +764,20 @@ func TestStatementHandle(t *testing.T) {
 
 // newTestServer starts a Server on an in-memory listener and returns a
 // connection to it.
-func newTestServer(t *testing.T, cfg Config) *grpc.ClientConn {
+func newTestServer(t testing.TB, cfg Config) *grpc.ClientConn {
 	t.Helper()
 	return dialTestServer(t, startTestServer(t, cfg))
 }
 
 // startTestServer starts a Server on an in-memory listener.
-func startTestServer(t *testing.T, cfg Config) *bufconn.Listener {
+func startTestServer(t testing.TB, cfg Config) *bufconn.Listener {
 	t.Helper()
 	_, lis := startServer(t, cfg)
 	return lis
 }
 
 // startServer is startTestServer that also returns the Server.
-func startServer(t *testing.T, cfg Config) (*Server, *bufconn.Listener) {
+func startServer(t testing.TB, cfg Config) (*Server, *bufconn.Listener) {
 	t.Helper()
 	if cfg.Logger == nil {
 		cfg.Logger = testLogger(t)
@@ -600,7 +800,7 @@ func testDialOptions(lis *bufconn.Listener) []grpc.DialOption {
 	}
 }
 
-func dialTestServer(t *testing.T, lis *bufconn.Listener) *grpc.ClientConn {
+func dialTestServer(t testing.TB, lis *bufconn.Listener) *grpc.ClientConn {
 	t.Helper()
 	cc, err := grpc.NewClient("passthrough:///bufconn", testDialOptions(lis)...)
 	if err != nil {
@@ -735,6 +935,7 @@ func TestConfigValidation(t *testing.T) {
 		{MaxTableStreams: -1},
 		{ResultMemory: -1},
 		{ShutdownTimeout: -time.Second},
+		{MetricsListen: "nonsense"},
 	} {
 		cfg.Logger = testLogger(t)
 		if _, err := New(cfg); err == nil {

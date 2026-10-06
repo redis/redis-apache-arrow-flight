@@ -118,8 +118,10 @@ func dataBytes(d arrow.ArrayData, size func(*memory.Buffer) int) int64 {
 // a share of ResultMemory, for one read whole for want of a stream (see
 // executeQuery).
 type liveResult struct {
-	// stall is how long the client may take to read a batch.
-	stall time.Duration
+	// stall is how long the client may take to read a batch, and stalled,
+	// if set, is called when one takes longer.
+	stall   time.Duration
+	stalled func()
 	// done is called once the result is released, with its error: nil if
 	// it was read to the end, or the client went away or stalled.
 	done func(error)
@@ -182,6 +184,9 @@ func streamRecords(ctx context.Context, rdr array.RecordReader, live *liveResult
 				if ok, stuck := send(flight.StreamChunk{Data: part}); !ok {
 					releaseAll(parts[i+1:])
 					if stuck {
+						if live.stalled != nil {
+							live.stalled()
+						}
 						// Free what the result holds now, and tell the
 						// client, if it comes back, that rows are missing.
 						release()

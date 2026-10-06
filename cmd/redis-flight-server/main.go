@@ -47,6 +47,7 @@ func run() error {
 		auth     string
 		logLevel string
 		version  bool
+		check    bool
 		adbcOpts = optionsFlag{}
 	)
 	str := func(p *string, name, env, def, usage string) {
@@ -108,9 +109,13 @@ func run() error {
 	num(&cfg.MaxMsgSize, "max-msg-size", "FLIGHT_MAX_MSG_SIZE", 64<<20, "largest gRPC message accepted, in bytes")
 	dur(&cfg.ShutdownTimeout, "shutdown-timeout", "FLIGHT_SHUTDOWN_TIMEOUT", 25*time.Second,
 		"on SIGTERM or SIGINT, let running calls finish for this long, then cancel them")
+	str(&cfg.MetricsListen, "metrics-listen", "FLIGHT_METRICS_LISTEN", "",
+		"address to serve Prometheus metrics on, at /metrics over plain HTTP without authentication (default: off)")
 	str(&logLevel, "log-level", "FLIGHT_LOG_LEVEL", "info", "debug, info, warn or error")
 	fs.Var(adbcOpts, "adbc-option", "Redis ADBC driver database option key=value, repeatable (env FLIGHT_ADBC_OPTIONS, comma-separated)")
 	fs.BoolVar(&version, "version", false, "print the version and exit")
+	fs.BoolVar(&check, "healthcheck", false,
+		"check the server at -listen with the gRPC health service and exit: 0 if it is serving, 1 if not (for a Docker HEALTHCHECK)")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -120,6 +125,9 @@ func run() error {
 	if version {
 		fmt.Println(server.Version)
 		return nil
+	}
+	if check {
+		return checkHealth(cfg.Listen, cfg.TLSCertFile)
 	}
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })

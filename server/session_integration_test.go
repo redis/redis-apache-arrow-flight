@@ -281,3 +281,27 @@ func TestIntegrationSessionOwner(t *testing.T) {
 		t.Fatal("unreachable")
 	}
 }
+
+// A session's scans stream on a pooled connection with only the settings
+// in scanOptions carried over: of the driver's SET parameters, only
+// search_path and TimeZone change what a scan returns. This fails when the
+// driver gains a parameter, so that someone decides whether it does too.
+func TestIntegrationSessionSettings(t *testing.T) {
+	c := newClients(t, Config{RedisURI: redisURI(t)}).sql
+	// Each is accepted with one value only, or only shown.
+	known := map[string]bool{"search_path": true, "timezone": true, "client_encoding": true,
+		"application_name": true, "standard_conforming_strings": true, "statement_timeout": true,
+		"lock_timeout": true, "idle_in_transaction_session_timeout": true, "extra_float_digits": true,
+		"datestyle": true, "intervalstyle": true}
+	rows := query(t, context.Background(), c, "SHOW ALL")
+	if len(rows) == 0 {
+		t.Fatal("SHOW ALL returned nothing")
+	}
+	for _, row := range rows {
+		name, _, _ := strings.Cut(row, "|")
+		if !known[strings.ToLower(name)] {
+			t.Errorf("the driver has a new setting, %q: if it can change what a scan returns, add it to scanOptions "+
+				"(and sessionOptions); then add it here", name)
+		}
+	}
+}

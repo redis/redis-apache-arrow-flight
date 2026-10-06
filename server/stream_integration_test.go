@@ -99,14 +99,20 @@ func readIDs(rdr *flight.Reader) ([]int64, error) {
 	return ids, rdr.Err()
 }
 
-// cursors returns the number of open cursors on a table's index, or -1 on
-// a cluster, whose coordinator FT.INFO doesn't count.
+// cursors returns the number of open cursors on a public table's index,
+// or -1 on a cluster, whose coordinator FT.INFO doesn't count.
 func cursors(t *testing.T, admin goredis.UniversalClient, table string) int64 {
+	t.Helper()
+	return schemaCursors(t, admin, "public", table)
+}
+
+// schemaCursors is cursors for a table in schema.
+func schemaCursors(t *testing.T, admin goredis.UniversalClient, schema, table string) int64 {
 	t.Helper()
 	if _, ok := admin.(*goredis.ClusterClient); ok {
 		return -1
 	}
-	reply, err := admin.Do(context.Background(), "FT.INFO", "idx:public:"+table).Result()
+	reply, err := admin.Do(context.Background(), "FT.INFO", "idx:"+schema+":"+table).Result()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,8 +128,14 @@ func cursors(t *testing.T, admin goredis.UniversalClient, table string) int64 {
 // standalone Redis; on a cluster it can't tell).
 func waitCursors(t *testing.T, admin goredis.UniversalClient, table string, n int64) {
 	t.Helper()
+	waitSchemaCursors(t, admin, "public", table, n)
+}
+
+// waitSchemaCursors is waitCursors for a table in schema.
+func waitSchemaCursors(t *testing.T, admin goredis.UniversalClient, schema, table string, n int64) {
+	t.Helper()
 	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(20 * time.Millisecond) {
-		got := cursors(t, admin, table)
+		got := schemaCursors(t, admin, schema, table)
 		if got == -1 || got == n {
 			return
 		}
@@ -178,6 +190,17 @@ func waitStreamFree(t *testing.T, c *flightsql.Client, admin goredis.UniversalCl
 	}
 }
 
+// metricsClient starts a server with cfg, and returns a client of it and a
+// function that reads one of its metrics.
+func metricsClient(t *testing.T, cfg Config) (*flightsql.Client, func(series string) float64) {
+	t.Helper()
+	srv, lis := startServer(t, cfg)
+	return plainClient(t, lis), func(series string) float64 {
+		t.Helper()
+		return metricValue(t, scrape(t, srv.MetricsHandler()), series)
+	}
+}
+
 // cursorLimit is Redis's search-index-cursor-limit.
 func cursorLimit(admin goredis.UniversalClient) int {
 	limit := 128
@@ -226,6 +249,12 @@ func TestIntegrationStreamResults(t *testing.T) {
 	dropTable(t, setup, table)
 	ingestRows(t, setup, table, streamRows, 0)
 	scan := "SELECT id FROM " + table
+	// A wide table's stream is more than gRPC buffers, so it stays open
+	// until read, however fast the server sends.
+	wideTable := uniqueName("it_flight_stream_w")
+	dropTable(t, setup, wideTable)
+	ingestRows(t, setup, wideTable, streamRows, 200)
+	wideScan := "SELECT id, label FROM " + wideTable
 
 	t.Run("a stream holds a connection until it is read, and leaves the user one", func(t *testing.T) {
 		cfg := streamConfig(uri)
@@ -323,26 +352,33 @@ func TestIntegrationStreamResults(t *testing.T) {
 	})
 
 	t.Run("beyond MaxTableStreams, results are read whole", func(t *testing.T) {
+		// Wide tables, so the streams stay open until read.
 		other := uniqueName("it_flight_stream_other")
 		dropTable(t, setup, other)
-		ingestRows(t, setup, other, streamRows, 0)
+		ingestRows(t, setup, other, streamRows, 200)
 		cfg := streamConfig(uri)
 		cfg.MaxTableStreams = 1
-		c := newClients(t, cfg).sql
+		c, metric := metricsClient(t, cfg)
 		var readers []*flight.Reader
 		var firsts []int
-		for _, sql := range []string{scan, scan, "SELECT id FROM " + other} {
+		for _, sql := range []string{wideScan, wideScan, "SELECT id, label FROM " + other} {
 			rdr := openRead(t, context.Background(), c, sql)
 			if !rdr.Next() {
 				t.Fatal(rdr.Err())
 			}
 			readers, firsts = append(readers, rdr), append(firsts, int(rdr.RecordBatch().NumRows()))
 		}
-		if n := cursors(t, admin, table); n > 1 {
-			t.Errorf("%d cursors are open on %s with MaxTableStreams 1", n, table)
+		if n := cursors(t, admin, wideTable); n > 1 {
+			t.Errorf("%d cursors are open on %s with MaxTableStreams 1", n, wideTable)
 		}
 		if n := cursors(t, admin, other); n == 0 {
 			t.Errorf("another table's result didn't stream")
+		}
+		if n := metric(`redis_flight_queries_read_whole_total{reason="table_limit"}`); n != 1 {
+			t.Errorf("results read whole past MaxTableStreams: %v counted, want 1", n)
+		}
+		if n := metric("redis_flight_query_streams_open"); n != 2 {
+			t.Errorf("query_streams_open = %v, want 2", n)
 		}
 		for i, rdr := range readers {
 			if ids, err := readIDs(rdr); err != nil || firsts[i]+len(ids) != streamRows {
@@ -359,9 +395,11 @@ func TestIntegrationStreamResults(t *testing.T) {
 		ctx := context.Background()
 		cfg := streamConfig(uri)
 		cfg.PoolMaxOpen, cfg.ResultMemory = 2, 8<<20 // one stream; room for one result read whole
-		c := newClients(t, cfg).sql
+		c, metric := metricsClient(t, cfg)
 
-		stream := openRead(t, ctx, c, scan) // the user's one stream
+		// The user's one stream: wider than gRPC buffers, so it stays open
+		// (and keeps its stream) until read.
+		stream := openRead(t, ctx, c, wideScan)
 		if !stream.Next() {
 			t.Fatal(stream.Err())
 		}
@@ -370,15 +408,24 @@ func TestIntegrationStreamResults(t *testing.T) {
 			t.Fatal(held.Err())
 		}
 		first := int(held.RecordBatch().NumRows())
-		if n := cursors(t, admin, wide); n > 0 {
-			t.Errorf("a result read whole kept %d cursors open", n)
+		if n := cursors(t, admin, wide); n > 1 {
+			t.Errorf("a result read whole kept a cursor open: %d open, the stream's included", n)
+		}
+		if n := metric("redis_flight_result_memory_bytes"); n <= 0 {
+			t.Errorf("result_memory_bytes = %v with a result read whole and unread", n)
 		}
 		_, err := tryQuery(ctx, c, wideScan)
 		if status.Code(err) != codes.ResourceExhausted || !strings.Contains(err.Error(), "-result-memory") {
 			t.Errorf("a second result past ResultMemory: err = %v, want ResourceExhausted", err)
 		}
-		if n := cursors(t, admin, wide); n > 0 {
-			t.Errorf("a result refused for ResultMemory left %d cursors open", n)
+		if n := metric("redis_flight_result_memory_refusals_total"); n != 1 {
+			t.Errorf("result_memory_refusals_total = %v, want 1", n)
+		}
+		if n := metric(`redis_flight_queries_read_whole_total{reason="user_limit"}`); n != 2 {
+			t.Errorf("results read whole past MaxStreams: %v counted, want 2", n)
+		}
+		if n := cursors(t, admin, wide); n > 1 {
+			t.Errorf("a result refused for ResultMemory left a cursor open: %d open, the stream's included", n)
 		}
 		if !connFree(t, c) {
 			t.Error("a result refused for ResultMemory kept its connection")
@@ -426,7 +473,7 @@ func TestIntegrationStreamResults(t *testing.T) {
 		limit := cursorLimit(admin)
 		others := limit - limit/4 - 1 // one short of three quarters
 		closeOthers := openCursors(t, admin, table, others)
-		c := newClients(t, streamConfig(uri)).sql
+		c, metric := metricsClient(t, streamConfig(uri))
 		var readers []*flight.Reader
 		var firsts []int
 		for i := range 2 {
@@ -440,6 +487,9 @@ func TestIntegrationStreamResults(t *testing.T) {
 				t.Errorf("after scan %d, with %d of %d cursors open to other clients: %d open, want %d",
 					i+1, others, limit, n, others+1)
 			}
+		}
+		if n := metric(`redis_flight_queries_read_whole_total{reason="index_cursors"}`); n != 1 {
+			t.Errorf("results read whole for the index's cursors: %v counted, want 1", n)
 		}
 		for i, rdr := range readers {
 			if ids, err := readIDs(rdr); err != nil || firsts[i]+len(ids) != streamRows {
@@ -474,9 +524,12 @@ func TestIntegrationStreamResults(t *testing.T) {
 		dropTable(t, setup, full)
 		ingestRows(t, setup, full, 10, 0)
 		openCursors(t, admin, full, limit)
-		c := newClients(t, streamConfig(uri)).sql
+		c, metric := metricsClient(t, streamConfig(uri))
 		if _, err := tryQuery(ctx, c, "SELECT id FROM "+full); status.Code(err) != codes.ResourceExhausted {
 			t.Errorf("a query on an index with %d cursors open: err = %v, want ResourceExhausted", limit, err)
+		}
+		if n := metric("redis_flight_index_cursor_limit_errors_total"); n < 1 {
+			t.Errorf("index_cursor_limit_errors_total = %v, want at least 1", n)
 		}
 	})
 
@@ -486,7 +539,7 @@ func TestIntegrationStreamResults(t *testing.T) {
 		ingestRows(t, setup, wide, streamRows, 200) // more than gRPC buffers
 		cfg := streamConfig(uri)
 		cfg.PoolMaxOpen, cfg.StreamStallTimeout = 2, 300*time.Millisecond
-		c := newClients(t, cfg).sql
+		c, metric := metricsClient(t, cfg)
 		rdr := openRead(t, context.Background(), c, "SELECT id, label FROM "+wide)
 		if !rdr.Next() {
 			t.Fatal(rdr.Err())
@@ -496,26 +549,238 @@ func TestIntegrationStreamResults(t *testing.T) {
 		if status.Code(err) != codes.DeadlineExceeded || len(ids)+500 >= streamRows {
 			t.Errorf("after stalling: %d more ids, err = %v; want DeadlineExceeded", len(ids), err)
 		}
+		if n := metric("redis_flight_query_results_stalled_total"); n != 1 {
+			t.Errorf("query_results_stalled_total = %v, want 1", n)
+		}
 		waitCursors(t, admin, wide, 0)
 		waitStreamFree(t, c, admin, wide)
 	})
 
-	t.Run("in a session, results are read whole", func(t *testing.T) {
+	t.Run("in a session, a plain scan streams on a pooled connection", func(t *testing.T) {
 		c := cookieClient(t, startTestServer(t, streamConfig(uri)))
 		ctx := context.Background()
 		query(t, ctx, c, "SELECT 1") // the session starts with the next request
-		rdr := openRead(t, ctx, c, scan)
+		rdr := openRead(t, ctx, c, wideScan)
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		first := int(rdr.RecordBatch().NumRows())
+		if n := cursors(t, admin, wideTable); n == 0 {
+			t.Error("no cursor is open for a session's scan: it didn't stream")
+		}
+		// The session's connection is free for its next statements.
+		wantRows(t, query(t, ctx, c, "SELECT 2"), "2")
+		update(t, ctx, c, "SET TIME ZONE 'Asia/Tokyo'")
+		if ids, err := readIDs(rdr); err != nil || first+len(ids) != streamRows {
+			t.Errorf("%d rows, %v", first+len(ids), err)
+		}
+		waitCursors(t, admin, wideTable, 0)
+		wantRows(t, query(t, ctx, c, "SHOW TimeZone"), "Asia/Tokyo")
+
+		// A prepared statement's too (JDBC runs every query as one).
+		ps, err := c.Prepare(ctx, wideScan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer ps.Close(ctx)
+		info, err := ps.Execute(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		prdr, err := c.DoGet(ctx, info.Endpoint[0].Ticket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer prdr.Release()
+		if !prdr.Next() {
+			t.Fatal(prdr.Err())
+		}
+		if n := cursors(t, admin, wideTable); n == 0 {
+			t.Error("no cursor is open for a session's prepared scan: it didn't stream")
+		}
+		pfirst := int(prdr.RecordBatch().NumRows())
+		if ids, err := readIDs(prdr); err != nil || pfirst+len(ids) != streamRows {
+			t.Errorf("prepared scan: %d rows, %v", pfirst+len(ids), err)
+		}
+	})
+
+	t.Run("a session's stream has its search_path and time zone, and leaves the pool's", func(t *testing.T) {
+		schema := uniqueName("it_flight_ss")
+		update(t, context.Background(), setup, "CREATE SCHEMA "+schema)
+		t.Cleanup(func() {
+			_, _ = setup.ExecuteUpdate(context.Background(), "DROP TABLE IF EXISTS "+schema+".scanned")
+			_, _ = setup.ExecuteUpdate(context.Background(), "DROP SCHEMA IF EXISTS "+schema)
+		})
+		update(t, context.Background(), setup, "CREATE TABLE "+schema+".scanned AS SELECT id, label FROM "+wideTable)
+
+		cfg := streamConfig(uri)
+		cfg.PoolMaxIdle = 1 // the scan's connection is the next request's
+		lis := startTestServer(t, cfg)
+		c, pool := cookieClient(t, lis), plainClient(t, lis)
+		ctx := context.Background()
+		poolZone, poolPath := query(t, ctx, pool, "SHOW TimeZone"), query(t, ctx, pool, "SHOW search_path")
+		query(t, ctx, c, "SELECT 1")
+		update(t, ctx, c, "SET search_path TO "+schema)
+		update(t, ctx, c, "SET TIME ZONE 'Asia/Tokyo'")
+		const ts = "CAST(TIMESTAMPTZ '2024-01-01 00:00:00+00' AS TEXT)"
+		want := query(t, ctx, c, "SELECT "+ts)
+		if len(want) != 1 || !strings.Contains(want[0], "09:00:00") {
+			t.Fatalf("in Asia/Tokyo, %s = %q", ts, want)
+		}
+
+		rdr := openRead(t, ctx, c, "SELECT id, "+ts+" AS ts, label FROM scanned") // unqualified: the session's schema
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		if n := schemaCursors(t, admin, schema, "scanned"); n == 0 {
+			t.Error("no cursor is open on the session's schema's table: the scan didn't stream")
+		}
+		// Settings changed while it streams don't change it.
+		update(t, ctx, c, "SET TIME ZONE 'UTC'")
+		update(t, ctx, c, "SET search_path TO public")
+		rows := 0
+		for ok := true; ok; ok = rdr.Next() {
+			rec := rdr.RecordBatch()
+			col := rec.Column(1).(*array.String)
+			for i := range col.Len() {
+				if col.Value(i) != want[0] {
+					t.Fatalf("row %d: ts = %q, want %q", rows+i, col.Value(i), want[0])
+				}
+			}
+			rows += int(rec.NumRows())
+		}
+		if err := rdr.Err(); err != nil || rows != streamRows {
+			t.Fatalf("%d rows, %v", rows, err)
+		}
+		waitSchemaCursors(t, admin, schema, "scanned", 0)
+		// The pooled connection is back as it was.
+		for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+			zone, path := query(t, ctx, pool, "SHOW TimeZone"), query(t, ctx, pool, "SHOW search_path")
+			if slices.Equal(zone, poolZone) && slices.Equal(path, poolPath) {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("after the session's scan, the pool's connection has TimeZone %q and search_path %q; want %q, %q",
+					zone, path, poolZone, poolPath)
+			}
+		}
+	})
+
+	t.Run("in a session with temporary objects, results are read on its connection", func(t *testing.T) {
+		shadow := uniqueName("it_flight_shadow")
+		dropTable(t, setup, shadow)
+		ingestRows(t, setup, shadow, streamRows, 200)
+		c := cookieClient(t, startTestServer(t, streamConfig(uri)))
+		ctx := context.Background()
+		query(t, ctx, c, "SELECT 1")
+		rdr := openRead(t, ctx, c, "SELECT id FROM "+shadow)
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		if n := cursors(t, admin, shadow); n == 0 {
+			t.Error("before the temporary table, the scan didn't stream")
+		}
+		if _, err := readIDs(rdr); err != nil {
+			t.Fatal(err)
+		}
+
+		// A temporary table of the same name hides the permanent one.
+		update(t, ctx, c, "CREATE TEMP TABLE "+shadow+" AS SELECT 7 AS id")
+		wantRows(t, query(t, ctx, c, "SELECT id FROM "+shadow), "7")
+		rdr = openRead(t, ctx, c, scan)
 		if !rdr.Next() {
 			t.Fatal(rdr.Err())
 		}
 		first := int(rdr.RecordBatch().NumRows())
 		if n := cursors(t, admin, table); n > 0 {
-			t.Errorf("%d cursors are open for a session's result", n)
+			t.Errorf("%d cursors are open for the result of a session with a temporary table", n)
 		}
-		// The session's connection is free for its next statement.
 		wantRows(t, query(t, ctx, c, "SELECT 2"), "2")
 		if ids, err := readIDs(rdr); err != nil || first+len(ids) != streamRows {
 			t.Errorf("%d rows, %v", first+len(ids), err)
 		}
+
+		// So does a temporary ingest.
+		c2 := cookieClient(t, startTestServer(t, streamConfig(uri)))
+		query(t, ctx, c2, "SELECT 1")
+		schema := arrow.NewSchema([]arrow.Field{{Name: "id", Type: arrow.PrimitiveTypes.Int64}}, nil)
+		b := array.NewInt64Builder(memory.DefaultAllocator)
+		b.Append(1)
+		arr := b.NewArray()
+		b.Release()
+		rec := array.NewRecordBatch(schema, []arrow.Array{arr}, 1)
+		arr.Release()
+		in, err := array.NewRecordReader(schema, []arrow.RecordBatch{rec})
+		rec.Release()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer in.Release()
+		if _, err := c2.ExecuteIngest(ctx, in, &flightsql.ExecuteIngestOpts{Table: "it_flight_tmp_ingest", Temporary: true,
+			TableDefinitionOptions: &flightsql.TableDefinitionOptions{
+				IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+				IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionFail,
+			}}); err != nil {
+			t.Fatal(err)
+		}
+		rdr = openRead(t, ctx, c2, scan)
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		if n := cursors(t, admin, table); n > 0 {
+			t.Errorf("%d cursors are open for the result of a session with a temporary ingest", n)
+		}
+		if _, err := readIDs(rdr); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("in a session, beyond MaxStreams, results are read whole", func(t *testing.T) {
+		cfg := streamConfig(uri)
+		cfg.PoolMaxOpen = 2 // one stream token
+		c := cookieClient(t, startTestServer(t, cfg))
+		ctx := context.Background()
+		query(t, ctx, c, "SELECT 1")
+		first := openRead(t, ctx, c, wideScan) // holds the stream until read
+		if !first.Next() {
+			t.Fatal(first.Err())
+		}
+		second := openRead(t, ctx, c, scan)
+		if !second.Next() {
+			t.Fatal(second.Err())
+		}
+		if n := cursors(t, admin, table); n > 0 {
+			t.Errorf("past MaxStreams, a session's scan kept %d cursors open", n)
+		}
+		for _, rdr := range []*flight.Reader{first, second} {
+			n := int(rdr.RecordBatch().NumRows())
+			if ids, err := readIDs(rdr); err != nil || n+len(ids) != streamRows {
+				t.Errorf("%d rows, %v", n+len(ids), err)
+			}
+		}
+	})
+
+	t.Run("a session isn't closed as idle while its result streams", func(t *testing.T) {
+		wide := uniqueName("it_flight_wide")
+		dropTable(t, setup, wide)
+		// Wider than gRPC buffers, so the stream is still reading.
+		ingestRows(t, setup, wide, streamRows, 200)
+		cfg := streamConfig(uri)
+		cfg.SessionIdleTimeout = 200 * time.Millisecond
+		c := cookieClient(t, startTestServer(t, cfg))
+		ctx := context.Background()
+		query(t, ctx, c, "SELECT 1")
+		update(t, ctx, c, "SET TIME ZONE 'Asia/Tokyo'")
+		rdr := openRead(t, ctx, c, "SELECT id, label FROM "+wide)
+		if !rdr.Next() {
+			t.Fatal(rdr.Err())
+		}
+		time.Sleep(700 * time.Millisecond)
+		n := int(rdr.RecordBatch().NumRows())
+		if ids, err := readIDs(rdr); err != nil || n+len(ids) != streamRows {
+			t.Fatalf("%d rows, %v", n+len(ids), err)
+		}
+		// Still the same session.
+		wantRows(t, query(t, ctx, c, "SHOW TimeZone"), "Asia/Tokyo")
 	})
 }

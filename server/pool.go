@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	redis "github.com/adbc-drivers/redis/go"
 	"github.com/apache/arrow-adbc/go/adbc"
@@ -19,8 +20,9 @@ import (
 // may have changed that state gets its connection closed rather than
 // returned (see reusable), so no request sees another's session.
 type connPool struct {
-	db  adbc.DatabaseWithContext
-	sem chan struct{} // one token per connection in use
+	db      adbc.DatabaseWithContext
+	sem     chan struct{} // one token per connection in use
+	metrics *metrics      // may be nil
 
 	mu     sync.Mutex
 	idle   []adbc.ConnectionWithContext
@@ -39,8 +41,15 @@ var errPoolClosed = errors.New("the connection pool is closed")
 func (p *connPool) get(ctx context.Context) (adbc.ConnectionWithContext, error) {
 	select {
 	case p.sem <- struct{}{}:
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	default:
+		start := time.Now()
+		select {
+		case p.sem <- struct{}{}:
+			p.metrics.poolWaited(time.Since(start))
+		case <-ctx.Done():
+			p.metrics.poolWaited(time.Since(start))
+			return nil, ctx.Err()
+		}
 	}
 	p.mu.Lock()
 	if p.closed {
@@ -129,29 +138,40 @@ func isTempSchemaName(schema string) bool { return strings.EqualFold(schema, tem
 
 // changesSession reports whether sql may leave state on its connection: SET
 // / RESET, BEGIN and the other transaction statements, and temporary tables
-// and views (CREATE TEMP TABLE / VIEW, or a name in pg_temp). It parses sql
-// with the driver's own parser; SQL that doesn't parse never ran.
+// and views (see createsTemp).
 func changesSession(sql string) bool {
+	sets, temp := sessionEffects(sql)
+	return sets || temp
+}
+
+// createsTemp reports whether sql may make a temporary table or view (CREATE
+// TEMP TABLE / VIEW, CREATE TABLE … AS, or a name in pg_temp).
+func createsTemp(sql string) bool {
+	_, temp := sessionEffects(sql)
+	return temp
+}
+
+// sessionEffects reports whether sql sets session state (SET / RESET, BEGIN
+// and the other transaction statements) and whether it makes temporary
+// objects. It parses sql with the driver's own parser; SQL that doesn't
+// parse never ran.
+func sessionEffects(sql string) (sets, temp bool) {
 	if sql == "" {
-		return false
+		return false, false
 	}
 	stmts, err := redis.ParseScript(sql)
 	if err != nil {
-		return false
+		return false, false
 	}
 	for _, ps := range stmts {
 		switch s := ps.Stmt.(type) {
 		case *redis.SetStmt, *redis.TransactionStmt:
-			return true
+			sets = true
 		case *redis.CreateTableStmt:
-			if s.Temporary || isTempSchemaName(s.Table.Schema) {
-				return true
-			}
+			temp = temp || s.Temporary || isTempSchemaName(s.Table.Schema)
 		case *redis.CreateViewStmt:
-			if s.Temporary || isTempSchemaName(s.Name.Schema) {
-				return true
-			}
+			temp = temp || s.Temporary || isTempSchemaName(s.Name.Schema)
 		}
 	}
-	return false
+	return sets, temp
 }

@@ -32,15 +32,25 @@ import (
 //
 //	<prefix>ds:{<name>}        HASH  gen, schema, rows, batches, bytes, updated
 //	<prefix>ds:{<name>}:seq    STRING  the last generation number
-//	<prefix>ds:{<name>}:g<N>   LIST  generation N: an IPC stream with just the
-//	                                 schema, then one IPC stream per batch
+//	<prefix>ds:{<name>}:g<N>   HASH  generation N, by column:
+//	                                 layout  "2"
+//	                                 schema  an IPC stream with just the schema
+//	                                 batches the number of batches (written last)
+//	                                 <b>:rows  batch b's row count
+//	                                 <b>:<c>   an IPC stream of batch b's
+//	                                           column c (by field index) alone
 //
-// (<name> is URL-path-escaped, so braces can't end the hash tag.) An upload
-// writes a new generation and then switches the HASH to it atomically, so
-// readers never see a partial upload. The replaced generation expires after
-// a grace period, letting reads already under way finish. A ticket names
-// the generation its FlightInfo described, and can name columns and a range
-// of batches to read.
+// Generations stored before the HASH layout are a LIST at the same key: an
+// IPC stream with just the schema, then one IPC stream per batch. They stay
+// readable; the key's type tells the layouts apart. (<name> is
+// URL-path-escaped, so braces can't end the hash tag.)
+//
+// An upload writes a new generation and then switches the HASH to it
+// atomically, so readers never see a partial upload. The replaced
+// generation expires after a grace period, letting reads already under way
+// finish. A ticket names the generation its FlightInfo described, and can
+// name columns and a range of batches to read: a read takes only those
+// columns' streams from Redis.
 
 const (
 	actionDropDataset = "drop_dataset"
@@ -53,17 +63,21 @@ const (
 	// commitTimeout bounds an upload's commit, which runs even if the
 	// client has gone.
 	commitTimeout = 30 * time.Second
-	// A read takes up to readPage list elements, and about readPageBytes,
-	// per LRANGE (see pageLen).
+	// A read takes up to readPage batches, and about readPageBytes of the
+	// columns it reads, per command (see pageLen).
 	readPage      = 64
 	readPageBytes = 8 << 20
-	flushValues   = 64
-	flushBytes    = 8 << 20
+	// An upload writes every flushBatches batches, or about flushBytes.
+	flushBatches = 64
+	flushBytes   = 8 << 20
+
+	// layoutColumns is the layout field of a generation stored by column.
+	layoutColumns = "2"
 )
 
-// pageLen is the number of list elements a read takes next, given the
-// largest batch it has read so far: about readPageBytes of them, from 1 to
-// readPage.
+// pageLen is the number of batches a read takes next, given the largest
+// batch it has read so far (of the columns it reads): about readPageBytes
+// of them, from 1 to readPage.
 func pageLen(largest int64) int64 {
 	if largest <= 0 {
 		return readPage
@@ -125,14 +139,13 @@ type datasetTicket struct {
 	Batches []int64 `json:"batches,omitempty"`
 }
 
-// batchRange returns the range of list elements holding the ticket's
-// batches, in a list of n elements (the schema, then the batches).
+// batchRange returns the ticket's batches, [lo, hi), of a generation of n.
 func (dt datasetTicket) batchRange(n int64) (lo, hi int64) {
 	if dt.Batches == nil {
-		return 1, n
+		return 0, n
 	}
-	hi = min(1+dt.Batches[1], n)
-	return min(1+dt.Batches[0], hi), hi
+	hi = min(dt.Batches[1], n)
+	return min(dt.Batches[0], hi), hi
 }
 
 func (dt datasetTicket) validate() error {
@@ -267,43 +280,124 @@ func (d *datasets) GetSchema(ctx context.Context, desc *flight.FlightDescriptor)
 
 // ---- upload ----
 
-// listWriter appends values to a LIST in pipelined batches, keeping the
-// upload's expiry on the key.
-type listWriter struct {
+// genWriter writes a generation's HASH in pipelined HSETs, every
+// flushBatches batches or about flushBytes, keeping the upload's expiry on
+// the key.
+type genWriter struct {
 	rdb     goredis.UniversalClient
 	key     string
-	pending []any
+	pending []any // field, value, …
+	batches int
 	size    int
 }
 
-func (w *listWriter) add(ctx context.Context, v []byte) error {
-	w.pending = append(w.pending, v)
-	w.size += len(v)
-	if len(w.pending) >= flushValues || w.size >= flushBytes {
+func (w *genWriter) set(field string, v any) { w.pending = append(w.pending, field, v) }
+
+// addBatch adds batch b: its row count, and its columns' IPC streams.
+func (w *genWriter) addBatch(ctx context.Context, b, rows int64, cols [][]byte) error {
+	prefix := strconv.FormatInt(b, 10) + ":"
+	w.set(prefix+"rows", rows)
+	for c, v := range cols {
+		w.set(prefix+strconv.Itoa(c), v)
+		w.size += len(v)
+	}
+	if w.batches++; w.batches >= flushBatches || w.size >= flushBytes {
 		return w.flush(ctx)
 	}
 	return nil
 }
 
-func (w *listWriter) flush(ctx context.Context) error {
+func (w *genWriter) flush(ctx context.Context) error {
 	if len(w.pending) == 0 {
 		return nil
 	}
 	_, err := w.rdb.Pipelined(ctx, func(p goredis.Pipeliner) error {
-		p.RPush(ctx, w.key, w.pending...)
+		p.HSet(ctx, w.key, w.pending...)
 		p.PExpire(ctx, w.key, uploadTTL)
 		return nil
 	})
-	w.pending, w.size = w.pending[:0], 0
+	w.pending, w.batches, w.size = w.pending[:0], 0, 0
 	return err
+}
+
+// columnSchemas are the schemas of schema's columns alone.
+func columnSchemas(schema *arrow.Schema) []*arrow.Schema {
+	out := make([]*arrow.Schema, schema.NumFields())
+	for c := range out {
+		out[c] = arrow.NewSchema([]arrow.Field{schema.Field(c)}, nil)
+	}
+	return out
+}
+
+// encodeColumns encodes each column of rec as an IPC stream of its own
+// (schemas[c], from columnSchemas), with the column's dictionaries.
+func encodeColumns(schemas []*arrow.Schema, rec arrow.RecordBatch, mem memory.Allocator) ([][]byte, error) {
+	out := make([][]byte, len(schemas))
+	for c, s := range schemas {
+		col := array.NewRecordBatch(s, []arrow.Array{rec.Column(c)}, rec.NumRows())
+		b, err := writeIPC(s, []arrow.RecordBatch{col}, mem)
+		col.Release()
+		if err != nil {
+			return nil, err
+		}
+		out[c] = b
+	}
+	return out, nil
+}
+
+// assemble makes a batch of schema from the IPC streams of its columns, or
+// for a schema without columns, from its row count. It checks they fit
+// together. size is their encoded size.
+func assemble(schema *arrow.Schema, vals []string, mem memory.Allocator) (rec arrow.RecordBatch, size int64, err error) {
+	if schema.NumFields() == 0 {
+		rows, err := strconv.ParseInt(vals[0], 10, 64)
+		if err != nil || rows < 0 {
+			return nil, 0, fmt.Errorf("invalid row count %q", vals[0])
+		}
+		return array.NewRecordBatch(schema, nil, rows), 0, nil
+	}
+	arrs := make([]arrow.Array, len(vals))
+	defer func() {
+		for _, a := range arrs {
+			if a != nil {
+				a.Release()
+			}
+		}
+	}()
+	rows := -1
+	for i, v := range vals {
+		size += int64(len(v))
+		_, recs, err := readIPC([]byte(v), mem)
+		if err != nil {
+			return nil, 0, err
+		}
+		f := schema.Field(i)
+		switch {
+		case len(recs) != 1 || recs[0].NumCols() != 1:
+			err = fmt.Errorf("column %q isn't one batch of one column", f.Name)
+		case !arrow.TypeEqual(recs[0].Column(0).DataType(), f.Type):
+			err = fmt.Errorf("column %q is %s, not %s", f.Name, recs[0].Column(0).DataType(), f.Type)
+		case rows >= 0 && int(recs[0].NumRows()) != rows:
+			err = fmt.Errorf("column %q has %d rows, not %d", f.Name, recs[0].NumRows(), rows)
+		default:
+			rows = int(recs[0].NumRows())
+			arrs[i] = recs[0].Column(0)
+			arrs[i].Retain()
+		}
+		releaseAll(recs)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	return array.NewRecordBatch(schema, arrs, int64(rows)), size, nil
 }
 
 // commitScript switches a dataset to a new generation if its current one
 // is still the expected one (ARGV[1], "" for none), and returns 1. It
 // returns 0 if the current one changed meanwhile (read it and try again),
 // and -1 if the current one is newer: an upload that started later
-// finished first, so this one is replaced at once, and its list expires
-// like a replaced generation. Generations only go up, and the seq key
+// finished first, so this one is replaced at once, and its generation
+// expires like a replaced one. Generations only go up, and the seq key
 // never expires, so a generation number never names two uploads.
 //
 //	KEYS: meta, new generation, seq, old generation (or the new one again)
@@ -367,7 +461,7 @@ func (d *datasets) DoPut(stream flight.FlightService_DoPutServer, first *flight.
 		return toStatus(err)
 	}
 	m := datasetMeta{Name: name, Generation: gen, schema: flight.SerializeSchema(schema, d.alloc)}
-	w := &listWriter{rdb: t.rdb, key: keys.gen(gen)}
+	w := &genWriter{rdb: t.rdb, key: keys.gen(gen)}
 	abort := func(err error) error {
 		_ = t.rdb.Del(context.WithoutCancel(ctx), w.key).Err()
 		return err
@@ -377,9 +471,9 @@ func (d *datasets) DoPut(stream flight.FlightService_DoPutServer, first *flight.
 	if err != nil {
 		return abort(status.Errorf(codes.Internal, "failed to encode the schema: %v", err))
 	}
-	if err := w.add(ctx, head); err != nil {
-		return abort(toStatus(err))
-	}
+	w.set("layout", layoutColumns)
+	w.set("schema", head)
+	colSchemas := columnSchemas(schema)
 	for rdr.Next() {
 		rec := rdr.RecordBatch()
 		if rec.NumRows() == 0 {
@@ -387,23 +481,28 @@ func (d *datasets) DoPut(stream flight.FlightService_DoPutServer, first *flight.
 		}
 		parts := chunks(rec)
 		for i, part := range parts {
-			b, err := writeIPC(schema, []arrow.RecordBatch{part}, d.alloc)
-			m.Rows += part.NumRows()
+			cols, err := encodeColumns(colSchemas, part, d.alloc)
+			rows := part.NumRows()
 			part.Release()
 			if err == nil {
-				err = w.add(ctx, b)
+				err = w.addBatch(ctx, m.Batches, rows, cols)
 			}
 			if err != nil {
 				releaseAll(parts[i+1:])
 				return abort(toStatus(err))
 			}
+			m.Rows += rows
 			m.Batches++
-			m.Bytes += int64(len(b))
+			for _, b := range cols {
+				m.Bytes += int64(len(b))
+			}
 		}
 	}
 	if err := rdr.Err(); err != nil {
 		return abort(status.Errorf(codes.InvalidArgument, "failed to read the upload: %v", err))
 	}
+	// Last: a generation with a batch count is complete.
+	w.set("batches", m.Batches)
 	if err := w.flush(ctx); err != nil {
 		return abort(toStatus(err))
 	}
@@ -432,6 +531,7 @@ func (d *datasets) DoPut(stream flight.FlightService_DoPutServer, first *flight.
 		// The commit went through, and only its reply was lost.
 	}
 	m.Superseded = superseded
+	d.tenants.metrics.datasetWritten(m.Rows, m.Bytes)
 
 	res, _ := json.Marshal(m)
 	return stream.Send(&flight.PutResult{AppMetadata: res})
@@ -530,10 +630,6 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 		return status.Errorf(codes.NotFound, "dataset %q generation %d not found", dt.Dataset, gen)
 	}
 	key := d.keys(dt.Dataset).gen(gen)
-	n, err := t.rdb.LLen(ctx, key).Result()
-	if err != nil {
-		return toStatus(err)
-	}
 	gone := func() error {
 		if m, err := d.readMeta(ctx, t.rdb, dt.Dataset); err != nil {
 			return err
@@ -543,10 +639,142 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 		}
 		return status.Errorf(codes.NotFound, "dataset %q generation %d not found", dt.Dataset, gen)
 	}
-	if n == 0 {
-		return gone()
+	r := &datasetRead{rdb: t.rdb, key: key, dt: dt, gen: gen, gone: gone, alloc: d.alloc}
+	defer func() { d.tenants.metrics.datasetRead(r.rows, r.bytes) }()
+	head, err := t.rdb.HMGet(ctx, key, "layout", "schema", "batches").Result()
+	switch {
+	case isWrongType(err):
+		return r.list(ctx, stream) // stored before the HASH layout
+	case err != nil:
+		return toStatus(err)
+	case head[1] == nil || head[2] == nil:
+		return gone() // expired, dropped, or an upload that didn't finish
+	case head[0] != layoutColumns:
+		return status.Errorf(codes.FailedPrecondition,
+			"dataset %q generation %d has layout %v, which this server can't read", dt.Dataset, gen, head[0])
 	}
+	n, err := strconv.ParseInt(head[2].(string), 10, 64)
+	if err != nil || n < 0 {
+		return status.Errorf(codes.DataLoss, "dataset %q generation %d has an invalid batch count %v", dt.Dataset, gen, head[2])
+	}
+	return r.columns(ctx, stream, head[1].(string), n)
+}
 
+// isWrongType reports whether err is Redis refusing a command for the
+// key's type.
+func isWrongType(err error) bool {
+	var rerr goredis.Error
+	return errors.As(err, &rerr) && strings.HasPrefix(rerr.Error(), "WRONGTYPE")
+}
+
+// datasetRead is a DoGet of a generation.
+type datasetRead struct {
+	rdb   goredis.UniversalClient
+	key   string
+	dt    datasetTicket
+	gen   int64
+	gone  func() error // the error for a generation no longer there
+	alloc memory.Allocator
+	// rows sent, and bytes read from Redis, so far.
+	rows, bytes int64
+}
+
+func (r *datasetRead) corrupt(err error) error {
+	return status.Errorf(codes.DataLoss, "dataset %q generation %d is corrupt: %v", r.dt.Dataset, r.gen, err)
+}
+
+// columns reads a generation stored by column: the ticket's columns of its
+// batches, about readPageBytes of them per HMGET. head is its schema.
+func (r *datasetRead) columns(ctx context.Context, stream flight.FlightService_DoGetServer, head string, n int64) error {
+	s, _, err := readIPC([]byte(head), r.alloc)
+	if err != nil {
+		return r.corrupt(err)
+	}
+	cols, schema, err := projection(s, r.dt.Columns)
+	if err != nil {
+		return err
+	}
+	if cols == nil {
+		cols = make([]int, s.NumFields())
+		for c := range cols {
+			cols[c] = c
+		}
+	}
+	w := flight.NewRecordWriter(stream, ipc.WithSchema(schema), ipc.WithAllocator(r.alloc))
+	defer w.Close()
+	// Fields per batch: its columns, or with none, its row count.
+	per := max(len(cols), 1)
+	// largest is the largest batch read so far, of these columns, which
+	// sizes the next page. Until one has been read, pages are sized for
+	// batches of maxChunkBytes (see list).
+	var largest int64
+	lo, hi := r.dt.batchRange(n)
+	for start := lo; start < hi; {
+		size := largest
+		if size == 0 {
+			size = maxChunkBytes
+		}
+		end := min(start+pageLen(size), hi)
+		// The batch count last, which tells a generation that has expired
+		// from one missing a column.
+		fields := make([]string, 0, int(end-start)*per+1)
+		for b := start; b < end; b++ {
+			prefix := strconv.FormatInt(b, 10) + ":"
+			if len(cols) == 0 {
+				fields = append(fields, prefix+"rows")
+			}
+			for _, c := range cols {
+				fields = append(fields, prefix+strconv.Itoa(c))
+			}
+		}
+		vals, err := r.rdb.HMGet(ctx, r.key, append(fields, "batches")...).Result()
+		if err != nil {
+			return toStatus(err)
+		}
+		if vals[len(vals)-1] == nil {
+			return r.gone() // expired while being read
+		}
+		strs := make([]string, len(fields))
+		for i := range strs {
+			var ok bool
+			if strs[i], ok = vals[i].(string); !ok {
+				return r.corrupt(fmt.Errorf("it has no field %s", fields[i]))
+			}
+		}
+		for i := 0; i < len(strs); i += per {
+			rec, size, err := assemble(schema, strs[i:i+per], r.alloc)
+			if err != nil {
+				return r.corrupt(err)
+			}
+			// At least 1: a batch read without columns (its row count alone)
+			// sizes the pages too.
+			largest = max(largest, size, 1)
+			r.bytes += size
+			err = w.Write(rec)
+			if err == nil {
+				r.rows += rec.NumRows()
+			}
+			rec.Release()
+			if err != nil {
+				return err
+			}
+		}
+		start = end
+	}
+	return nil
+}
+
+// list reads a generation stored as a LIST, before the HASH layout: an
+// element per batch, after one with the schema alone, read whole and then
+// projected.
+func (r *datasetRead) list(ctx context.Context, stream flight.FlightService_DoGetServer) error {
+	n, err := r.rdb.LLen(ctx, r.key).Result()
+	if err != nil {
+		return toStatus(err)
+	}
+	if n == 0 {
+		return r.gone()
+	}
 	var (
 		w      *flight.Writer
 		cols   []int
@@ -559,16 +787,16 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 	}()
 	// send writes a list element: the schema first, then batches.
 	send := func(v string) error {
-		s, recs, err := readIPC([]byte(v), d.alloc)
+		s, recs, err := readIPC([]byte(v), r.alloc)
 		if err != nil {
-			return status.Errorf(codes.DataLoss, "dataset %q has a corrupt batch: %v", dt.Dataset, err)
+			return r.corrupt(err)
 		}
 		defer releaseAll(recs)
 		if w == nil {
-			if cols, schema, err = projection(s, dt.Columns); err != nil {
+			if cols, schema, err = projection(s, r.dt.Columns); err != nil {
 				return err
 			}
-			w = flight.NewRecordWriter(stream, ipc.WithSchema(schema), ipc.WithAllocator(d.alloc))
+			w = flight.NewRecordWriter(stream, ipc.WithSchema(schema), ipc.WithAllocator(r.alloc))
 		}
 		for _, rec := range recs {
 			if cols != nil {
@@ -582,6 +810,7 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 			if err := w.Write(rec); err != nil {
 				return err
 			}
+			r.rows += rec.NumRows()
 		}
 		return nil
 	}
@@ -599,14 +828,15 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 				size = maxChunkBytes
 			}
 			end := min(start+pageLen(size), to)
-			vals, err := t.rdb.LRange(ctx, key, start, end-1).Result()
+			vals, err := r.rdb.LRange(ctx, r.key, start, end-1).Result()
 			if err != nil {
 				return toStatus(err)
 			}
 			if int64(len(vals)) < end-start {
-				return gone() // expired while being read
+				return r.gone() // expired while being read
 			}
 			for i, v := range vals {
+				r.bytes += int64(len(v))
 				if start+int64(i) > 0 { // element 0 is the schema alone
 					largest = max(largest, int64(len(v)))
 				}
@@ -618,14 +848,15 @@ func (d *datasets) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetSe
 		}
 		return nil
 	}
-	lo, hi := dt.batchRange(n)
-	if lo == 1 {
-		return read(0, hi) // the schema and the batches together
+	// Element 1+b is batch b.
+	lo, hi := r.dt.batchRange(n - 1)
+	if lo == 0 {
+		return read(0, 1+hi) // the schema and the batches together
 	}
 	if err := read(0, 1); err != nil {
 		return err
 	}
-	return read(lo, hi)
+	return read(1+lo, 1+hi)
 }
 
 // ---- listing and dropping ----

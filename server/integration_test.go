@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,7 +30,7 @@ import (
 // `docker compose up -d --wait redis`, and REDIS_URI pointing at it. They
 // create tables, keys and ACL users named it_flight_* and remove them.
 
-func redisURI(t *testing.T) string {
+func redisURI(t testing.TB) string {
 	t.Helper()
 	uri := os.Getenv("REDIS_URI")
 	if uri == "" {
@@ -43,7 +44,7 @@ type clients struct {
 	fl  flight.Client
 }
 
-func newClients(t *testing.T, cfg Config) clients {
+func newClients(t testing.TB, cfg Config) clients {
 	t.Helper()
 	cc := newTestServer(t, cfg)
 	fc := flight.NewClientFromConn(cc, nil)
@@ -775,6 +776,51 @@ func tryPutDataset(ctx context.Context, fc flight.Client, desc *flight.FlightDes
 	return m, nil
 }
 
+// putListGeneration stores recs as a new generation of dataset name the way
+// servers did before the HASH layout, a LIST, and makes it current, as an
+// older replica would.
+func putListGeneration(t testing.TB, rdb goredis.UniversalClient, prefix, name string, schema *arrow.Schema, recs ...arrow.RecordBatch) datasetMeta {
+	t.Helper()
+	ctx := context.Background()
+	mem := memory.DefaultAllocator
+	d := &datasets{prefix: prefix, alloc: mem}
+	keys := d.keys(name)
+	gen, err := rdb.Incr(ctx, keys.seq).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := datasetMeta{Name: name, Generation: gen, schema: flight.SerializeSchema(schema, mem)}
+	head, err := writeIPC(schema, nil, mem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vals := []any{head}
+	for _, rec := range recs {
+		if rec.NumRows() == 0 {
+			continue
+		}
+		for _, part := range chunks(rec) {
+			b, err := writeIPC(schema, []arrow.RecordBatch{part}, mem)
+			m.Rows += part.NumRows()
+			part.Release()
+			if err != nil {
+				t.Fatal(err)
+			}
+			vals = append(vals, b)
+			m.Batches++
+			m.Bytes += int64(len(b))
+		}
+	}
+	if err := rdb.RPush(ctx, keys.gen(gen), vals...).Err(); err != nil {
+		t.Fatal(err)
+	}
+	m.Updated = time.Now().UTC()
+	if _, err := d.commit(ctx, rdb, keys, m); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
 func getDataset(t *testing.T, ctx context.Context, fc flight.Client, tkt []byte) (*arrow.Schema, []string, int, error) {
 	t.Helper()
 	stream, err := fc.DoGet(ctx, &flight.Ticket{Ticket: tkt})
@@ -875,6 +921,19 @@ func TestIntegrationDatasets(t *testing.T) {
 		t.Errorf("got %d batches, want 2", batches)
 	}
 	wantRows(t, rows, `1|["a","b"]|{"x":1,"y":2}|click`, `2|(null)|(null)|view`, `3|[]|{"x":-1.5,"y":0}|click`)
+	// It is stored by column, and read by column: nested and dictionary
+	// columns too.
+	admin := adminClient(t, uri)
+	genKey := (&datasets{prefix: "it_flight_ds:"}).keys(name).gen(m.Generation)
+	if typ, err := admin.Type(ctx, genKey).Result(); err != nil || typ != "hash" {
+		t.Errorf("TYPE %s = %q, %v; want hash", genKey, typ, err)
+	}
+	projected, _ := json.Marshal(datasetTicket{Dataset: name, Generation: m.Generation, Columns: []string{"kind", "point"}})
+	if _, rows, _, err := getDataset(t, ctx, fc, projected); err != nil {
+		t.Error(err)
+	} else {
+		wantRows(t, rows, `click|{"x":1,"y":2}`, `view|(null)`, `click|{"x":-1.5,"y":0}`)
+	}
 
 	// ListFlights finds it by name prefix.
 	list, err := fc.ListFlights(ctx, &flight.Criteria{Expression: []byte(base)})
@@ -1074,10 +1133,10 @@ func TestIntegrationUploadCommitOutcome(t *testing.T) {
 			t.Errorf("current generation %d, want the first upload's %d", got.Generation, first.Generation)
 		}
 		wantRows(t, rows, "1", "2", "3")
-		// The failed upload's list expires like a replaced generation.
+		// The failed upload's generation expires like a replaced one.
 		key := prefix + "ds:{" + name + "}:g" + fmt.Sprint(first.Generation+1)
 		if ttl := admin.PTTL(ctx, key).Val(); ttl <= 0 || ttl > replacedGrace {
-			t.Errorf("the failed upload's list %s has TTL %v, want at most %v", key, ttl, replacedGrace)
+			t.Errorf("the failed upload's generation %s has TTL %v, want at most %v", key, ttl, replacedGrace)
 		}
 	})
 }
@@ -1107,80 +1166,95 @@ func TestIntegrationDatasetReads(t *testing.T) {
 	}
 	defer releaseAll(recs)
 	fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix}).fl
-	name := uniqueName("it_flight_reads")
-	if m := putDataset(t, ctx, fc, datasetDesc(name), schema, recs...); m.Batches != 10 {
-		t.Fatalf("stored %d batches, want 10", m.Batches)
-	}
-	read := func(fc flight.Client, tk map[string]any) (*arrow.Schema, []string, int, error) {
-		t.Helper()
-		tk["dataset"] = name
-		b, _ := json.Marshal(tk)
-		return getDataset(t, ctx, fc, b)
-	}
-	names := func(s *arrow.Schema) string {
-		var out []string
-		for _, f := range s.Fields() {
-			out = append(out, f.Name)
-		}
-		return strings.Join(out, ",")
-	}
+	// The same reads of a generation stored by column, and of one stored
+	// as a LIST by an earlier server.
+	for _, layout := range []string{"hash", "list"} {
+		t.Run(layout, func(t *testing.T) {
+			name := uniqueName("it_flight_reads")
+			var m datasetMeta
+			if layout == "hash" {
+				m = putDataset(t, ctx, fc, datasetDesc(name), schema, recs...)
+			} else {
+				m = putListGeneration(t, admin, prefix, name, schema, recs...)
+			}
+			if m.Batches != 10 {
+				t.Fatalf("stored %d batches, want 10", m.Batches)
+			}
+			read := func(fc flight.Client, tk map[string]any) (*arrow.Schema, []string, int, error) {
+				t.Helper()
+				tk["dataset"] = name
+				b, _ := json.Marshal(tk)
+				return getDataset(t, ctx, fc, b)
+			}
+			names := func(s *arrow.Schema) string {
+				var out []string
+				for _, f := range s.Fields() {
+					out = append(out, f.Name)
+				}
+				return strings.Join(out, ",")
+			}
 
-	s, rows, _, err := read(fc, map[string]any{"columns": []string{"label", "n"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if names(s) != "label,n" || len(rows) != 1000 || rows[0] != "r0|0" {
-		t.Errorf("projection: columns %s, %d rows, first %q", names(s), len(rows), rows[0])
-	}
-	for _, cols := range [][]string{{"nope"}, {"n", "n"}} {
-		if _, _, _, err := read(fc, map[string]any{"columns": cols}); status.Code(err) != codes.InvalidArgument {
-			t.Errorf("columns %v: err = %v, want InvalidArgument", cols, err)
-		}
-	}
+			s, rows, _, err := read(fc, map[string]any{"columns": []string{"label", "n"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if names(s) != "label,n" || len(rows) != 1000 || rows[0] != "r0|0" {
+				t.Errorf("projection: columns %s, %d rows, first %q", names(s), len(rows), rows[0])
+			}
+			if s, rows, _, err = read(fc, map[string]any{"columns": []string{}}); err != nil || s.NumFields() != 0 || len(rows) != 1000 {
+				t.Errorf("no columns: %v, %d rows, %v; want no fields, 1000 rows", s, len(rows), err)
+			}
+			for _, cols := range [][]string{{"nope"}, {"n", "n"}} {
+				if _, _, _, err := read(fc, map[string]any{"columns": cols}); status.Code(err) != codes.InvalidArgument {
+					t.Errorf("columns %v: err = %v, want InvalidArgument", cols, err)
+				}
+			}
 
-	_, rows, batches, err := read(fc, map[string]any{"batches": []int{2, 5}})
-	if err != nil || len(rows) != 300 || rows[0] != "200|r200" || rows[299] != "499|r499" || batches != 3 {
-		t.Errorf("batches [2, 5): %d rows in %d batches, %v", len(rows), batches, err)
-	}
-	if _, rows, _, err = read(fc, map[string]any{"batches": []int{8, 99}}); err != nil || len(rows) != 200 || rows[0] != "800|r800" {
-		t.Errorf("batches [8, 99): %d rows, %v", len(rows), err)
-	}
-	s, rows, _, err = read(fc, map[string]any{"batches": []int{5, 5}})
-	if err != nil || len(rows) != 0 || names(s) != "n,label" {
-		t.Errorf("batches [5, 5): schema %v, %d rows, %v", s, len(rows), err)
-	}
-	for _, r := range [][]int{{-1, 2}, {3, 2}, {1}} {
-		if _, _, _, err := read(fc, map[string]any{"batches": r}); status.Code(err) != codes.InvalidArgument {
-			t.Errorf("batches %v: err = %v, want InvalidArgument", r, err)
-		}
-	}
-	if _, rows, _, err = read(fc, map[string]any{"columns": []string{"n"}, "batches": []int{9, 10}}); err != nil ||
-		len(rows) != 100 || rows[0] != "900" || rows[99] != "999" {
-		t.Errorf("column n, batches [9, 10): %d rows, %v", len(rows), err)
-	}
+			_, rows, batches, err := read(fc, map[string]any{"batches": []int{2, 5}})
+			if err != nil || len(rows) != 300 || rows[0] != "200|r200" || rows[299] != "499|r499" || batches != 3 {
+				t.Errorf("batches [2, 5): %d rows in %d batches, %v", len(rows), batches, err)
+			}
+			if _, rows, _, err = read(fc, map[string]any{"batches": []int{8, 99}}); err != nil || len(rows) != 200 || rows[0] != "800|r800" {
+				t.Errorf("batches [8, 99): %d rows, %v", len(rows), err)
+			}
+			s, rows, _, err = read(fc, map[string]any{"batches": []int{5, 5}})
+			if err != nil || len(rows) != 0 || names(s) != "n,label" {
+				t.Errorf("batches [5, 5): schema %v, %d rows, %v", s, len(rows), err)
+			}
+			for _, r := range [][]int{{-1, 2}, {3, 2}, {1}} {
+				if _, _, _, err := read(fc, map[string]any{"batches": r}); status.Code(err) != codes.InvalidArgument {
+					t.Errorf("batches %v: err = %v, want InvalidArgument", r, err)
+				}
+			}
+			if _, rows, _, err = read(fc, map[string]any{"columns": []string{"n"}, "batches": []int{9, 10}}); err != nil ||
+				len(rows) != 100 || rows[0] != "900" || rows[99] != "999" {
+				t.Errorf("column n, batches [9, 10): %d rows, %v", len(rows), err)
+			}
 
-	// Endpoints of 4 batches each: 4, 4 and 2, which together are the dataset.
-	fc4 := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, DatasetEndpointBatches: 4}).fl
-	info, err := fc4.GetFlightInfo(ctx, datasetDesc(name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(info.Endpoint) != 3 {
-		t.Fatalf("got %d endpoints, want 3", len(info.Endpoint))
-	}
-	var all []string
-	for i, ep := range info.Endpoint {
-		_, rows, batches, err := getDataset(t, ctx, fc4, ep.Ticket.Ticket)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if want := []int{4, 4, 2}[i]; batches != want {
-			t.Errorf("endpoint %d has %d batches, want %d", i, batches, want)
-		}
-		all = append(all, rows...)
-	}
-	if len(all) != 1000 || all[0] != "0|r0" || all[999] != "999|r999" {
-		t.Errorf("all endpoints: %d rows", len(all))
+			// Endpoints of 4 batches each: 4, 4 and 2, which together are the dataset.
+			fc4 := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, DatasetEndpointBatches: 4}).fl
+			info, err := fc4.GetFlightInfo(ctx, datasetDesc(name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(info.Endpoint) != 3 {
+				t.Fatalf("got %d endpoints, want 3", len(info.Endpoint))
+			}
+			var all []string
+			for i, ep := range info.Endpoint {
+				_, rows, batches, err := getDataset(t, ctx, fc4, ep.Ticket.Ticket)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if want := []int{4, 4, 2}[i]; batches != want {
+					t.Errorf("endpoint %d has %d batches, want %d", i, batches, want)
+				}
+				all = append(all, rows...)
+			}
+			if len(all) != 1000 || all[0] != "0|r0" || all[999] != "999|r999" {
+				t.Errorf("all endpoints: %d rows", len(all))
+			}
+		})
 	}
 }
 
@@ -1211,8 +1285,169 @@ func (h *lrangeHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
 	}
 }
 
-// A dataset read takes about readPageBytes of batches per LRANGE, so it
-// holds a few large batches at a time, and still many small ones.
+// Generations stored by column and as LISTs (by earlier servers, as during
+// a rolling upgrade) replace each other, and each stays readable as such.
+func TestIntegrationDatasetLayouts(t *testing.T) {
+	uri := redisURI(t)
+	ctx := context.Background()
+	const prefix = "it_flight_layouts:"
+	admin := adminClient(t, uri)
+	t.Cleanup(func() { deleteKeys(admin, keysMatching(t, admin, prefix+"*")) })
+	fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix}).fl
+	ds := &datasets{prefix: prefix}
+	name := uniqueName("it_flight_layouts")
+	keys := ds.keys(name)
+	rec := func(base int64) arrow.RecordBatch {
+		r := int64Record(t, []string{"a", "b"}, []int64{base, base + 1}, []int64{-base, -base - 1})
+		t.Cleanup(r.Release)
+		return r
+	}
+	read := func(gen int64, columns ...string) ([]string, error) {
+		t.Helper()
+		tkt, _ := json.Marshal(datasetTicket{Dataset: name, Generation: gen, Columns: columns})
+		_, rows, _, err := getDataset(t, ctx, fc, tkt)
+		return rows, err
+	}
+	wantType := func(gen int64, want string) {
+		t.Helper()
+		if typ, err := admin.Type(ctx, keys.gen(gen)).Result(); err != nil || typ != want {
+			t.Errorf("generation %d is a %q, %v; want %s", gen, typ, err, want)
+		}
+	}
+	wantGrace := func(gen int64) {
+		t.Helper()
+		if ttl, err := admin.PTTL(ctx, keys.gen(gen)).Result(); err != nil || ttl <= 0 || ttl > replacedGrace {
+			t.Errorf("replaced generation %d expires in %v, %v; want within %v", gen, ttl, err, replacedGrace)
+		}
+	}
+	r1, r2, r3 := rec(10), rec(20), rec(30)
+
+	g1 := putListGeneration(t, admin, prefix, name, r1.Schema(), r1).Generation
+	wantType(g1, "list")
+	if rows, err := read(0, "b"); err != nil {
+		t.Fatal(err)
+	} else {
+		wantRows(t, rows, "-10", "-11")
+	}
+
+	g2 := putDataset(t, ctx, fc, datasetDesc(name), r2.Schema(), r2).Generation
+	wantType(g2, "hash")
+	wantGrace(g1)
+	if rows, err := read(0); err != nil {
+		t.Fatal(err)
+	} else {
+		wantRows(t, rows, "20|-20", "21|-21")
+	}
+	if rows, err := read(g1); err != nil {
+		t.Fatal(err)
+	} else {
+		wantRows(t, rows, "10|-10", "11|-11")
+	}
+	// What a server before the HASH layout gets for it.
+	if err := admin.LLen(ctx, keys.gen(g2)).Err(); !isWrongType(err) {
+		t.Errorf("LLEN of a HASH generation: %v, want WRONGTYPE", err)
+	}
+
+	// An earlier server's upload replaces it, and it expires like any.
+	g3 := putListGeneration(t, admin, prefix, name, r3.Schema(), r3).Generation
+	wantType(g3, "list")
+	wantGrace(g2)
+	if rows, err := read(0, "a"); err != nil {
+		t.Fatal(err)
+	} else {
+		wantRows(t, rows, "30", "31")
+	}
+	if rows, err := read(g2, "b", "a"); err != nil {
+		t.Fatal(err)
+	} else {
+		wantRows(t, rows, "-20|20", "-21|21")
+	}
+
+	// A drop deletes the current generation, and old tickets are gone.
+	drop, err := fc.DoAction(ctx, &flight.Action{Type: actionDropDataset, Body: []byte(name)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, err := drop.Recv(); err == nil; _, err = drop.Recv() {
+	}
+	if n, err := admin.Exists(ctx, keys.meta, keys.gen(g3)).Result(); err != nil || n != 0 {
+		t.Errorf("after the drop, %d of the dataset's keys are left, %v", n, err)
+	}
+	if _, err := read(g2); status.Code(err) != codes.NotFound {
+		t.Errorf("an old ticket after the drop: %v, want NotFound", err)
+	}
+
+	// A generation stored by column that isn't whole.
+	g4 := putDataset(t, ctx, fc, datasetDesc(name), r2.Schema(), r2).Generation
+	if err := admin.HSet(ctx, keys.gen(g4), "layout", "9").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := read(0); status.Code(err) != codes.FailedPrecondition {
+		t.Errorf("an unknown layout: %v, want FailedPrecondition", err)
+	}
+	if err := admin.HSet(ctx, keys.gen(g4), "layout", layoutColumns).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := admin.HDel(ctx, keys.gen(g4), "0:1").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := read(0, "a"); err != nil {
+		t.Errorf("a column that is there: %v", err)
+	}
+	if _, err := read(0, "b"); status.Code(err) != codes.DataLoss {
+		t.Errorf("a missing column: %v, want DataLoss", err)
+	}
+	if err := admin.HDel(ctx, keys.gen(g4), "batches").Err(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := read(0); status.Code(err) != codes.NotFound {
+		t.Errorf("a generation without a batch count: %v, want NotFound", err)
+	}
+}
+
+// hmgetHook records the fields of the HMGETs on keys containing match, and
+// the bytes of the values they returned.
+type hmgetHook struct {
+	match  string
+	mu     sync.Mutex
+	fields [][]string
+	bytes  int64
+}
+
+func (h *hmgetHook) DialHook(next goredis.DialHook) goredis.DialHook { return next }
+
+func (h *hmgetHook) ProcessPipelineHook(next goredis.ProcessPipelineHook) goredis.ProcessPipelineHook {
+	return next
+}
+
+func (h *hmgetHook) ProcessHook(next goredis.ProcessHook) goredis.ProcessHook {
+	return func(ctx context.Context, cmd goredis.Cmder) error {
+		err := next(ctx, cmd)
+		if args := cmd.Args(); cmd.Name() == "hmget" && len(args) > 2 && strings.Contains(fmt.Sprint(args[1]), h.match) {
+			fields := make([]string, 0, len(args)-2)
+			for _, a := range args[2:] {
+				fields = append(fields, fmt.Sprint(a))
+			}
+			var n int64
+			if sc, ok := cmd.(*goredis.SliceCmd); ok {
+				for _, v := range sc.Val() {
+					if s, ok := v.(string); ok {
+						n += int64(len(s))
+					}
+				}
+			}
+			h.mu.Lock()
+			h.fields = append(h.fields, fields)
+			h.bytes += n
+			h.mu.Unlock()
+		}
+		return err
+	}
+}
+
+// A dataset read takes about readPageBytes of the columns it reads per
+// HMGET (LRANGE, for a LIST generation), so it holds a few large batches at
+// a time, and still many small ones; and it takes only those columns.
 func TestIntegrationDatasetReadPages(t *testing.T) {
 	uri := redisURI(t)
 	ctx := context.Background()
@@ -1223,13 +1458,10 @@ func TestIntegrationDatasetReadPages(t *testing.T) {
 		{Name: "n", Type: arrow.PrimitiveTypes.Int64},
 		{Name: "label", Type: arrow.BinaryTypes.String},
 	}, nil)
-	// upload stores batches of rows rows with labels of pad bytes, and
-	// returns the dataset's name.
-	upload := func(batches, rows, pad int) string {
-		t.Helper()
+	// records makes batches of rows rows with labels of pad bytes.
+	records := func(batches, rows, pad int) []arrow.RecordBatch {
 		fill := strings.Repeat("x", pad)
 		var recs []arrow.RecordBatch
-		defer func() { releaseAll(recs) }()
 		for b := range batches {
 			bld := array.NewRecordBuilder(memory.DefaultAllocator, schema)
 			for i := b * rows; i < (b+1)*rows; i++ {
@@ -1239,20 +1471,25 @@ func TestIntegrationDatasetReadPages(t *testing.T) {
 			recs = append(recs, bld.NewRecordBatch())
 			bld.Release()
 		}
+		t.Cleanup(func() { releaseAll(recs) })
+		return recs
+	}
+	upload := func(recs []arrow.RecordBatch) string {
+		t.Helper()
 		name := uniqueName("it_flight_pages")
 		fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix}).fl
-		if m := putDataset(t, ctx, fc, datasetDesc(name), schema, recs...); m.Batches != int64(batches) {
-			t.Fatalf("stored %d batches, want %d", m.Batches, batches)
+		if m := putDataset(t, ctx, fc, datasetDesc(name), schema, recs...); m.Batches != int64(len(recs)) {
+			t.Fatalf("stored %d batches, want %d", m.Batches, len(recs))
 		}
 		return name
 	}
-	// read reads a dataset whole, checks its n column counts up from 0,
-	// and returns the elements each LRANGE asked for.
-	read := func(name string, rows int) []int64 {
+	// read reads a dataset with a ticket's columns, and checks its n column
+	// counts up from 0.
+	read := func(name string, rows int, hook goredis.Hook, columns ...string) {
 		t.Helper()
-		hook := &lrangeHook{match: name}
 		fc := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, redisHook: hook}).fl
-		stream, err := fc.DoGet(ctx, &flight.Ticket{Ticket: []byte(`{"dataset": "` + name + `"}`)})
+		tkt, _ := json.Marshal(datasetTicket{Dataset: name, Columns: columns})
+		stream, err := fc.DoGet(ctx, &flight.Ticket{Ticket: tkt})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1274,25 +1511,90 @@ func TestIntegrationDatasetReadPages(t *testing.T) {
 		if err := rdr.Err(); err != nil || n != int64(rows) {
 			t.Fatalf("read %d rows, want %d: %v", n, rows, err)
 		}
-		var lens []int64
-		next := int64(0)
-		for _, r := range hook.ranges {
-			if r[0] != next {
-				t.Fatalf("LRANGEs %v don't cover the list in order", hook.ranges)
+	}
+	// pages returns the batches each HMGET after the first (the
+	// generation's schema) asked for, checking they cover the batches in
+	// order, and the columns it asked for of each.
+	pages := func(hook *hmgetHook, cols string) []int {
+		t.Helper()
+		var lens []int
+		next := 0
+		for _, fields := range hook.fields[1:] {
+			batches := map[string]bool{}
+			for _, f := range fields {
+				if f == "batches" {
+					continue // asked with every page
+				}
+				b, c, _ := strings.Cut(f, ":")
+				if !strings.Contains(","+cols+",", ","+c+",") {
+					t.Fatalf("HMGET of field %s, want only columns %s", f, cols)
+				}
+				batches[b] = true
 			}
-			lens, next = append(lens, r[1]-r[0]+1), r[1]+1
+			for range batches {
+				if !batches[strconv.Itoa(next)] {
+					t.Fatalf("HMGETs %v don't cover the batches in order", hook.fields)
+				}
+				next++
+			}
+			lens = append(lens, len(batches))
 		}
 		return lens
 	}
 
-	// About 1.5 MiB each: 4 elements (the schema and 3 batches), then 5
-	// batches per page (8 MiB / 1.5 MiB).
-	if lens := read(upload(12, 1000, 1500), 12_000); !slices.Equal(lens, []int64{4, 5, 4}) {
-		t.Errorf("batches of 1.5 MiB were read %v elements at a time, want [4 5 4]", lens)
+	// About 1.5 MiB each: 4 batches (sized for 2 MiB ones), then 5 per page
+	// (8 MiB / 1.5 MiB).
+	large := records(12, 1000, 1500)
+	name := upload(large)
+	all := &hmgetHook{match: name}
+	read(name, 12_000, all)
+	if lens := pages(all, "0,1"); !slices.Equal(lens, []int{4, 5, 3}) {
+		t.Errorf("batches of 1.5 MiB were read %v at a time, want [4 5 3]", lens)
 	}
-	// Small batches: 4 elements, then the rest at once.
-	if lens := read(upload(10, 100, 10), 1000); !slices.Equal(lens, []int64{4, 7}) {
-		t.Errorf("small batches were read %v elements at a time, want [4 7]", lens)
+	// Their n column alone: 4 batches, then the rest, and a small part of
+	// the bytes.
+	one := &hmgetHook{match: name}
+	read(name, 12_000, one, "n")
+	if lens := pages(one, "0"); !slices.Equal(lens, []int{4, 8}) {
+		t.Errorf("one column of batches of 1.5 MiB was read %v batches at a time, want [4 8]", lens)
+	}
+	if one.bytes*50 > all.bytes {
+		t.Errorf("reading one column took %d bytes from Redis, reading both %d", one.bytes, all.bytes)
+	}
+	// No columns: their row counts, 4 batches, then the rest at once.
+	none := &hmgetHook{match: name}
+	fcNone := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, redisHook: none}).fl
+	tkt, _ := json.Marshal(map[string]any{"dataset": name, "columns": []string{}})
+	if _, rows, _, err := getDataset(t, ctx, fcNone, tkt); err != nil || len(rows) != 12_000 {
+		t.Fatalf("no columns: %d rows, %v", len(rows), err)
+	}
+	if lens := pages(none, "rows"); !slices.Equal(lens, []int{4, 8}) {
+		t.Errorf("no columns of 12 batches were read %v batches at a time, want [4 8]", lens)
+	}
+	// Small batches: 4, then the rest at once.
+	small := upload(records(10, 100, 10))
+	hook := &hmgetHook{match: small}
+	read(small, 1000, hook)
+	if lens := pages(hook, "0,1"); !slices.Equal(lens, []int{4, 6}) {
+		t.Errorf("small batches were read %v at a time, want [4 6]", lens)
+	}
+
+	// A LIST generation, stored by an earlier server: 4 elements (the
+	// schema and 3 batches), then 5 batches per LRANGE.
+	listName := uniqueName("it_flight_pages")
+	putListGeneration(t, admin, prefix, listName, schema, large...)
+	lhook := &lrangeHook{match: listName}
+	read(listName, 12_000, lhook)
+	var lens []int64
+	next := int64(0)
+	for _, r := range lhook.ranges {
+		if r[0] != next {
+			t.Fatalf("LRANGEs %v don't cover the list in order", lhook.ranges)
+		}
+		lens, next = append(lens, r[1]-r[0]+1), r[1]+1
+	}
+	if !slices.Equal(lens, []int64{4, 5, 4}) {
+		t.Errorf("a LIST generation of batches of 1.5 MiB was read %v elements at a time, want [4 5 4]", lens)
 	}
 }
 
@@ -1375,7 +1677,7 @@ func TestIntegrationUploadOrder(t *testing.T) {
 	wantRows(t, rows, "2")
 	key := prefix + "ds:{" + name + "}:g" + fmt.Sprint(r.m.Generation)
 	if ttl := admin.PTTL(ctx, key).Val(); ttl <= 0 || ttl > replacedGrace {
-		t.Errorf("the superseded upload's list %s has TTL %v, want at most %v", key, ttl, replacedGrace)
+		t.Errorf("the superseded upload's generation %s has TTL %v, want at most %v", key, ttl, replacedGrace)
 	}
 }
 
@@ -1415,7 +1717,7 @@ func sequence(n int) []int64 {
 	return out
 }
 
-func adminClient(t *testing.T, uri string) goredis.UniversalClient {
+func adminClient(t testing.TB, uri string) goredis.UniversalClient {
 	t.Helper()
 	opts, err := clientOptions(uri, identity{})
 	if err != nil {
@@ -1443,7 +1745,7 @@ func eachNode(admin goredis.UniversalClient, fn func(context.Context, *goredis.C
 }
 
 // keysMatching scans every primary for keys matching pattern.
-func keysMatching(t *testing.T, admin goredis.UniversalClient, pattern string) []string {
+func keysMatching(t testing.TB, admin goredis.UniversalClient, pattern string) []string {
 	t.Helper()
 	var (
 		mu   sync.Mutex

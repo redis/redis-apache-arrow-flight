@@ -58,10 +58,18 @@ func (t *tenant) close() {
 // goes on to the recovery middleware.
 //
 // In a session, fn runs on the session's own connection instead, whatever
-// sql does to it.
+// sql does to it; a sql that may make temporary objects marks the session
+// (see markTemp).
 func (t *tenant) withConn(ctx context.Context, sql string, fn func(adbc.ConnectionWithContext) error) error {
 	if s := sessionFrom(ctx); s != nil {
-		return s.run(ctx, t, fn)
+		return s.run(ctx, t, func(conn adbc.ConnectionWithContext) error {
+			if createsTemp(sql) {
+				// Before running it: a script that fails part way may have
+				// made some.
+				s.temp = true
+			}
+			return fn(conn)
+		})
 	}
 	conn, err := t.pool.get(ctx)
 	if err != nil {
@@ -74,19 +82,23 @@ func (t *tenant) withConn(ctx context.Context, sql string, fn func(adbc.Connecti
 	return err
 }
 
-// leaseConn is withConn for a result read after fn returns. If fn returns
-// keep, the connection stays in use until release is called with the
-// result's error; otherwise it goes back at once, and release is nil.
-func (t *tenant) leaseConn(ctx context.Context, sql string,
+// leaseConn is withConn for a result read after fn returns, always on a
+// pooled connection. If fn returns keep, the connection stays in use until
+// release is called with the result's error; otherwise it goes back at
+// once, and release is nil. undo, if not nil, runs before a connection that
+// can be reused goes back, to put back what fn changed on it; if it fails,
+// the connection is closed instead.
+func (t *tenant) leaseConn(ctx context.Context, sql string, undo func(adbc.ConnectionWithContext) error,
 	fn func(adbc.ConnectionWithContext) (keep bool, err error)) (release func(error), err error) {
 	conn, err := t.pool.get(ctx)
 	if err != nil {
 		return nil, err
 	}
+	put := func(reuse bool) { t.pool.put(conn, reuse && (undo == nil || undo(conn) == nil)) }
 	reuse, kept := false, false
 	defer func() {
 		if !kept {
-			t.pool.put(conn, reuse)
+			put(reuse)
 		}
 	}()
 	keep, err := fn(conn)
@@ -96,7 +108,7 @@ func (t *tenant) leaseConn(ctx context.Context, sql string,
 	}
 	kept = true
 	var once sync.Once
-	return func(err error) { once.Do(func() { t.pool.put(conn, reusable(sql, err)) }) }, nil
+	return func(err error) { once.Do(func() { put(reusable(sql, err)) }) }, nil
 }
 
 // tryStream takes a stream token, if one is free.
@@ -174,8 +186,9 @@ func (b *resultBudget) release(n int64) { b.used.Add(-n) }
 
 // tenantCache opens tenants on first use and closes them when idle.
 type tenantCache struct {
-	cfg    *Config
-	driver databaseOpener
+	cfg     *Config
+	metrics *metrics // may be nil
+	driver  databaseOpener
 	// open opens a tenant (openTenant; tests replace it).
 	open func(context.Context, identity) (*tenant, error)
 
@@ -302,13 +315,35 @@ func (c *tenantCache) openTenant(ctx context.Context, id identity) (*tenant, err
 		_ = rdb.Close()
 		return nil, toStatus(err)
 	}
+	pool := newConnPool(db, c.cfg.PoolMaxIdle, c.cfg.PoolMaxOpen)
+	pool.metrics = c.metrics
 	return &tenant{
 		id:      id,
 		db:      db,
-		pool:    newConnPool(db, c.cfg.PoolMaxIdle, c.cfg.PoolMaxOpen),
+		pool:    pool,
 		rdb:     rdb,
 		streams: make(chan struct{}, streamTokens(c.cfg)),
 	}, nil
+}
+
+// poolStats returns the number of tenants, and their pools' connections in
+// use and idle.
+func (c *tenantCache) poolStats() (tenants, inUse, idle int) {
+	c.mu.Lock()
+	pools := make([]*connPool, 0, len(c.tenants))
+	for _, t := range c.tenants {
+		if t.pool != nil {
+			pools = append(pools, t.pool)
+		}
+	}
+	c.mu.Unlock()
+	for _, p := range pools {
+		inUse += len(p.sem)
+		p.mu.Lock()
+		idle += len(p.idle)
+		p.mu.Unlock()
+	}
+	return len(pools), inUse, idle
 }
 
 func (c *tenantCache) evictLoop() {

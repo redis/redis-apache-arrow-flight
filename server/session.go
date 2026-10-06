@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -78,6 +79,10 @@ type session struct {
 	release func() // the tenant hold, while conn is open
 	opts    map[string]string
 	closed  bool
+	// temp is set once conn may have temporary tables or views, until it
+	// closes. They shadow other tables' unqualified names, so the
+	// session's results are then read on conn (see scanSettings).
+	temp bool
 
 	// Guarded by store.mu.
 	lastUsed  time.Time
@@ -132,6 +137,7 @@ func (s *session) open(ctx context.Context, t *tenant) error {
 		}
 	}
 	s.conn, s.release = conn, release
+	s.store.metrics().sessionConn(1)
 	s.store.log.Debug("session connection opened", "session", s.token[:8])
 	return nil
 }
@@ -143,7 +149,112 @@ func (s *session) dropConn() {
 	}
 	_ = s.conn.Close(context.Background())
 	s.release()
-	s.conn, s.release = nil, nil
+	s.conn, s.release, s.temp = nil, nil, false
+	s.store.metrics().sessionConn(-1)
+}
+
+// markTemp records that the request's session connection may now have
+// temporary objects. Call it while running on that connection.
+func markTemp(ctx context.Context) {
+	if s := sessionFrom(ctx); s != nil {
+		s.temp = true
+	}
+}
+
+// scanOptions are the session options that change what a plain scan of a
+// table returns: of the driver's SET parameters, only search_path and
+// TimeZone do (the others accept one value, or are only shown). A session's
+// scan streams on a pooled connection with these set as the session has
+// them (see scanSettings).
+var scanOptions = []string{"schema", "timezone"}
+
+// scanSettings carries a session's scanOptions to a pooled connection for
+// a scan, and puts the connection's own back afterwards.
+type scanSettings struct {
+	want   map[string]string // the session's, by option name
+	orig   map[string]string // the pooled connection's, once applied
+	resets []string          // what puts the pooled connection back
+}
+
+// settingsError is a failure to apply a session's settings to a pooled
+// connection. It wraps nothing, so the connection isn't reused.
+type settingsError struct{ err error }
+
+func (e settingsError) Error() string {
+	return "failed to apply the session's settings: " + e.err.Error()
+}
+
+// scanSettings reads the session's scanOptions, as of now (SET LOCAL
+// included), for a scan to stream with on a pooled connection. It returns
+// nil if the session's results must be read on its own connection: it may
+// have temporary objects, which a pooled connection doesn't see, or its
+// settings can't be read.
+func (s *session) scanSettings(ctx context.Context, t *tenant) (*scanSettings, error) {
+	var ss *scanSettings
+	err := s.run(ctx, t, func(conn adbc.ConnectionWithContext) error {
+		if s.temp {
+			return nil
+		}
+		want := make(map[string]string, len(scanOptions))
+		for _, name := range scanOptions {
+			v, err := connOption(ctx, conn, sessionOptions[name].key)
+			if err != nil {
+				s.store.log.Debug("can't read a session setting: reading the result on the session's connection",
+					"session", s.token[:8], "option", name, "error", err)
+				return nil
+			}
+			want[name] = v
+		}
+		ss = &scanSettings{want: want}
+		return nil
+	})
+	return ss, err
+}
+
+// apply sets the session's settings on conn, a pooled connection.
+func (ss *scanSettings) apply(ctx context.Context, conn adbc.ConnectionWithContext) error {
+	ss.orig = make(map[string]string, len(scanOptions))
+	for _, name := range scanOptions {
+		opt := sessionOptions[name]
+		cur, err := connOption(ctx, conn, opt.key)
+		if err != nil {
+			return settingsError{err}
+		}
+		ss.orig[name] = cur
+		if cur == ss.want[name] {
+			continue
+		}
+		// Before setting: a SET that fails part way is reset too.
+		ss.resets = append(ss.resets, opt.reset)
+		if err := opt.set(ctx, conn, ss.want[name]); err != nil {
+			return settingsError{err}
+		}
+		if got, err := connOption(ctx, conn, opt.key); err != nil || got != ss.want[name] {
+			if err == nil {
+				err = fmt.Errorf("%s is %q, not %q", name, got, ss.want[name])
+			}
+			return settingsError{err}
+		}
+	}
+	return nil
+}
+
+// undo puts conn's own settings back, before it goes back to the pool. An
+// error closes it instead, so the session's settings never stay in the
+// pool.
+func (ss *scanSettings) undo(ctx context.Context, conn adbc.ConnectionWithContext) error {
+	ctx = context.WithoutCancel(ctx)
+	for _, reset := range ss.resets {
+		if err := execOn(ctx, conn, reset); err != nil {
+			return err
+		}
+	}
+	for name, v := range ss.orig {
+		if got, err := connOption(ctx, conn, sessionOptions[name].key); err != nil || got != v {
+			return fmt.Errorf("%s is %q after the reset, not %q: %v", name, got, v, err)
+		}
+	}
+	return nil
 }
 
 func setConnOption(ctx context.Context, conn adbc.ConnectionWithContext, key, value string) error {
@@ -204,6 +315,7 @@ func (st *sessionStore) get(token, owner string, confirmed bool) *session {
 	}
 	if len(st.sessions) >= maxSessions {
 		st.log.Warn("too many sessions; this request uses the pool", "max", maxSessions)
+		st.metrics().sessionStoreFull()
 		return nil
 	}
 	s := &session{token: token, owner: owner, store: st, opts: map[string]string{},
@@ -211,6 +323,21 @@ func (st *sessionStore) get(token, owner string, confirmed bool) *session {
 	st.sessions[token] = s
 	st.log.Debug("session started", "session", token[:8])
 	return s
+}
+
+// metrics returns the server's metrics, if any.
+func (st *sessionStore) metrics() *metrics {
+	if st.tenants == nil {
+		return nil
+	}
+	return st.tenants.metrics
+}
+
+// count returns the number of sessions the store keeps.
+func (st *sessionStore) count() int {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	return len(st.sessions)
 }
 
 func (st *sessionStore) begin(s *session) {
