@@ -9,7 +9,7 @@ import (
 
 // testLogger logs to the test's log, at debug level with
 // FLIGHT_TEST_DEBUG=1.
-func testLogger(t *testing.T) *slog.Logger {
+func testLogger(t testing.TB) *slog.Logger {
 	level := slog.LevelInfo
 	if os.Getenv("FLIGHT_TEST_DEBUG") != "" {
 		level = slog.LevelDebug
@@ -17,7 +17,7 @@ func testLogger(t *testing.T) *slog.Logger {
 	return slog.New(slog.NewTextHandler(testWriter{t}, &slog.HandlerOptions{Level: level}))
 }
 
-type testWriter struct{ t *testing.T }
+type testWriter struct{ t testing.TB }
 
 func (w testWriter) Write(p []byte) (int, error) {
 	w.t.Log(strings.TrimSpace(string(p)))

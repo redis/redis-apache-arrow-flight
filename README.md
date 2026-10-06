@@ -9,7 +9,7 @@ and out of Redis:
 |-|-|-|
 | Requests | Flight SQL commands (`CMD` descriptors) | `PATH` descriptors, such as `["sales", "2026-10"]` |
 | What you do | SQL: filters, `GROUP BY`, joins, windows, `INSERT` / `UPDATE` / `DELETE`, DDL, bulk ingest, catalog metadata | Upload a whole table by name, download it, list and drop |
-| Storage in Redis | One HASH per row, plus a RediSearch index per table, so other Redis clients can read it too | The Arrow IPC bytes, unchanged |
+| Storage in Redis | One HASH per row, plus a RediSearch index per table, so other Redis clients can read it too | The Arrow IPC bytes, unchanged, stored by column |
 | Arrow types | The SQL types (integers, floats, decimals, strings, binary, dates, times, timestamps, intervals) | Any type, including lists, structs, maps and dictionaries |
 | Redis needed | The Query Engine (Redis 8, Redis Stack, Redis Cloud / Software with Search). Redis Flex is refused | Any Redis, including Flex and Cluster |
 | Clients | ADBC Flight SQL driver (Python, Go, R, …), the Arrow Flight SQL JDBC driver | Any Flight client (`pyarrow.flight`, arrow-go, Arrow Java, …) |
@@ -33,8 +33,8 @@ Measured with 100,000 rows × 4 columns, on an Apple Silicon laptop with Redis
 | Point lookup (`WHERE order_id = 4242`) | 2.4 ms | not available |
 
 Datasets are 25–50× faster for whole-table transfers, since nothing is
-converted per row. A dataset read can pick columns and a range of batches,
-but only SQL can filter rows by value. Both can be combined: for example,
+converted per row. A dataset read can pick columns (and takes only those
+from Redis) and a range of batches, but only SQL can filter rows by value. Both can be combined: for example,
 upload a dataset, then bulk-ingest the rows you want to query into a SQL
 table.
 
@@ -63,7 +63,7 @@ flowchart LR
 
     subgraph redis["Redis 8"]
         tables[("SQL tables<br/>a HASH per row,<br/>a RediSearch index per table")]
-        dsk[("Datasets<br/>Arrow IPC in a LIST<br/>per generation")]
+        dsk[("Datasets<br/>Arrow IPC in a HASH<br/>per generation")]
         res[("Large statement results<br/>kept 10 minutes")]
     end
 
@@ -80,7 +80,7 @@ flowchart LR
     drv -- "FT.AGGREGATE, FT.SEARCH,<br/>HSET, …" --> tables
     sql --> gr
     ds --> gr
-    gr -- "RPUSH, LRANGE,<br/>EVAL" --> dsk
+    gr -- "HSET, HMGET,<br/>EVAL" --> dsk
     gr -- "SET, GET" --> res
 ```
 
@@ -159,7 +159,7 @@ sequenceDiagram
     C->>S: DoPut(PATH ["features", "v1"]), the schema, then batches
     S->>R: INCR ds:{features/v1}:seq → generation N
     loop every 64 batches or 8 MiB
-        S->>R: RPUSH ds:{features/v1}:gN, one IPC stream per batch
+        S->>R: HSET ds:{features/v1}:gN, an IPC stream per column of each batch
     end
     S->>R: EVAL commit: point the HASH at N, unless a newer upload won
     S-->>C: PutResult {dataset, generation, rows, …}
@@ -167,8 +167,9 @@ sequenceDiagram
     S->>R: HGETALL ds:{features/v1}
     S-->>C: FlightInfo: the schema, counts, one or more tickets
     C->>S: DoGet(ticket)
-    loop about 8 MiB of batches at a time
-        S->>R: LRANGE ds:{features/v1}:gN
+    S->>R: HMGET ds:{features/v1}:gN layout schema batches
+    loop about 8 MiB of the ticket's columns at a time
+        S->>R: HMGET ds:{features/v1}:gN, those columns of the next batches
     end
     S-->>C: FlightData: the ticket's columns and batches
 ```
@@ -545,9 +546,13 @@ request.
   `{"dataset": "features/v1", "columns": ["id", "label"], "batches": [0, 4]}`
   reads two columns of its first four batches. The stored batches are the
   uploaded ones, split to about 2 MiB each; the PutResult and the FlightInfo's
-  app metadata count them (`batches`). A read takes them from Redis about
-  8 MiB at a time (up to 64 small ones), so it holds about that much of the
-  dataset, whatever its size.
+  app metadata count them (`batches`). Each column of a batch is stored on
+  its own, so a read takes only the ticket's columns from Redis. Reading one
+  column of 100,000 rows × 10 took a tenth of the bytes from Redis, a sixth
+  of its CPU time and a tenth of the server's memory, in a third of the time
+  of reading all ten. A read takes the columns about 8 MiB at a time (up to
+  64 batches), so it holds about that much of the dataset, whatever its
+  size.
 - **Parallel reads.** With `--dataset-endpoint-batches=N`, GetFlightInfo,
   PollFlightInfo and ListFlights return one endpoint per N batches. Clients can
   read the endpoints in parallel, and must read them all; together, in order,
@@ -566,11 +571,23 @@ slot:
 | Key | Type | Holds |
 |-|-|-|
 | `arrowflight:ds:{<name>}` | HASH | `gen`, `schema` (IPC), `rows`, `batches`, `bytes`, `updated` |
-| `arrowflight:ds:{<name>}:g<N>` | LIST | Generation N: an IPC stream with the schema alone, then one IPC stream per batch (about 2 MiB each) |
+| `arrowflight:ds:{<name>}:g<N>` | HASH | Generation N, by column: `layout` (`2`); `schema`, an IPC stream with the schema alone; `batches`, the number of batches (written last, so a generation without it is an unfinished upload); and for each batch `b` (from 0), `<b>:rows`, its row count, and `<b>:<c>`, an IPC stream of its column `c` alone (counted from 0, in the schema's order) |
+| `arrowflight:ds:{<name>}:g<N>` | LIST | A generation stored by an earlier server: an IPC stream with the schema alone, then one IPC stream per batch. It stays readable, but a read of some columns takes them all from Redis |
 | `arrowflight:ds:{<name>}:seq` | STRING | The last generation number. It never expires, not even with `--dataset-ttl` or a drop, so generation numbers never repeat |
 | `arrowflight:result:{<id>}` | STRING | A statement result too big for its ticket (expires after 10 minutes) |
 
 The name in a key is URL-path-escaped.
+
+Storing each column of a batch on its own takes more of Redis's memory than
+storing batches whole: in our measurements, 5–9% for 100,000 rows of 10
+columns, and up to 25% when the upload's batches are small (1,000 rows),
+since each column of each batch is a value of its own.
+
+**Upgrading.** Servers before the HASH layout fail to read the generations
+newer ones store (Redis answers their `LLEN` with `WRONGTYPE`), so upgrade
+every replica before uploading again. Generations they stored stay readable
+by newer servers; upload a dataset again to read its columns separately.
+Commits and drops work across versions.
 
 ## Authentication and TLS
 
@@ -606,8 +623,10 @@ client.authenticate_basic_token("alice", "…")  # pyarrow.flight: returns the h
   [Redis ADBC driver lists](https://github.com/alberttwong/redis-adbc-driver#server-requirements)
   for SQL. For datasets, it also needs the key pattern `~arrowflight:*` and
   these commands:
-  - to write: `+incr +rpush +pexpire +persist +hset +unlink +del +eval +evalsha`
-  - to read: `+hget +hgetall +llen +lrange +scan +get`
+  - to write: `+incr +hset +pexpire +persist +unlink +del +eval +evalsha`
+    (servers before the HASH layout also need `+rpush`)
+  - to read: `+hget +hgetall +hmget +scan +get`, and `+llen +lrange` for
+    generations stored by servers before the HASH layout
 
   A user with exactly the driver's commands plus these ran
   `examples/python/quickstart.py`. A read-only user (the driver's read-only

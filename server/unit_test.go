@@ -618,6 +618,104 @@ func TestChunks(t *testing.T) {
 	}
 }
 
+// Each column of a batch round-trips through its own IPC stream, and a
+// batch is put together from any of its columns, checked.
+func TestColumnChunks(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "id", Type: arrow.PrimitiveTypes.Int64},
+		{Name: "tags", Type: arrow.ListOf(arrow.BinaryTypes.String), Nullable: true},
+		{Name: "point", Type: arrow.StructOf(
+			arrow.Field{Name: "x", Type: arrow.PrimitiveTypes.Float64},
+			arrow.Field{Name: "y", Type: arrow.PrimitiveTypes.Float64}), Nullable: true},
+		{Name: "kind", Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: arrow.BinaryTypes.String}},
+	}, nil)
+	rec, _, err := array.RecordFromJSON(mem, schema, strings.NewReader(`[
+		{"id": 1, "tags": ["a", "b"], "point": {"x": 1, "y": 2}, "kind": "click"},
+		{"id": 2, "tags": null, "point": null, "kind": "view"},
+		{"id": 3, "tags": [], "point": {"x": -1.5, "y": 0}, "kind": "click"}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rec.Release()
+	part := rec.NewSlice(1, 3) // a chunk of an upload starts past 0
+	defer part.Release()
+
+	enc, err := encodeColumns(columnSchemas(schema), part, mem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cols := make([]string, len(enc))
+	var total int64
+	for i, b := range enc {
+		cols[i], total = string(b), total+int64(len(b))
+	}
+	got, size, err := assemble(schema, cols, mem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRows(t, rowStrings(got), `2|(null)|(null)|view`, `3|[]|{"x":-1.5,"y":0}|click`)
+	got.Release()
+	if size != total {
+		t.Errorf("size = %d, want %d", size, total)
+	}
+
+	_, sub, err := projection(schema, []string{"kind", "id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _, err = assemble(sub, []string{cols[3], cols[0]}, mem); err != nil {
+		t.Fatal(err)
+	}
+	wantRows(t, rowStrings(got), "view|2", "click|3")
+	got.Release()
+
+	if got, _, err = assemble(arrow.NewSchema(nil, nil), []string{"2"}, mem); err != nil || got.NumRows() != 2 || got.NumCols() != 0 {
+		t.Errorf("no columns: %v, %v", got, err)
+	} else {
+		got.Release()
+	}
+
+	// Columns that don't fit the schema, or each other, are refused.
+	other, err := encodeColumns(columnSchemas(schema), rec, mem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, vals := range map[string][]string{
+		"swapped types":    {cols[0], cols[3]},
+		"different length": {cols[3], string(other[0])},
+		"not IPC":          {"nope", cols[0]},
+	} {
+		if got, _, err := assemble(sub, vals, mem); err == nil {
+			got.Release()
+			t.Errorf("%s: assembled", name)
+		}
+	}
+	if _, _, err := assemble(arrow.NewSchema(nil, nil), []string{"-1"}, mem); err == nil {
+		t.Error("a negative row count was accepted")
+	}
+}
+
+func TestBatchRange(t *testing.T) {
+	for _, tc := range []struct {
+		batches           []int64
+		n, wantLo, wantHi int64
+	}{
+		{nil, 10, 0, 10},
+		{nil, 0, 0, 0},
+		{[]int64{2, 5}, 10, 2, 5},
+		{[]int64{8, 99}, 10, 8, 10},
+		{[]int64{5, 5}, 10, 5, 5},
+		{[]int64{12, 20}, 10, 10, 10},
+	} {
+		lo, hi := datasetTicket{Batches: tc.batches}.batchRange(tc.n)
+		if lo != tc.wantLo || hi != tc.wantHi {
+			t.Errorf("batches %v of %d: [%d, %d), want [%d, %d)", tc.batches, tc.n, lo, hi, tc.wantLo, tc.wantHi)
+		}
+	}
+}
+
 func TestPageLen(t *testing.T) {
 	for _, tc := range []struct{ largest, want int64 }{
 		{0, readPage},
@@ -666,20 +764,20 @@ func TestStatementHandle(t *testing.T) {
 
 // newTestServer starts a Server on an in-memory listener and returns a
 // connection to it.
-func newTestServer(t *testing.T, cfg Config) *grpc.ClientConn {
+func newTestServer(t testing.TB, cfg Config) *grpc.ClientConn {
 	t.Helper()
 	return dialTestServer(t, startTestServer(t, cfg))
 }
 
 // startTestServer starts a Server on an in-memory listener.
-func startTestServer(t *testing.T, cfg Config) *bufconn.Listener {
+func startTestServer(t testing.TB, cfg Config) *bufconn.Listener {
 	t.Helper()
 	_, lis := startServer(t, cfg)
 	return lis
 }
 
 // startServer is startTestServer that also returns the Server.
-func startServer(t *testing.T, cfg Config) (*Server, *bufconn.Listener) {
+func startServer(t testing.TB, cfg Config) (*Server, *bufconn.Listener) {
 	t.Helper()
 	if cfg.Logger == nil {
 		cfg.Logger = testLogger(t)
@@ -702,7 +800,7 @@ func testDialOptions(lis *bufconn.Listener) []grpc.DialOption {
 	}
 }
 
-func dialTestServer(t *testing.T, lis *bufconn.Listener) *grpc.ClientConn {
+func dialTestServer(t testing.TB, lis *bufconn.Listener) *grpc.ClientConn {
 	t.Helper()
 	cc, err := grpc.NewClient("passthrough:///bufconn", testDialOptions(lis)...)
 	if err != nil {
