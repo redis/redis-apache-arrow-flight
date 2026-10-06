@@ -746,7 +746,9 @@ func (r *datasetRead) columns(ctx context.Context, stream flight.FlightService_D
 			if err != nil {
 				return r.corrupt(err)
 			}
-			largest = max(largest, size)
+			// At least 1: a batch read without columns (its row count alone)
+			// sizes the pages too.
+			largest = max(largest, size, 1)
 			r.bytes += size
 			err = w.Write(rec)
 			if err == nil {

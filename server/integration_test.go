@@ -1561,6 +1561,16 @@ func TestIntegrationDatasetReadPages(t *testing.T) {
 	if one.bytes*50 > all.bytes {
 		t.Errorf("reading one column took %d bytes from Redis, reading both %d", one.bytes, all.bytes)
 	}
+	// No columns: their row counts, 4 batches, then the rest at once.
+	none := &hmgetHook{match: name}
+	fcNone := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, redisHook: none}).fl
+	tkt, _ := json.Marshal(map[string]any{"dataset": name, "columns": []string{}})
+	if _, rows, _, err := getDataset(t, ctx, fcNone, tkt); err != nil || len(rows) != 12_000 {
+		t.Fatalf("no columns: %d rows, %v", len(rows), err)
+	}
+	if lens := pages(none, "rows"); !slices.Equal(lens, []int{4, 8}) {
+		t.Errorf("no columns of 12 batches were read %v batches at a time, want [4 8]", lens)
+	}
 	// Small batches: 4, then the rest at once.
 	small := upload(records(10, 100, 10))
 	hook := &hmgetHook{match: small}
