@@ -352,23 +352,24 @@ func TestIntegrationStreamResults(t *testing.T) {
 	})
 
 	t.Run("beyond MaxTableStreams, results are read whole", func(t *testing.T) {
+		// Wide tables, so the streams stay open until read.
 		other := uniqueName("it_flight_stream_other")
 		dropTable(t, setup, other)
-		ingestRows(t, setup, other, streamRows, 0)
+		ingestRows(t, setup, other, streamRows, 200)
 		cfg := streamConfig(uri)
 		cfg.MaxTableStreams = 1
 		c, metric := metricsClient(t, cfg)
 		var readers []*flight.Reader
 		var firsts []int
-		for _, sql := range []string{scan, scan, "SELECT id FROM " + other} {
+		for _, sql := range []string{wideScan, wideScan, "SELECT id, label FROM " + other} {
 			rdr := openRead(t, context.Background(), c, sql)
 			if !rdr.Next() {
 				t.Fatal(rdr.Err())
 			}
 			readers, firsts = append(readers, rdr), append(firsts, int(rdr.RecordBatch().NumRows()))
 		}
-		if n := cursors(t, admin, table); n > 1 {
-			t.Errorf("%d cursors are open on %s with MaxTableStreams 1", n, table)
+		if n := cursors(t, admin, wideTable); n > 1 {
+			t.Errorf("%d cursors are open on %s with MaxTableStreams 1", n, wideTable)
 		}
 		if n := cursors(t, admin, other); n == 0 {
 			t.Errorf("another table's result didn't stream")
