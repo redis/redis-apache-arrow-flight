@@ -2,22 +2,22 @@
 
 A gRPC [Apache Arrow Flight](https://arrow.apache.org/docs/format/Flight.html)
 and [Flight SQL](https://arrow.apache.org/docs/format/FlightSql.html) server
-for Redis 8, written in Go. One endpoint serves two ways to move Arrow data in
+for Redis, written in Go. One endpoint serves two ways to move Arrow data in
 and out of Redis:
 
 | | **Flight SQL**, backed by the [Redis ADBC driver](https://github.com/alberttwong/redis-adbc-driver) | **Flight datasets**, stored as Arrow IPC |
 |-|-|-|
 | Requests | Flight SQL commands (`CMD` descriptors) | `PATH` descriptors, such as `["sales", "2026-10"]` |
 | What you do | SQL: filters, `GROUP BY`, joins, windows, `INSERT` / `UPDATE` / `DELETE`, DDL, bulk ingest, catalog metadata | Upload a whole table by name, download it, list and drop |
-| Storage in Redis | One HASH per row, plus a RediSearch index per table, so other Redis clients can read it too | The Arrow IPC bytes, unchanged, stored by column |
+| Storage in Redis | One HASH per row, plus a RediSearch index per table, so other Redis clients can read it too | Arrow IPC streams encoded per column and batch |
 | Arrow types | The SQL types (integers, floats, decimals, strings, binary, dates, times, timestamps, intervals) | Any type, including lists, structs, maps and dictionaries |
 | Redis needed | The Query Engine (Redis 8, Redis Stack, Redis Cloud / Software with Search). Redis Flex is refused | Any Redis, including Flex and Cluster |
 | Clients | ADBC Flight SQL driver (Python, Go, R, …), the Arrow Flight SQL JDBC driver | Any Flight client (`pyarrow.flight`, arrow-go, Arrow Java, …) |
 
 ## Quick start
 
-You need Go 1.26+, Docker and, for the Python example, [uv](https://docs.astral.sh/uv/).
-(To run a released build instead of building it, see [Install](#install).)
+You need Go 1.26.6 or newer, Docker and, for the Python example,
+[uv](https://docs.astral.sh/uv/). For tagged builds, see [Install](#install).
 
 ```bash
 docker compose up --detach --wait redis
@@ -46,10 +46,12 @@ it serves, and Redis answers.
 
 ### Install
 
-Each [release](https://github.com/alberttwong/redis-apache-arrow-flight/releases)
-has a static binary for Linux (amd64, arm64) and macOS (arm64), with a
-SHA-256 checksum, and a multi-arch image on the GitHub Container Registry.
-For example (set `VERSION` to the release's tag):
+The [release workflow](.github/workflows/release.yml) is configured to publish
+static binaries for Linux (amd64, arm64) and macOS (arm64), with SHA-256
+checksums, and a multi-arch image on the GitHub Container Registry. To use a
+published [release](https://github.com/alberttwong/redis-apache-arrow-flight/releases),
+set `VERSION` to its tag and use these commands. If the release list is empty,
+build from source with the [quick start](#quick-start).
 
 ```bash
 curl -fsSL --remote-name-all https://github.com/alberttwong/redis-apache-arrow-flight/releases/download/$VERSION/redis-flight-server-$VERSION-linux-amd64.tar.gz{,.sha256}
@@ -62,6 +64,10 @@ shasum -a 256 -c redis-flight-server-$VERSION-linux-amd64.tar.gz.sha256 && tar -
 ```bash
 docker run --rm -p 8815:8815 -e REDIS_URI=redis://host.docker.internal:6379/0 ghcr.io/alberttwong/redis-apache-arrow-flight:${VERSION#v}
 ```
+
+This container example uses Docker Desktop's `host.docker.internal` to reach
+Redis on the host. With Docker Engine on Linux, put the image and Redis on a
+shared Docker network and set `REDIS_URI` to Redis's name on that network.
 
 Image tags are the version without the `v` (`1.2.3`), its minor version
 (`1.2`) and `latest`; a prerelease (`1.2.3-rc1`) gets only its own.
@@ -84,21 +90,17 @@ Use **datasets** to *park and fetch whole tables* (dataframes, feature
 snapshots, query results, ML batches) as fast as possible, or when your
 data has types that SQL tables can't hold.
 
-Measured with 100,000 rows × 4 columns, on an Apple Silicon laptop with Redis
-8.6.2 in Docker, median of 3–5 runs:
+Datasets avoid converting Arrow values to SQL rows. A dataset read can pick
+columns (and fetch only those from Redis) and a range of batches, but only SQL
+can filter rows by value. Both can be combined: for example, upload a dataset,
+then bulk-ingest the rows you want to query into a SQL table.
 
-| Operation | Flight SQL | Dataset |
-|-|-:|-:|
-| Write 100k rows (bulk ingest / DoPut) | 637 ms | 13 ms |
-| Read all 100k rows (`SELECT *` / DoGet) | 515 ms | 22 ms |
-| Filter + `GROUP BY` on indexed columns | 6.3 ms | not available |
-| Point lookup (`WHERE order_id = 4242`) | 2.4 ms | not available |
+To measure dataset upload, full-read and one-column read performance on your
+Redis, run the [100,000-row, 10-column benchmarks](server/dataset_bench_test.go):
 
-Datasets are 25–50× faster for whole-table transfers, since nothing is
-converted per row. A dataset read can pick columns (and takes only those
-from Redis) and a range of batches, but only SQL can filter rows by value. Both can be combined: for example,
-upload a dataset, then bulk-ingest the rows you want to query into a SQL
-table.
+```bash
+REDIS_URI=redis://localhost:6379/0 go test ./server -run '^$' -bench Dataset -benchtime 10x
+```
 
 ## Client examples
 
@@ -399,12 +401,10 @@ request.
   reads two columns of its first four batches. The stored batches are the
   uploaded ones, split to about 2 MiB each; the PutResult and the FlightInfo's
   app metadata count them (`batches`). Each column of a batch is stored on
-  its own, so a read takes only the ticket's columns from Redis. Reading one
-  column of 100,000 rows × 10 took a tenth of the bytes from Redis, a sixth
-  of its CPU time and a tenth of the server's memory, in a third of the time
-  of reading all ten. A read takes the columns about 8 MiB at a time (up to
-  64 batches), so it holds about that much of the dataset, whatever its
-  size.
+  its own, so a read takes only the ticket's columns from Redis. The
+  [dataset benchmarks](server/dataset_bench_test.go) measure full and
+  one-column reads. A read takes the columns about 8 MiB at a time (up to
+  64 batches), so it holds about that much of the dataset, whatever its size.
 - **Parallel reads.** With `--dataset-endpoint-batches=N`, GetFlightInfo,
   PollFlightInfo and ListFlights return one endpoint per N batches. Clients can
   read the endpoints in parallel, and must read them all; together, in order,
@@ -430,10 +430,8 @@ slot:
 
 The name in a key is URL-path-escaped.
 
-Storing each column of a batch on its own takes more of Redis's memory than
-storing batches whole: in our measurements, 5–9% for 100,000 rows of 10
-columns, and up to 25% when the upload's batches are small (1,000 rows),
-since each column of each batch is a value of its own.
+Storing each column of a batch on its own can use more Redis memory than
+storing batches whole, since each column of each batch is a separate value.
 
 **Upgrading.** Servers before the HASH layout fail to read the generations
 newer ones store (Redis answers their `LLEN` with `WRONGTYPE`), so upgrade
@@ -487,8 +485,8 @@ client.authenticate_basic_token("alice", "…")  # pyarrow.flight: returns the h
   list plus the read commands above) can query and read datasets. Its writes
   fail with `PermissionDenied`.
 - **Health checks** need no login, so load balancers and probes can call
-  them (see [Health checks](#health-checks)). They tell only whether the
-  server serves.
+  them. They report whether the server serves and Redis answers its background
+  PING; see [Health checks](#health-checks).
 
 ### Configuration
 
@@ -521,9 +519,10 @@ Every flag can also be set with the environment variable shown.
 | `-healthcheck` | | | Check the server at `-listen` with the [gRPC health service](#health-checks) and exit: 0 if it serves, 1 if not. Trusts only `-tls-cert` when that is set |
 | `-version` | | | Print the version and exit |
 
-The server connects to Redis when the first request arrives, not at startup.
-Opening an ADBC connection takes several round trips, so connections are
-pooled per Redis user. A user's connections are closed after 10 idle minutes.
+The server starts pinging Redis for health checks at startup. It opens ADBC
+connections when SQL requests arrive; opening one takes several round trips,
+so connections are pooled per Redis user. A user's connections are closed after
+10 idle minutes.
 
 ### Shutdown
 
@@ -695,8 +694,8 @@ flowchart LR
 ```
 
 - **Middleware.** `auth` is there only with `--auth=redis-acl`, and `sessions`
-  unless `--sessions=false`. [Health checks](#health-checks) skip all but
-  `recover`.
+  unless `--sessions=false`. [Health checks](#health-checks) bypass logging,
+  metrics, authentication and sessions; panic recovery still applies.
 - **Tenants.** Each Redis user gets its own ADBC database, connection pool and
   go-redis client, so every command runs with that user's ACLs.
 - **The router** tells the two paths apart by the descriptor type and the
