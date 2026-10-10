@@ -112,6 +112,9 @@ work with the results of either interface.
 | Tool | How to use it with this project | Useful for |
 |-|-|-|
 | **DBeaver** | Configure the [Arrow Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html) with the URL below; see [JDBC setup](#jdbc-dbeaver-and-others) for JVM options, authentication and sessions | Interactive SQL, browsing schemas and tables, viewing query results |
+| **Apache Superset** | Superset [requires a DB-API driver and SQLAlchemy dialect](https://superset.apache.org/user-docs/6.0.0/configuration/databases/). A candidate adapter is the third-party, beta [`sqlalchemy-adbc[flightsql]`](https://pypi.org/project/sqlalchemy-adbc/), using `adbc+flightsql://localhost:8815`; validate autocommit, metadata and generated SQL with this server | SQL exploration, charts and dashboards; requires adapter setup and compatibility testing |
+| **Power BI** | Build a [custom ADBC-based Power Query connector](https://learn.microsoft.com/en-us/power-query/adbc) using the Flight SQL driver and server URI below; adapt the sample's type mappings, navigation queries and SQL generation to this server. This project does not ship a Power BI connector | Reports and dashboards; requires custom connector development and compatibility testing |
+| **Tableau** | Try [Other Databases (JDBC)](https://help.tableau.com/current/pro/desktop/en-gb/examples_otherdatabases_jdbc.htm) with the Arrow Flight SQL JDBC driver and URL below; configure the [driver's JVM options](#jdbc-dbeaver-and-others) and validate metadata and generated SQL. Tableau's generic JDBC connector does not guarantee feature compatibility | Visual analysis and dashboards; requires driver setup and compatibility testing |
 | **Other JDBC applications** | Load `org.apache.arrow:flight-sql-jdbc-driver` and use the same JDBC URL, if the application supports custom JDBC drivers | Java applications and data tools that allow a custom driver |
 | **Python / PyArrow** | Use [ADBC Flight SQL](https://arrow.apache.org/adbc/current/driver/flight_sql.html) (`adbc_driver_flightsql`) for SQL and [`pyarrow.flight`](https://arrow.apache.org/docs/python/flight.html) for datasets; see [Client examples](#client-examples) | Queries, bulk ingest, Arrow table transfers and ML batches |
 | **pandas** | Pass an ADBC Flight SQL connection to [`pd.read_sql`](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html) (pandas 2.2+), or convert a downloaded Arrow table with `table.to_pandas()` | Dataframe analysis and reporting |
@@ -129,9 +132,11 @@ JDBC:          jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
 ```
 
 The Python tour and Go integration tests exercise the Flight SQL and dataset
-clients. The JDBC smoke test exercises the driver used by DBeaver. The
-dataframe, DuckDB, R and Redis Insight workflows above describe compatible
-interfaces; they are not covered by this project's integration tests.
+clients. The JDBC smoke test exercises the driver used by DBeaver. Superset,
+Power BI and Tableau are integration options that require the setup and
+compatibility testing described above; they have not been tested with this
+project. The dataframe, DuckDB, R and Redis Insight workflows describe
+compatible interfaces but are not covered by this project's integration tests.
 
 For SQL, use autocommit: transactions are not supported. A tool's PostgreSQL
 or generic Redis connector does not connect to the Flight endpoint; select
