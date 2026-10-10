@@ -75,6 +75,7 @@ Image tags are the version without the `v` (`1.2.3`), its minor version
 ## Contents
 
 - [Choose an interface](#choose-an-interface) compares Flight SQL and datasets.
+- [Data tools](#data-tools) lists compatible query, dataframe and inspection tools.
 - [Client examples](#client-examples) covers Python, JDBC and Go.
 - [Feature reference](#feature-reference) documents SQL, sessions and datasets.
 - [Deployment and operations](#deployment-and-operations) covers security,
@@ -101,6 +102,41 @@ Redis, run the [100,000-row, 10-column benchmarks](server/dataset_bench_test.go)
 ```bash
 REDIS_URI=redis://localhost:6379/0 go test ./server -run '^$' -bench Dataset -benchtime 10x
 ```
+
+## Data tools
+
+Use a **Flight SQL driver** to query SQL tables, or a **Flight client** to
+upload and download named datasets. Tools that consume Arrow tables can
+work with the results of either interface.
+
+| Tool | How to use it with this project | Useful for |
+|-|-|-|
+| **DBeaver** | Configure the [Arrow Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html) with the URL below; see [JDBC setup](#jdbc-dbeaver-and-others) for JVM options, authentication and sessions | Interactive SQL, browsing schemas and tables, viewing query results |
+| **Other JDBC applications** | Load `org.apache.arrow:flight-sql-jdbc-driver` and use the same JDBC URL, if the application supports custom JDBC drivers | Java applications and data tools that allow a custom driver |
+| **Python / PyArrow** | Use [ADBC Flight SQL](https://arrow.apache.org/adbc/current/driver/flight_sql.html) (`adbc_driver_flightsql`) for SQL and [`pyarrow.flight`](https://arrow.apache.org/docs/python/flight.html) for datasets; see [Client examples](#client-examples) | Queries, bulk ingest, Arrow table transfers and ML batches |
+| **pandas** | Pass an ADBC Flight SQL connection to [`pd.read_sql`](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html) (pandas 2.2+), or convert a downloaded Arrow table with `table.to_pandas()` | Dataframe analysis and reporting |
+| **Polars** | Pass an ADBC Flight SQL connection to [`pl.read_database`](https://docs.pola.rs/api/python/stable/reference/api/polars.read_database.html), or convert a downloaded Arrow table with `pl.from_arrow(table)` | Dataframe transformations and analytics |
+| **DuckDB** | Fetch an Arrow table through ADBC or Flight, then [query it locally in DuckDB](https://duckdb.org/docs/current/guides/python/import_arrow); this uses an Arrow transfer rather than a direct DuckDB connection to the server | Joining Redis results with local files or other Arrow data |
+| **R** | Use the [`adbcflightsql` driver](https://arrow.apache.org/adbc/current/driver/flight_sql.html) through the R ADBC packages, setting the server URI below | SQL queries and Arrow-based analysis in R |
+| **Go / Arrow Java** | Use the Arrow Flight SQL client for SQL, or the Flight client for dataset `DoPut` / `DoGet`; see [Other clients](#other-clients) and the [Flight API](https://arrow.apache.org/docs/format/Flight.html) | Applications and data pipelines |
+| **Redis Insight** | [Connect directly to the backing Redis database](https://redis.io/docs/latest/develop/tools/insight/), rather than the Flight endpoint | Inspecting SQL row HASHes, search indexes and Redis memory usage; dataset payloads remain encoded Arrow IPC |
+
+Local connection addresses (without TLS):
+
+```text
+Flight / ADBC: grpc://localhost:8815
+JDBC:          jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
+```
+
+The Python tour and Go integration tests exercise the Flight SQL and dataset
+clients. The JDBC smoke test exercises the driver used by DBeaver. The
+dataframe, DuckDB, R and Redis Insight workflows above describe compatible
+interfaces; they are not covered by this project's integration tests.
+
+For SQL, use autocommit: transactions are not supported. A tool's PostgreSQL
+or generic Redis connector does not connect to the Flight endpoint; select
+Flight SQL or install its driver. SQL tools see SQL tables, while named
+datasets are accessed through Flight's dataset API.
 
 ## Client examples
 
