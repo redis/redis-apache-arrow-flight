@@ -107,6 +107,8 @@ Image tags are the version without the `v` (`1.2.3`), its minor version
 - [SDLC documentation](docs/sdlc/README.md) links project context, intent,
   specification, plan, review guidance, testing, and operations records.
 
+See the [protocol capability matrix](docs/flight-capabilities.md) for supported commands, error behavior, and optional features.
+
 ## Choose an interface
 
 Use **Flight SQL** when you want the data to stay *queryable* in Redis: to
@@ -301,10 +303,10 @@ Known limits of the JDBC driver (19.0.0):
 | Queries (`CommandStatementQuery`), updates (`CommandStatementUpdate`) | Yes. A statement without a row count (DDL, `SET`) reports 0 rows |
 | Prepared statements, with parameters | Yes. The handle carries the SQL and the bound values, so the server keeps no state. Clients must use the handle a bind returns (`DoPutPreparedStatementResult`, Flight SQL's stateless prepared statements). arrow-go, the ADBC Flight SQL driver and the JDBC driver do, and are tested; a client that ignores it loses the bound values. The parameter schema gives each parameter the type it's used as (a compared column's, an `INSERT` target's, a `CAST`'s, …), as the Redis ADBC driver infers it, or NULL. Parameters for a query are limited to 1 MiB |
 | Bulk ingest (`CommandStatementIngest`) | Yes: create, append, replace, create-or-append, and pass-through options such as `adbc.redis.ingest.index_columns`. Temporary tables (`temporary`, or the `pg_temp` schema) need a [session](#sessions). `adbc.ingest.*` options are refused: set the target and mode with the command's fields |
-| `GetCatalogs`, `GetDbSchemas`, `GetTables` (with schemas), `GetTableTypes`, `GetSqlInfo` | Yes. The catalog is `redis`; schemas are key namespaces (`public` by default) |
+| `GetCatalogs`, `GetDbSchemas`, `GetTables` (with schemas), `GetTableTypes`, `GetSqlInfo`, `GetXdbcTypeInfo` | Yes. The catalog is `redis`; schemas are key namespaces (`public` by default) |
 | Primary and foreign keys | Empty results: the driver has no primary/foreign-key constraints |
 | Sessions: `SetSessionOptions`, `GetSessionOptions`, `CloseSession` | Yes, for clients that keep cookies: see [Sessions](#sessions) |
-| Transactions, savepoints, Substrait, `GetXdbcTypeInfo`, cancellation | No |
+| Transactions, savepoints, Substrait, cancellation | No |
 
 How statements run:
 

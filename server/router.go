@@ -128,3 +128,9 @@ func (r *router) ListActions(e *flight.Empty, stream flight.FlightService_ListAc
 		Description: `Drop a dataset. Body: its name (the path segments joined by "/"), or {"dataset": "<name>"}.`,
 	})
 }
+
+// DoExchange is intentionally deferred: this service has no bidirectional
+// transformation contract. Clients upload with DoPut and fetch with DoGet.
+func (r *router) DoExchange(flight.FlightService_DoExchangeServer) error {
+	return status.Error(codes.Unimplemented, "DoExchange is not supported: upload datasets with DoPut and download them with DoGet")
+}
