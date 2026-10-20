@@ -2,8 +2,8 @@ github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20260903064016-31a68ee93
 github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20260903064016-31a68ee93796/go.mod h1:2UUwZqV/NVOJwESLh6ajN2GuzVK9MQg5LI7EPKXkoEg=
 github.com/adbc-drivers/driverbase-go/testutil v0.0.0-20260803160758-8f4d5c91c894 h1:ytSDLPGv8gMSyvDsu8Ohol0Dh+hK0sx6n01K4+0MCuc=
 github.com/adbc-drivers/driverbase-go/testutil v0.0.0-20260803160758-8f4d5c91c894/go.mod h1:958w1J4jByMlVKfyrv1Uil06T1hkPEeZ/jE3JdKGvnk=
-github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261006153915-8df997d3fd02 h1:AClHGnV6d1vsGm5pRx+xIl0Bl1iAcoCVzsq1c+ooacM=
-github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261006153915-8df997d3fd02/go.mod h1:/HyX3cD7Em8awby9nyqxdFo8R83uNKz6E73wMu315JM=
+github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261020162618-a66467bc5e6a h1:O3Bdb4uUSSEvtvg4UPBl8Tyqx4vBMsZv1OifHfMIJDE=
+github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261020162618-a66467bc5e6a/go.mod h1:zLW6o0hdGwG1s3gUGl5wP9sh/fs87c95A7t2ty0JnB0=
 github.com/andybalholm/brotli v1.2.3 h1:8H1qwOkl2LPfjf3YezB90JnCliZb6SInJ/OJkEbA5NQ=
 github.com/andybalholm/brotli v1.2.3/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 github.com/apache/arrow-adbc/go/adbc v1.12.0 h1:1S7h8M12a+JZPuduuBo0kIQIRq+4heUikMnHBQ9seXE=
@@ -22,6 +22,8 @@ github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1x
 github.com/cenkalti/backoff/v5 v5.0.3/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
+github.com/dlclark/regexp2 v1.11.5 h1:Q/sSnsKerHeCkc/jSTNq1oCm7KiVgUMZRDUoRu0JQZQ=
+github.com/dlclark/regexp2 v1.11.5/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=

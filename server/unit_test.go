@@ -139,8 +139,10 @@ func TestStreamTokens(t *testing.T) {
 func TestStreamTable(t *testing.T) {
 	for sql, want := range map[string]streamSource{
 		"SELECT * FROM t": {"public", "t"},
-		"select id from Orders where id > 3 order by id": {"public", "Orders"},
-		"SELECT id FROM Sales.Orders LIMIT 10":           {"Sales", "Orders"},
+		// The driver folds unquoted identifiers to lower case, as SQL does.
+		"select id from Orders where id > 3 order by id": {"public", "orders"},
+		"SELECT id FROM Sales.Orders LIMIT 10":           {"sales", "orders"},
+		`SELECT id FROM "Sales"."Orders" LIMIT 10`:       {"Sales", "Orders"},
 		`SELECT id FROM "Mixed"`:                         {"public", "Mixed"},
 		"SELECT o.id FROM t AS o WHERE o.id = $1":        {"public", "t"},
 		// Uncorrelated subqueries stream too, so in a session with
