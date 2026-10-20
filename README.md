@@ -48,12 +48,25 @@ it serves, and Redis answers.
 
 ### Install
 
-Source builds currently require access to the private Redis ADBC driver fork.
-Use GitHub-authenticated Git access and set `GONOPROXY` and `GONOSUMDB` to
-`github.com/alberttwong/redis-adbc-driver/go` for dependency downloads.
-The current Dockerfile and CI workflows do not provision that access for clean
-builds; [issue #58](https://github.com/alberttwong/redis-apache-arrow-flight/issues/58)
-tracks reproducible private-dependency builds.
+Source builds require read access to the private Redis ADBC driver fork.
+With an existing GitHub-authenticated Git setup, use
+`./scripts/with-private-modules.sh make build`. Alternatively provide
+`REDIS_ADBC_TOKEN`, a token with read-only Contents access to
+`alberttwong/redis-adbc-driver`; the wrapper uses it through an ephemeral
+Git credential helper. Public dependencies still use checksum verification,
+and the checked-in `go.sum` pins every module's contents.
+
+For Docker, set `REDIS_ADBC_TOKEN` in the calling environment and use
+`make docker`, or `docker compose -f compose.yaml -f compose.private.yaml up --detach --build --wait`.
+BuildKit mounts the token only during dependency download. Do not pass it as
+a build argument or copy a credential file into the build context.
+
+CI and release workflows require the repository/organization secret
+`REDIS_ADBC_READ_TOKEN` with the same restricted read access. The workflow's
+ordinary `GITHUB_TOKEN` cannot read another private repository. Fork PRs do
+not receive this secret: validate reviewed fork contributions from a trusted
+branch, without switching to `pull_request_target`. Configure the secret
+before relying on clean hosted builds; see [issue #58](https://github.com/alberttwong/redis-apache-arrow-flight/issues/58).
 
 The [release workflow](.github/workflows/release.yml) is configured to publish
 static binaries for Linux (amd64, arm64) and macOS (arm64), with SHA-256

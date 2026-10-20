@@ -1,0 +1,19 @@
+name: Download private Go dependencies
+description: Download pinned modules with ephemeral, repository-scoped Git credentials
+inputs:
+  token:
+    description: Token with read-only Contents access to alberttwong/redis-adbc-driver
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Download dependencies
+      shell: bash
+      env:
+        REDIS_ADBC_TOKEN: ${{ inputs.token }}
+      run: |
+        if [ -z "$REDIS_ADBC_TOKEN" ]; then
+          echo '::error::Configure REDIS_ADBC_READ_TOKEN with read-only Contents access to alberttwong/redis-adbc-driver. Fork pull requests do not receive this secret; use a trusted branch run to validate them.'
+          exit 1
+        fi
+        ./scripts/with-private-modules.sh go mod download

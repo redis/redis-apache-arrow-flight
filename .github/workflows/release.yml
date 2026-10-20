@@ -24,6 +24,8 @@ on:
       - .github/workflows/release.yml
       - Dockerfile
       - Makefile
+      - scripts/**
+      - .github/actions/private-go/**
 
 permissions:
   contents: read
@@ -41,6 +43,8 @@ env:
 jobs:
   test:
     uses: ./.github/workflows/test.yml
+    secrets:
+      REDIS_ADBC_READ_TOKEN: ${{ secrets.REDIS_ADBC_READ_TOKEN }}
     with:
       ref: ${{ inputs.tag || github.sha }}
 
@@ -55,6 +59,10 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+
+      - uses: ./.github/actions/private-go
+        with:
+          token: ${{ secrets.REDIS_ADBC_READ_TOKEN }}
 
       - name: Build
         run: |
@@ -151,6 +159,8 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: .
+          secrets: |
+            redis_adbc_token=${{ secrets.REDIS_ADBC_READ_TOKEN }}
           platforms: linux/amd64
           build-args: VERSION=${{ env.VERSION }}
           tags: redis-flight-server:check
@@ -171,6 +181,8 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: .
+          secrets: |
+            redis_adbc_token=${{ secrets.REDIS_ADBC_READ_TOKEN }}
           platforms: linux/amd64,linux/arm64
           build-args: VERSION=${{ env.VERSION }}
           tags: ${{ steps.meta.outputs.tags }}
