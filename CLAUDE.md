@@ -17,6 +17,7 @@ Read [the SDLC index](docs/sdlc/README.md) and the change's intent, spec, and pl
 - `cmd/redis-flight-server/`: flags/environment, signals, health probe.
 - `server/router.go`: PATH descriptors/JSON tickets → datasets; CMD/protobuf → Flight SQL.
 - `server/sqlserver.go`, `metadata.go`: SQL through the Redis ADBC driver; preserve the pinned fork replacement in `go.mod` unless dependency changes are in scope.
+- Before updating the Redis ADBC driver, always check upstream for the latest release and default-branch commit. Verify the Go submodule version against upstream rather than trusting a potentially stale `@latest` lookup; pin the selected immutable revision and record the check date and validation results.
 - `server/datasets.go`, `ipc.go`: generation-based Arrow IPC storage; preserve cluster hash tags, monotonic sequence keys, atomic publication, and legacy LIST reads.
 - `server/tenant.go`, `pool.go`, `session.go`: identity-scoped resources and session state. Release Arrow references, connections, cursors, and reservations on error, cancellation, and panic.
 - `server/config.go` and command flags must stay consistent with README configuration.

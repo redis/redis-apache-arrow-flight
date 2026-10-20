@@ -292,7 +292,11 @@ func TestIntegrationSessionSettings(t *testing.T) {
 	known := map[string]bool{"search_path": true, "timezone": true, "client_encoding": true,
 		"application_name": true, "standard_conforming_strings": true, "statement_timeout": true,
 		"lock_timeout": true, "idle_in_transaction_session_timeout": true, "extra_float_digits": true,
-		"datestyle": true, "intervalstyle": true}
+		"datestyle": true, "intervalstyle": true,
+		// Read-only compatibility metadata; these cannot change scan results.
+		"integer_datetimes": true, "is_superuser": true, "max_identifier_length": true,
+		"server_encoding": true, "server_version": true, "server_version_num": true,
+		"transaction_isolation": true}
 	rows := query(t, context.Background(), c, "SHOW ALL")
 	if len(rows) == 0 {
 		t.Fatal("SHOW ALL returned nothing")

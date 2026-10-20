@@ -48,6 +48,13 @@ it serves, and Redis answers.
 
 ### Install
 
+Source builds currently require access to the private Redis ADBC driver fork.
+Use GitHub-authenticated Git access and set `GONOPROXY` and `GONOSUMDB` to
+`github.com/alberttwong/redis-adbc-driver/go` for dependency downloads.
+The current Dockerfile and CI workflows do not provision that access for clean
+builds; [issue #58](https://github.com/alberttwong/redis-apache-arrow-flight/issues/58)
+tracks reproducible private-dependency builds.
+
 The [release workflow](.github/workflows/release.yml) is configured to publish
 static binaries for Linux (amd64, arm64) and macOS (arm64), with SHA-256
 checksums, and a multi-arch image on the GitHub Container Registry. To use a
@@ -282,7 +289,7 @@ Known limits of the JDBC driver (19.0.0):
 | Prepared statements, with parameters | Yes. The handle carries the SQL and the bound values, so the server keeps no state. Clients must use the handle a bind returns (`DoPutPreparedStatementResult`, Flight SQL's stateless prepared statements). arrow-go, the ADBC Flight SQL driver and the JDBC driver do, and are tested; a client that ignores it loses the bound values. The parameter schema gives each parameter the type it's used as (a compared column's, an `INSERT` target's, a `CAST`'s, …), as the Redis ADBC driver infers it, or NULL. Parameters for a query are limited to 1 MiB |
 | Bulk ingest (`CommandStatementIngest`) | Yes: create, append, replace, create-or-append, and pass-through options such as `adbc.redis.ingest.index_columns`. Temporary tables (`temporary`, or the `pg_temp` schema) need a [session](#sessions). `adbc.ingest.*` options are refused: set the target and mode with the command's fields |
 | `GetCatalogs`, `GetDbSchemas`, `GetTables` (with schemas), `GetTableTypes`, `GetSqlInfo` | Yes. The catalog is `redis`; schemas are key namespaces (`public` by default) |
-| Primary and foreign keys | Empty results: the driver has no constraints |
+| Primary and foreign keys | Empty results: the driver has no primary/foreign-key constraints |
 | Sessions: `SetSessionOptions`, `GetSessionOptions`, `CloseSession` | Yes, for clients that keep cookies: see [Sessions](#sessions) |
 | Transactions, savepoints, Substrait, `GetXdbcTypeInfo`, cancellation | No |
 

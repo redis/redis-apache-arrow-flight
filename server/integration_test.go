@@ -348,7 +348,8 @@ func TestIntegrationPreparedTypes(t *testing.T) {
 		// Planned with $1's type, so the column has one.
 		{"SELECT $1 AS x FROM " + tbl + " WHERE id = $1", "[int64]", "[int64]"},
 		{"SELECT $1 AS x", "[null]", "none"},
-		{"SELECT 1 AS one", "[]", "[int64]"},
+		{"SELECT 1 AS one", "[]", "[int32]"},
+		{"SELECT CAST(1 AS BIGINT) AS one", "[]", "[int64]"},
 	} {
 		p, err := c.Prepare(ctx, tc.sql)
 		if err != nil {

@@ -91,9 +91,17 @@ func tryQuery(ctx context.Context, c *flightsql.Client, sql string) ([]int64, er
 func readIDs(rdr *flight.Reader) ([]int64, error) {
 	var ids []int64
 	for rdr.Next() {
-		col := rdr.RecordBatch().Column(0).(*array.Int64)
-		for i := range col.Len() {
-			ids = append(ids, col.Value(i))
+		switch col := rdr.RecordBatch().Column(0).(type) {
+		case *array.Int64:
+			for i := range col.Len() {
+				ids = append(ids, col.Value(i))
+			}
+		case *array.Int32: // SQL integer literals now have PostgreSQL's INTEGER type.
+			for i := range col.Len() {
+				ids = append(ids, int64(col.Value(i)))
+			}
+		default:
+			return nil, fmt.Errorf("expected integer IDs, got %s", col.DataType())
 		}
 	}
 	return ids, rdr.Err()
