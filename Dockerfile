@@ -2,9 +2,12 @@
 # The build stage runs on the builder's platform and cross-compiles (the
 # server needs no cgo), so a multi-platform build needs no emulation.
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+RUN apk add --no-cache git ca-certificates
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN go mod download
+COPY scripts/ scripts/
+RUN --mount=type=secret,id=redis_adbc_token \
+    REDIS_ADBC_TOKEN_FILE=/run/secrets/redis_adbc_token ./scripts/with-private-modules.sh go mod download
 COPY . .
 ARG VERSION=dev
 ARG TARGETOS TARGETARCH

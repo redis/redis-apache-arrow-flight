@@ -64,7 +64,7 @@ redis-down:
 	docker compose --profile cluster down
 
 docker:
-	docker build --build-arg VERSION=$(VERSION) -t redis-flight-server:$(VERSION) .
+	docker build --secret id=redis_adbc_token,env=REDIS_ADBC_TOKEN --build-arg VERSION=$(VERSION) -t redis-flight-server:$(VERSION) .
 
 example:
 	uv run examples/python/quickstart.py
