@@ -84,6 +84,8 @@ Image tags are the version without the `v` (`1.2.3`), its minor version
   configuration, health checks, metrics and shutdown.
 - [Architecture](#architecture) explains routing, storage and request flow.
 - [Development](#development) describes the code layout and test targets.
+- [SDLC documentation](docs/sdlc/README.md) links project context, intent,
+  specification, plan, review guidance, testing, and operations records.
 
 ## Choose an interface
 
