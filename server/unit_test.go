@@ -989,6 +989,17 @@ func TestSqlInfoTypes(t *testing.T) {
 			if got := values.TypeCode(i); got != code {
 				t.Errorf("SqlInfo %v is union member %d, want %d", id, got, code)
 			}
+			switch id {
+			case flightsql.SqlInfoFlightSqlServerSubstrait, flightsql.SqlInfoFlightSqlServerIngestTransactionsSupported,
+				flightsql.SqlInfoTransactionsSupported:
+				if values.Field(values.ChildID(i)).(*array.Boolean).Value(int(values.ValueOffset(i))) {
+					t.Errorf("SqlInfo %v promises an unsupported capability", id)
+				}
+			case flightsql.SqlInfoFlightSqlServerTransaction:
+				if got := values.Field(values.ChildID(i)).(*array.Int32).Value(int(values.ValueOffset(i))); got != int32(flightsql.SqlTransactionNone) {
+					t.Errorf("transaction support: %d, want NONE", got)
+				}
+			}
 		}
 	}
 	if seen != len(want) {

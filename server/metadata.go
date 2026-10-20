@@ -349,7 +349,7 @@ func (s *sqlServer) DoGetTableTypes(ctx context.Context) (*arrow.Schema, <-chan 
 	return schema_ref.TableTypes, oneBatch(b.NewRecordBatch()), nil
 }
 
-// The driver has no constraints, so key lookups answer with no rows rather
+// The driver has no primary/foreign-key constraints, so key lookups answer with no rows rather
 // than an error, which JDBC tools would show.
 
 func (s *sqlServer) emptyResult(schema *arrow.Schema) (*arrow.Schema, <-chan flight.StreamChunk, error) {
