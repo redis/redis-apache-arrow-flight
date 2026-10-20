@@ -7,6 +7,8 @@ Status: source-derived baseline; runtime tests and production behavior have not 
 
 The Go service provides one gRPC endpoint for SQL over Redis and named Arrow table transfers. SQL suits indexed filters, aggregates, updates, metadata, and ingestion. Datasets suit dataframe/feature snapshots and nested Arrow types, with column and batch selection rather than SQL row predicates.
 
+The requester clarified on 2026-10-20 that the project addresses the difficulty of streaming large, many-row Redis result sets to clients. [Project motivation in intent.md](../../intent.md#project-motivation) records that goal and its external background separately from this source-derived baseline. Comparative throughput, latency, and memory targets have not yet been agreed or measured here.
+
 Evidence: [README interface comparison](../../README.md#choose-an-interface), [router](../../server/router.go), [configuration](../../server/config.go).
 
 The repository exercises Python ADBC/PyArrow, Go clients, and the Flight SQL JDBC driver. README identifies Superset, Power BI, and Tableau as options requiring compatibility work, not tested integrations. Dataframe, DuckDB, R, and Redis Insight descriptions are also not integration-test coverage. See [client examples](../../examples/python/quickstart.py), [JDBC smoke](../../examples/jdbc/JdbcSmoke.java), and [tool caveats](../../README.md#data-tools).
