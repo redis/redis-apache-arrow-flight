@@ -4,6 +4,8 @@ Status: prepared for review; documentation scope only. Prepared: 2026-10-20.
 Inputs: [intent.md](intent.md), [spec.md](spec.md).
 Baseline: `27bbc3e63ed1fdfe22c7018cc723b50f1681ed50`.
 
+Scope update, 2026-10-20: incorporate the requester's large-result streaming motivation in `intent.md` and link it from `docs/sdlc/context.md`. Distinguish the desired product outcome from current streaming coverage and unmeasured comparative performance. Verify technical background against Apache Arrow documentation and retain the supplied article as contextual reading.
+
 ## Work and files
 
 1. Read README, `go.mod`, Makefile, Dockerfile, Compose, workflows, server/command source, tests, and client examples. Record evidence and unknowns in `docs/sdlc/context.md`.
