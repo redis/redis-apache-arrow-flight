@@ -60,6 +60,9 @@ func (r *router) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetServ
 	}
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
+	handoffs := &recordHandoffs{}
+	ctx = context.WithValue(ctx, handoffKey{}, handoffs)
+	defer handoffs.releaseAll()
 	err := r.sql.DoGet(tkt, &cancelOnSendError{FlightService_DoGetServer: stream, ctx: ctx, cancel: cancel})
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		// The Flight SQL server returns the context's error as it is,

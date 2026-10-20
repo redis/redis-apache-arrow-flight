@@ -47,6 +47,15 @@ public class JdbcSmoke {
             DatabaseMetaData md = c.getMetaData();
             System.out.println("connected to " + md.getDatabaseProductName() + " " + md.getDatabaseProductVersion()
                     + " with " + md.getDriverName() + " " + md.getDriverVersion());
+            try (ResultSet types = md.getTypeInfo()) {
+                Set<String> names = new HashSet<>();
+                while (types.next()) {
+                    names.add(types.getString(1));
+                }
+                // JDBC 19 inherits Avatica's empty getTypeInfo implementation;
+                // it does not forward this call to Flight SQL GetXdbcTypeInfo.
+                check(names.isEmpty(), "JDBC 19 getTypeInfo is empty (known client limitation)");
+            }
             try (Statement st = c.createStatement()) {
                 st.execute("CREATE TABLE " + t + " (id BIGINT NOT NULL, name VARCHAR, qty INTEGER)");
             }

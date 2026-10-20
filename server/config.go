@@ -88,6 +88,10 @@ type Config struct {
 	// has a connection left for other requests (none stream with a pool
 	// of 1).
 	MaxStreams int
+	// StreamOverflow selects what happens when an eligible scan has no stream
+	// slot: "buffer" (default, within ResultMemory) or "reject". Reject returns
+	// RESOURCE_EXHAUSTED before executing the scan instead of materializing it.
+	StreamOverflow string
 	// MaxTableStreams is the number of query results that can stream from
 	// one table at once, across all users of the server (default 32). Each
 	// holds a cursor on the table's index, and RediSearch allows an index
@@ -145,6 +149,9 @@ type Config struct {
 }
 
 func (c *Config) setDefaults() {
+	if c.StreamOverflow == "" {
+		c.StreamOverflow = "buffer"
+	}
 	if c.Listen == "" {
 		c.Listen = "localhost:8815"
 	}
@@ -202,6 +209,9 @@ func (c *Config) setDefaults() {
 }
 
 func (c *Config) validate() error {
+	if c.StreamOverflow != "buffer" && c.StreamOverflow != "reject" {
+		return fmt.Errorf("invalid StreamOverflow %q (want buffer or reject)", c.StreamOverflow)
+	}
 	switch c.Auth {
 	case AuthNone, AuthRedisACL:
 	default:

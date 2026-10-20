@@ -10,8 +10,9 @@ This project is a Flight SQL and Flight RPC endpoint backed by Redis. Both inter
 | GetXdbcTypeInfo | Canonical scalar SQL types, ordered by data_type; exact optional type filter; unknown filter returns an empty standard-schema stream. Unbounded/unknown size or scale is NULL. SQL aliases and RECORD are not separate entries. | TestFlightTypeInfo, TestIntegrationTypeInfoDDL |
 | GetSqlInfo | Reports server identity, SQL/ingest support, typed capability values and autocommit limitations | unit_test.go and TestIntegrationMetadata |
 | Primary/foreign keys | Standard-schema empty results, because the backend has no such constraints | metadata.go |
-| Sessions | Cookie sessions for settings and temporary objects | session_integration_test.go |
+| Sessions | Cookie sessions for settings and temporary objects; unknown state returns ABORTED before execution and a recovery cookie | session_integration_test.go |
 | Flight RPC datasets | PATH GetFlightInfo/GetSchema/PollFlightInfo, DoPut/DoGet, ListFlights, drop_dataset; nested Arrow types, columns/batch selection | dataset integration tests, Python quickstart |
+| Query cancellation | CancelFlightInfo and translated legacy CancelQuery; pending/active read-only tickets, identity checks, shared Redis state, cooperative cleanup; completed/write/non-cancellable tickets return NOT_CANCELLABLE | cancellation_integration_test.go |
 | DoExchange | Deferred; returns UNIMPLEMENTED and directs clients to DoPut/DoGet | TestFlightUnsupportedCapabilities |
 | Transactions/savepoints | Out of scope until the Redis ADBC backend supplies transactional guarantees. BeginTransaction returns UNIMPLEMENTED; transaction IDs on statements/ingestion are rejected. GetSqlInfo advertises no transactions and no ingestion transactions. | sqlserver.go, TestFlightUnsupportedCapabilities |
 | Substrait | Deferred until the backend has a supported plan execution contract. Commands return UNIMPLEMENTED and support is advertised as false. | TestFlightUnsupportedCapabilities |

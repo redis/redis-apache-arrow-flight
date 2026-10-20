@@ -22,10 +22,11 @@ import (
 
 // sqlServer implements Flight SQL on the Redis ADBC driver.
 //
-// It keeps no per-statement state. A statement's ticket, and a prepared
-// statement's handle, carry the SQL and its bound parameters (as an Arrow
-// IPC stream), so any replica can serve any request and nothing needs
-// cleaning up. A bind returns the new handle, as Flight SQL's stateless
+// Statement data is carried in tickets; cancellation state is kept in Redis
+// with a finite lease (see cancellation.go). A statement's ticket and a
+// prepared statement's handle carry the SQL and bound parameters (an Arrow
+// IPC stream), so non-session requests can be served by any replica. Query
+// control records expire automatically; statement data is not stored in process. A bind returns the new handle, as Flight SQL's stateless
 // prepared statements do (DoPutPreparedStatementResult).
 //
 // A query that only reads (SELECT, SHOW) runs when its ticket is read. Any
@@ -84,7 +85,7 @@ func newSQLServer(tenants *tenantCache, alloc memory.Allocator, keyPrefix string
 		flightsql.SqlInfoFlightSqlServerSql:                         true,
 		flightsql.SqlInfoFlightSqlServerSubstrait:                   false,
 		flightsql.SqlInfoFlightSqlServerTransaction:                 int32(flightsql.SqlTransactionNone),
-		flightsql.SqlInfoFlightSqlServerCancel:                      false,
+		flightsql.SqlInfoFlightSqlServerCancel:                      true,
 		flightsql.SqlInfoFlightSqlServerBulkIngestion:               true,
 		flightsql.SqlInfoFlightSqlServerIngestTransactionsSupported: false,
 		flightsql.SqlInfoFlightSqlServerStatementTimeout:            int32(0),
@@ -110,6 +111,7 @@ func newSQLServer(tenants *tenantCache, alloc memory.Allocator, keyPrefix string
 // that already ran has its result instead: Result, or ResultKey, the
 // Redis key that holds it.
 type statementHandle struct {
+	CancelID  string `json:"c,omitempty"`
 	Query     string `json:"q,omitempty"`
 	Params    []byte `json:"p,omitempty"` // an Arrow IPC stream
 	Result    []byte `json:"r,omitempty"` // an Arrow IPC stream
@@ -256,6 +258,9 @@ func (s *sqlServer) statementInfo(ctx context.Context, h statementHandle, desc *
 	}
 	schema, err := s.infoSchema(ctx, t, h)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.registerQuery(ctx, t, &h); err != nil {
 		return nil, err
 	}
 	tkt, err := flightsql.CreateStatementQueryTicket(h.encode())
@@ -480,6 +485,10 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 	}
 	if why := s.takeStream(ctx, t, src); why != "" {
 		defer done()
+		if s.tenants.cfg.StreamOverflow == "reject" {
+			return nil, nil, status.Errorf(codes.ResourceExhausted,
+				"no stream is available (%s); --stream-overflow=reject refuses this scan before execution: retry after a stream finishes", why)
+		}
 		m.queryReadWhole(why)
 		return s.bufferQuery(ctx, t, h)
 	}
@@ -700,7 +709,7 @@ func (s *sqlServer) DoGetStatement(ctx context.Context, tkt flightsql.StatementQ
 	if h.Result != nil || h.ResultKey != "" {
 		return s.streamResult(ctx, h)
 	}
-	return s.executeQuery(ctx, h)
+	return s.executeCancellableQuery(ctx, h)
 }
 
 func (s *sqlServer) DoPutCommandStatementUpdate(ctx context.Context, cmd flightsql.StatementUpdate) (int64, error) {
@@ -894,7 +903,7 @@ func (s *sqlServer) DoGetPreparedStatement(ctx context.Context, cmd flightsql.Pr
 	if err != nil {
 		return nil, nil, err
 	}
-	return s.executeQuery(ctx, h)
+	return s.executeCancellableQuery(ctx, h)
 }
 
 // DoPutPreparedStatementUpdate runs a prepared update once per row of the

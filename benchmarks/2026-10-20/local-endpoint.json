@@ -1,0 +1,757 @@
+{
+  "methodology": "Synthetic local endpoint benchmark. Mutates uniquely named disposable fixtures.\n\nMeasures warmed-connection time to first batch, total transfer, Arrow payload\nbytes and sampled process RSS. Read the methodology before interpreting results:\nclient/server share one host; Redis/Docker memory and network emulation are not\nincluded. A redis-py SCAN+HMGET+Arrow conversion baseline compares unordered full\nscans only, not SQL operators. RSS sampled every 20ms can miss short peaks.\n",
+  "source": {
+    "commit": "1fa871658b719391a9a54b89409545e3258213bc",
+    "dirty": true,
+    "source_manifest_sha256": "ec0557ba009cb15a39e0906361cba877c8e7edb40f6b588d1dde8ccfbdc24e35",
+    "files": {
+      ".dockerignore": "d03e57acc36eae53f1b6e8a00ff309cdbca841eac4906ed19f5b3ab5aaed07a9",
+      ".github/actions/private-go/action.yml": "943417d436a34abb830254cfbfb7a56f8450451f3aa23ae583382be6deefc713",
+      ".github/workflows/release.yml": "bb8bc09067eef632002750339d15f8506711882788c9d4fb33da5348f90c26d2",
+      ".github/workflows/test.yml": "f35896bf58c2961f3ec4bfc8ba89c56db32d185423406a83e2f55b81583ffe94",
+      ".gitignore": "fea767aab1ad6637ffc4bdf55c4f64506b92be673a0ba044537bbc5010d6fee5",
+      "CLAUDE.md": "f58ee352a6f7407e853c6d3143362bc7f220282bcbd78c83c87818643b8310f4",
+      "Dockerfile": "8b5f545a48bcc095afbf503e79a9108800782e000cb8d9aca0b279da56308eaf",
+      "Makefile": "bd0ac472d4175725b6afde54553823f563aa8bfcedaa8d35672d3913c48afda2",
+      "README.md": "7d366bbaee0279304a195ba7918690fdb877cfe49cb79a4ad37019d18f5771af",
+      "REVIEW.md": "54cac41468f083700aa4a42272f405de4b1ab8269c8afe1d6e1e73845bae97f1",
+      "cmd/redis-flight-server/healthcheck.go": "52824b33436cf38e3466d017f2beb91c674cff23a43403accd26425e4d61f1ba",
+      "cmd/redis-flight-server/healthcheck_test.go": "5f90a3f57a869dbf73806455dca1bca435f07201361882bf80b229be6a6f7106",
+      "cmd/redis-flight-server/main.go": "2cb94ea5680db27824a240363584a938af8a5c957fbf0a5b9b75d9abbe65be76",
+      "cmd/redis-flight-server/main_test.go": "9da90f5271be87954b4a8efa4c5ea79e2eb063222789b44cd088a1a8beef578c",
+      "compose.private.yaml": "d55fe0babbcf12f612ca458ab1123671d54c5229cebabdba9516ac5baf85f3d8",
+      "compose.yaml": "2e0120b522ae08f4d8fcec820d70056d491934e7822760d26aac70945a05f72b",
+      "docs/client-compatibility.md": "afed5319553b0d3b1027c3fe1b95f3fc122682f2ec2b2fab04241a49a5f93962",
+      "docs/dataset-sql-workflow.md": "a404da1ea8359f86e434bd518a24b95fb18f3e58ed3ec76e9ce273ee02b52e4e",
+      "docs/endpoint-acceptance.md": "86a3dc448e7ce18bb8afec82d555c109d237d8fb558500f6ae8c3c3c4ce2400e",
+      "docs/flight-capabilities.md": "cd6dc8dba25ad403c8d5ffc700e66123343f06559c77394bc7693db05f0756d0",
+      "docs/sdlc/README.md": "ec3bd7df7f0fc20512c4f56e9226e939f2387b91ad1f7c7d207c9000dcb065ca",
+      "docs/sdlc/context.md": "15fc2c042ff25b74709dd072e0d6e7218d972e36a8ed3ba7e311cb720f3f051a",
+      "docs/sdlc/incident-template.md": "e0d3c4ba946a0b829e39032534a680ba2bf5fac08a5b8153905750c750d68e16",
+      "docs/sdlc/operations.md": "c0c30c31b77f50c41878c50b64ce4a76422fe0eae156a0158f64ddbe7a56e3ba",
+      "docs/sdlc/testing.md": "82fa3163a838057a8f99d27fc3eb811e6ea79f36d92f54103da3ff24756609ad",
+      "examples/jdbc/JdbcSmoke.java": "3f195c3dbeb0fc723ae5d5b158a21d5c2fcd63cc6c49ee4a0a82acea92ed0065",
+      "examples/python/benchmark.py": "90dc4a6fc7599378349c5dc67c82d3bef3057c3651a2bf6fa61d3ef60c5bd010",
+      "examples/python/dataset_to_sql.py": "a3c7da85caa4f261212f3db2e27030b2a340256c7bdd8ffee423d58f25c2c716",
+      "examples/python/failure_probe.py": "89157d2799ddf819caaf282f49b072e3df01b70d1eb5d3f973e92508c0dd8294",
+      "examples/python/quickstart.py": "758ea3d5299275e95ada1bae2c5b2f8e930b27bfa3c661be1603b39dd0c82c9c",
+      "examples/python/requirements-smoke.txt": "f7a1deae7d824ee158075ad48fe689ca0bf050faea682613cb346269d1062fdb",
+      "go.mod": "dfdad4db53ffd1a46372b999e3a01426ddda0ef11285f93c66dbcfe9cc52224f",
+      "go.sum": "a019283fd5a41a893b035ce0b81712456acb9bfc41753eda0717ad3ee77bcff8",
+      "intent.md": "f24e77264c078368142ef93726c4d40e1c408c96711441ddbba4cc79eea1a3e4",
+      "intent/endpoint-lifecycle/intent.md": "404976984f2e2002ffbcab0d30d949804e5f0235d0e14e1484faf3c449a82520",
+      "intent/endpoint-lifecycle/plan.md": "8435be20999e705ae88e986f497967dc8a7a50cfe6a07bdd30f78aec52fedd7c",
+      "intent/endpoint-lifecycle/spec.md": "dbcf48046d0b5879c0dac039b874bb1484c64d5c2e57b6393ba735b659f67324",
+      "intent/flight-capabilities/intent.md": "3d27992cc347a52d6edd11bf91d2d7b1a876c99a023a13411de5f784c518c046",
+      "intent/flight-capabilities/plan.md": "bcf832427b07db149925e63aa98d46d52899782c1e3a09548ad03a7989a6748b",
+      "intent/flight-capabilities/spec.md": "0632024bd249a572f147f8c6a5a681a5dae52794fe1d73c4fc97e4905735695e",
+      "intent/private-dependency-builds/intent.md": "c18981e1819244b055b009ff7fe6f52b48517600dd3cb3f32aff71df02d7e570",
+      "intent/private-dependency-builds/plan.md": "36850b10ce7a3ca7c0ba3d4e17922220ed7bf764e5a488385007e812aa3d1e64",
+      "intent/private-dependency-builds/spec.md": "ba74ac6cb5cae4c4b5c1f4ce5b32efaca85010e1d73ce705959616e9bc449e55",
+      "intent/redis-adbc-latest/intent.md": "467c8e3859ea267f6745987780e271bbd16d90179b188a179143894002ad0c56",
+      "intent/redis-adbc-latest/plan.md": "787cc04e328e4b9fe8eb7d6e11f4b73dc9791860c1cf92ae03d8566d766289c0",
+      "intent/redis-adbc-latest/spec.md": "bcb2f0254b28328cccd39beb6c0391149f7f02aa53d8a26988d16791c24065da",
+      "plan.md": "50828fb9113cafa1ad3e31eba3cabe1bcfedb5dd0088d9f5d8a68ac1fdd74f7f",
+      "scripts/github-credential.sh": "141bf82d7ea187671f8d897094a81871f91d455fb3cc4e11fa143a9a5a22cff7",
+      "scripts/test_private_modules.py": "d336689b0a5a3a29fb0c24aa27ebad827e1c63e5faf4a84db343db392a0f82a0",
+      "scripts/with-private-modules.sh": "1875bc83cd828e984cf737831dcb523d86ed2ceea49caa91e0c494da72506c1a",
+      "server/admission_integration_test.go": "017dff13e23c86fe45fa7069ce7648b3dd01eeffadb9d198c78ef7640eef89cd",
+      "server/auth.go": "a9f2a344fe1c2ce9b53094fcb259b989135609072f25edbd05a88fc643ed1e66",
+      "server/cancellation.go": "c5c5a86e6cfa0d22b52fef6e87f4cc73cc150a51488d45b304e03f24717487b4",
+      "server/cancellation_integration_test.go": "cb401a06ec9814bf6ba55d8337096cfd41c8043fd2de5fa01c6419879697f9ed",
+      "server/capabilities_test.go": "6f3540cd1b61927ab62471f5c65858cae00a48fe08a6061bb84d3484902f19e0",
+      "server/config.go": "66c3336e951625d9be5165d0d9d4125fce8c9d22c2b92fa4218b91e24364d839",
+      "server/cursors.go": "4ff82280ab0df445771c4713a0f2509d7b1159caa559f6829158e7a94945867f",
+      "server/dataset_bench_test.go": "f6e6603746d15a1a61fbcd65130a12b3d87991b8b5eabb49ef8b197a806ca076",
+      "server/datasets.go": "4f31e4dbb6a89d8545cdecd30453512c8f10195ad3ad05c2d014cc25c4d5effa",
+      "server/errors.go": "651d5d91353aa77f0271eb67738673872fc5b3246e9725b343388ff05654f081",
+      "server/health.go": "b5abb6e0821fa204c072ec7c4091a2448587ed4a7879a796fbc443a43600ba90",
+      "server/health_test.go": "65af36b76715436fa2bd0e60ae120065c7dee2aeee307e64126e22221ea9b7a6",
+      "server/helpers_test.go": "386ce95540408129899f9e5b211f73293e71eff95a66ee1d08bedac3730b4aaa",
+      "server/integration_test.go": "211fd322270e8c7dfa8695b3d6edec1cf7683e7f39f9542ade24d1e6ee52098f",
+      "server/ipc.go": "b7a7999c9c4084462a51b719664db3be3d7fe0a7bd065a4d5f0b65979ecd1884",
+      "server/metadata.go": "24215c0f7ca95a995db2cc1d27d57f1f9a43720c547dcbb0ff3cf9def5664b47",
+      "server/metrics.go": "a95b2c72f124cdee5b7cbd16947c125bcfcf0473825f4562a59b6ca4afc79600",
+      "server/metrics_test.go": "554e3bd8361d4150120c00b51884b39bd6130987f34b644afdbcc355cb758b59",
+      "server/pool.go": "aa016d3d45a6fd79c451e2c7e1773e91e7066674f44a846e70b1705d42606f7a",
+      "server/record_handoff.go": "a2584f945efbf244a8cb7c9abdf209882847f082d3f33704adb21e187821304c",
+      "server/record_handoff_test.go": "8295a4b8140e18c48f6c0343b0b10c9efb39f779747000a74d1f592546a9626d",
+      "server/redisclient.go": "36b81463056d43dc3b14a3ff7511d1bef26a2155bf8090159855d270d81b4444",
+      "server/router.go": "2f127ce6e84886fd8154cbe36504e4ab4e68778e164f81b6d0948c1263af0b1f",
+      "server/server.go": "c1dcfb2b8184b0619a0d6bf7b38b102f130e7dddbb404a1ee2f62a05a4e71066",
+      "server/session.go": "a9ee2c932b1825e478b547deedec2ab07073e282105993e6ef6de8b8191db772",
+      "server/session_integration_test.go": "4c3af832d9d1c149b694e3ba7df61fe862e6c378fa4da33c3f7d1cb3928e4fc5",
+      "server/session_test.go": "4727f9308dedd3ff2f11091af0ada2e35c0a9a8919c2c0767a36842596899277",
+      "server/sqlserver.go": "fc3bdfcbe106ff596609378eaf8e52f456badc82536eef6c1d29dd2ca2967e32",
+      "server/stream_integration_test.go": "7dbb15bd251e6275071d8e5b382ee5e12210eee4761b62fd73bb96927c9a2df6",
+      "server/tenant.go": "3d80b6a811d962db689ef46b0c3fac70d7c301abdad09aadf024799dc8040487",
+      "server/typeinfo.go": "9390b06f1ead678946b68437240c90fe675f2e57490557e948dcc8f2615ca8dc",
+      "server/unit_test.go": "a240d367a16a931262e884861bc016f5c80f2400711d6672960aa54789dcc9b5",
+      "spec.md": "7144ad86ba384e1e8955b516273f5168b75270c98e16d07b396274447163216c"
+    }
+  },
+  "rows": 10000,
+  "label_width": 64,
+  "repeats": 3,
+  "concurrency": 16,
+  "stream_overflow_policy": "buffer",
+  "machine": {
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "cpu_count": 18,
+    "total_ram_bytes": 38654705664
+  },
+  "clients": {
+    "pyarrow": "26.0.0",
+    "adbc-driver-flightsql": "1.12.0",
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0",
+    "psutil": "7.2.2"
+  },
+  "redis_version": "8.6.2",
+  "results": [
+    {
+      "case": "flight_full_scan",
+      "repeat": 0,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.008237000001827255,
+      "total_seconds": 0.008631374992546625,
+      "rows_per_second": 1158563.9609720595,
+      "arrow_mib_per_second": 97.23055702737928,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 191741952,
+          "sampled_peak_rss_bytes": 194150400
+        },
+        "server": {
+          "baseline_rss_bytes": 54280192,
+          "sampled_peak_rss_bytes": 54575104
+        }
+      }
+    },
+    {
+      "case": "flight_full_scan",
+      "repeat": 1,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.004363375002867542,
+      "total_seconds": 0.00454925000667572,
+      "rows_per_second": 2198164.529389607,
+      "arrow_mib_per_second": 184.47730883244074,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 194265088,
+          "sampled_peak_rss_bytes": 194461696
+        },
+        "server": {
+          "baseline_rss_bytes": 54575104,
+          "sampled_peak_rss_bytes": 54788096
+        }
+      }
+    },
+    {
+      "case": "flight_full_scan",
+      "repeat": 2,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.006629625000641681,
+      "total_seconds": 0.0068198339868104085,
+      "rows_per_second": 1466311.3529361635,
+      "arrow_mib_per_second": 123.0577459892105,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 194428928,
+          "sampled_peak_rss_bytes": 194478080
+        },
+        "server": {
+          "baseline_rss_bytes": 54788096,
+          "sampled_peak_rss_bytes": 54837248
+        }
+      }
+    },
+    {
+      "case": "sql_full_scan",
+      "repeat": 0,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.07399008299398702,
+      "total_seconds": 0.0746105829894077,
+      "rows_per_second": 134029.24356481276,
+      "arrow_mib_per_second": 11.248181756690522,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 194445312,
+          "sampled_peak_rss_bytes": 196739072
+        },
+        "server": {
+          "baseline_rss_bytes": 54837248,
+          "sampled_peak_rss_bytes": 67600384
+        }
+      }
+    },
+    {
+      "case": "sql_full_scan",
+      "repeat": 1,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.05507079200469889,
+      "total_seconds": 0.05578550000791438,
+      "rows_per_second": 179258.05090178063,
+      "arrow_mib_per_second": 15.043934325558373,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 196739072,
+          "sampled_peak_rss_bytes": 197017600
+        },
+        "server": {
+          "baseline_rss_bytes": 67600384,
+          "sampled_peak_rss_bytes": 77955072
+        }
+      }
+    },
+    {
+      "case": "sql_full_scan",
+      "repeat": 2,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.04729429200233426,
+      "total_seconds": 0.047799833002500236,
+      "rows_per_second": 209205.75181668389,
+      "arrow_mib_per_second": 17.55724540697878,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 196984832,
+          "sampled_peak_rss_bytes": 197050368
+        },
+        "server": {
+          "baseline_rss_bytes": 77955072,
+          "sampled_peak_rss_bytes": 78217216
+        }
+      }
+    },
+    {
+      "case": "resp_scan_hmget_arrow",
+      "repeat": 0,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.007844499996281229,
+      "total_seconds": 0.07302637500106357,
+      "rows_per_second": 136936.8259050837,
+      "arrow_mib_per_second": 11.49219577755677,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 197017600,
+          "sampled_peak_rss_bytes": 197935104
+        },
+        "server": {
+          "baseline_rss_bytes": 78217216,
+          "sampled_peak_rss_bytes": 78217216
+        }
+      }
+    },
+    {
+      "case": "resp_scan_hmget_arrow",
+      "repeat": 1,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.007569416004116647,
+      "total_seconds": 0.07889120800246019,
+      "rows_per_second": 126756.83708238,
+      "arrow_mib_per_second": 10.63785711598343,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 197918720,
+          "sampled_peak_rss_bytes": 198000640
+        },
+        "server": {
+          "baseline_rss_bytes": 78217216,
+          "sampled_peak_rss_bytes": 78217216
+        }
+      }
+    },
+    {
+      "case": "resp_scan_hmget_arrow",
+      "repeat": 2,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.007363750002696179,
+      "total_seconds": 0.06524670800718013,
+      "rows_per_second": 153264.43747781945,
+      "arrow_mib_per_second": 12.862463472412214,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 197967872,
+          "sampled_peak_rss_bytes": 198033408
+        },
+        "server": {
+          "baseline_rss_bytes": 78217216,
+          "sampled_peak_rss_bytes": 78217216
+        }
+      }
+    },
+    {
+      "case": "sql_grouped_aggregate",
+      "repeat": 0,
+      "rows": 100,
+      "arrow_payload_bytes": 2000,
+      "first_batch_seconds": 0.03483216698805336,
+      "total_seconds": 0.03542933399148751,
+      "rows_per_second": 2822.5198933749834,
+      "arrow_mib_per_second": 0.05383529459714858,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198000640,
+          "sampled_peak_rss_bytes": 198066176
+        },
+        "server": {
+          "baseline_rss_bytes": 78217216,
+          "sampled_peak_rss_bytes": 78594048
+        }
+      }
+    },
+    {
+      "case": "sql_grouped_aggregate",
+      "repeat": 1,
+      "rows": 100,
+      "arrow_payload_bytes": 2000,
+      "first_batch_seconds": 0.033332125007291324,
+      "total_seconds": 0.034013791009783745,
+      "rows_per_second": 2939.9839603658393,
+      "arrow_mib_per_second": 0.05607574387294463,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198033408,
+          "sampled_peak_rss_bytes": 198115328
+        },
+        "server": {
+          "baseline_rss_bytes": 78594048,
+          "sampled_peak_rss_bytes": 78626816
+        }
+      }
+    },
+    {
+      "case": "sql_grouped_aggregate",
+      "repeat": 2,
+      "rows": 100,
+      "arrow_payload_bytes": 2000,
+      "first_batch_seconds": 0.03400058300758246,
+      "total_seconds": 0.03459279100934509,
+      "rows_per_second": 2890.7757102624487,
+      "arrow_mib_per_second": 0.055137170987366646,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198082560,
+          "sampled_peak_rss_bytes": 198131712
+        },
+        "server": {
+          "baseline_rss_bytes": 78626816,
+          "sampled_peak_rss_bytes": 78626816
+        }
+      }
+    },
+    {
+      "case": "sql_join",
+      "repeat": 0,
+      "rows": 10000,
+      "arrow_payload_bytes": 760000,
+      "first_batch_seconds": 0.051350583002204075,
+      "total_seconds": 0.051806667004711926,
+      "rows_per_second": 193025.34940320477,
+      "arrow_mib_per_second": 13.990332178729595,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198098944,
+          "sampled_peak_rss_bytes": 198197248
+        },
+        "server": {
+          "baseline_rss_bytes": 78626816,
+          "sampled_peak_rss_bytes": 78823424
+        }
+      }
+    },
+    {
+      "case": "sql_join",
+      "repeat": 1,
+      "rows": 10000,
+      "arrow_payload_bytes": 760000,
+      "first_batch_seconds": 0.05062395799905062,
+      "total_seconds": 0.05105587499565445,
+      "rows_per_second": 195863.84526464654,
+      "arrow_mib_per_second": 14.19606422435106,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198164480,
+          "sampled_peak_rss_bytes": 198197248
+        },
+        "server": {
+          "baseline_rss_bytes": 78823424,
+          "sampled_peak_rss_bytes": 78839808
+        }
+      }
+    },
+    {
+      "case": "sql_join",
+      "repeat": 2,
+      "rows": 10000,
+      "arrow_payload_bytes": 760000,
+      "first_batch_seconds": 0.04787866699916776,
+      "total_seconds": 0.04832954199810047,
+      "rows_per_second": 206912.78225630688,
+      "arrow_mib_per_second": 14.996882869223901,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198180864,
+          "sampled_peak_rss_bytes": 198213632
+        },
+        "server": {
+          "baseline_rss_bytes": 78839808,
+          "sampled_peak_rss_bytes": 79872000
+        }
+      }
+    },
+    {
+      "case": "sql_residual_sort",
+      "repeat": 0,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.042333416000474244,
+      "total_seconds": 0.042728749991510995,
+      "rows_per_second": 234034.46162096292,
+      "arrow_mib_per_second": 19.640953657765138,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198180864,
+          "sampled_peak_rss_bytes": 198230016
+        },
+        "server": {
+          "baseline_rss_bytes": 79872000,
+          "sampled_peak_rss_bytes": 79921152
+        }
+      }
+    },
+    {
+      "case": "sql_residual_sort",
+      "repeat": 1,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.0422146659984719,
+      "total_seconds": 0.042612249992089346,
+      "rows_per_second": 234674.30144750458,
+      "arrow_mib_per_second": 19.69465115297356,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198197248,
+          "sampled_peak_rss_bytes": 198230016
+        },
+        "server": {
+          "baseline_rss_bytes": 79921152,
+          "sampled_peak_rss_bytes": 79937536
+        }
+      }
+    },
+    {
+      "case": "sql_residual_sort",
+      "repeat": 2,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.04316262499196455,
+      "total_seconds": 0.043664083001203835,
+      "rows_per_second": 229021.18429291865,
+      "arrow_mib_per_second": 19.220222680832713,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198197248,
+          "sampled_peak_rss_bytes": 198230016
+        },
+        "server": {
+          "baseline_rss_bytes": 79937536,
+          "sampled_peak_rss_bytes": 79953920
+        }
+      }
+    },
+    {
+      "case": "sql_distinct",
+      "repeat": 0,
+      "rows": 100,
+      "arrow_payload_bytes": 400,
+      "first_batch_seconds": 0.0030112079984974116,
+      "total_seconds": 0.003510666996589862,
+      "rows_per_second": 28484.61562920564,
+      "arrow_mib_per_second": 0.1086601853531099,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198197248,
+          "sampled_peak_rss_bytes": 198246400
+        },
+        "server": {
+          "baseline_rss_bytes": 79953920,
+          "sampled_peak_rss_bytes": 80003072
+        }
+      }
+    },
+    {
+      "case": "sql_distinct",
+      "repeat": 1,
+      "rows": 100,
+      "arrow_payload_bytes": 400,
+      "first_batch_seconds": 0.00298604198906105,
+      "total_seconds": 0.003535874988301657,
+      "rows_per_second": 28281.542851726146,
+      "arrow_mib_per_second": 0.107885524184136,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198213632,
+          "sampled_peak_rss_bytes": 198246400
+        },
+        "server": {
+          "baseline_rss_bytes": 80003072,
+          "sampled_peak_rss_bytes": 80003072
+        }
+      }
+    },
+    {
+      "case": "sql_distinct",
+      "repeat": 2,
+      "rows": 100,
+      "arrow_payload_bytes": 400,
+      "first_batch_seconds": 0.0035586660087574273,
+      "total_seconds": 0.0041314160043839365,
+      "rows_per_second": 24204.77625440958,
+      "arrow_mib_per_second": 0.09233389379276115,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198213632,
+          "sampled_peak_rss_bytes": 198246400
+        },
+        "server": {
+          "baseline_rss_bytes": 80003072,
+          "sampled_peak_rss_bytes": 80003072
+        }
+      }
+    },
+    {
+      "case": "sql_window",
+      "repeat": 0,
+      "rows": 10000,
+      "arrow_payload_bytes": 160000,
+      "first_batch_seconds": 0.04652333400736097,
+      "total_seconds": 0.04714091699861456,
+      "rows_per_second": 212129.9422387964,
+      "arrow_mib_per_second": 3.236846042462103,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 198213632,
+          "sampled_peak_rss_bytes": 198246400
+        },
+        "server": {
+          "baseline_rss_bytes": 80003072,
+          "sampled_peak_rss_bytes": 80003072
+        }
+      }
+    },
+    {
+      "case": "sql_window",
+      "repeat": 1,
+      "rows": 10000,
+      "arrow_payload_bytes": 160000,
+      "first_batch_seconds": 0.05012183300277684,
+      "total_seconds": 0.05132954100554343,
+      "rows_per_second": 194819.58739744098,
+      "arrow_mib_per_second": 2.972710989340835,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 194723840,
+          "sampled_peak_rss_bytes": 194723840
+        },
+        "server": {
+          "baseline_rss_bytes": 79609856,
+          "sampled_peak_rss_bytes": 79609856
+        }
+      }
+    },
+    {
+      "case": "sql_window",
+      "repeat": 2,
+      "rows": 10000,
+      "arrow_payload_bytes": 160000,
+      "first_batch_seconds": 0.04150858399225399,
+      "total_seconds": 0.04256454198912252,
+      "rows_per_second": 234937.3335805076,
+      "arrow_mib_per_second": 3.5848592160111634,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 193527808,
+          "sampled_peak_rss_bytes": 193544192
+        },
+        "server": {
+          "baseline_rss_bytes": 78102528,
+          "sampled_peak_rss_bytes": 78135296
+        }
+      }
+    }
+  ],
+  "server_binary_sha256": "ad4acc2bf6d15f90a7af74f0fc5d50d53849af3d283d72d189a07cd1efd844b6",
+  "server_version": "1fa8716",
+  "endpoint_info": {
+    "vendor_name": "Redis Arrow Flight SQL Server",
+    "vendor_version": "1fa8716",
+    "vendor_arrow_version": "18.8.0",
+    "driver_name": "ADBC Flight SQL Driver - Go",
+    "driver_version": "v1.12.0",
+    "driver_arrow_version": "v18.7.0",
+    "driver_adbc_version": 1001000
+  },
+  "cases": [
+    "flight_full_scan",
+    "sql_full_scan",
+    "resp_scan_hmget_arrow",
+    "sql_grouped_aggregate",
+    "sql_join",
+    "sql_residual_sort",
+    "sql_distinct",
+    "sql_window"
+  ],
+  "concurrent_scans": {
+    "seconds": 0.49842208399786614,
+    "clients": [
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.4361415000021225,
+        "total_seconds": 0.43911391599976923,
+        "rows_per_second": 22773.133885388535,
+        "arrow_mib_per_second": 1.911197454370681
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.3898376669967547,
+        "total_seconds": 0.39093629199487623,
+        "rows_per_second": 25579.61541245463,
+        "arrow_mib_per_second": 2.146726757331855
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.45859108299191575,
+        "total_seconds": 0.4609376250009518,
+        "rows_per_second": 21694.909370827238,
+        "arrow_mib_per_second": 1.8207092520072907
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.45276754099177197,
+        "total_seconds": 0.4545620830031112,
+        "rows_per_second": 21999.195212090657,
+        "arrow_mib_per_second": 1.8462459360732821
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.42893308300699573,
+        "total_seconds": 0.43125562500790693,
+        "rows_per_second": 23188.10334315443,
+        "arrow_mib_per_second": 1.9460230771995448
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.4344465830072295,
+        "total_seconds": 0.43643612500454765,
+        "rows_per_second": 22912.860386833927,
+        "arrow_mib_per_second": 1.9229237690366607
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.4337410829903092,
+        "total_seconds": 0.43679283300298266,
+        "rows_per_second": 22894.148540051057,
+        "arrow_mib_per_second": 1.9213534083599977
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.42443812500278,
+        "total_seconds": 0.4273206670040963,
+        "rows_per_second": 23401.629671012703,
+        "arrow_mib_per_second": 1.9639429197779827
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.37349445799191017,
+        "total_seconds": 0.3761754579900298,
+        "rows_per_second": 26583.339735749163,
+        "arrow_mib_per_second": 2.2309626548251402
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.11494137499539647,
+        "total_seconds": 0.18747712500044145,
+        "rows_per_second": 53339.84079378459,
+        "arrow_mib_per_second": 4.476457586148304
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.367256958008511,
+        "total_seconds": 0.3721597920084605,
+        "rows_per_second": 26870.17838770897,
+        "arrow_mib_per_second": 2.255035112493886
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.4230213750124676,
+        "total_seconds": 0.42633329100499395,
+        "rows_per_second": 23455.827191977045,
+        "arrow_mib_per_second": 1.9684913567485618
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.3494190420024097,
+        "total_seconds": 0.3545777499966789,
+        "rows_per_second": 28202.559241502502,
+        "arrow_mib_per_second": 2.366852963688107
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.42745045899937395,
+        "total_seconds": 0.4312638340052217,
+        "rows_per_second": 23187.66196350914,
+        "arrow_mib_per_second": 1.9459860351455731
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.4173096250015078,
+        "total_seconds": 0.41838850000931416,
+        "rows_per_second": 23901.23055432303,
+        "arrow_mib_per_second": 2.005871094494273
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.3383231249899836,
+        "total_seconds": 0.3418819169892231,
+        "rows_per_second": 29249.865240211646,
+        "arrow_mib_per_second": 2.454746380938172
+      }
+    ],
+    "memory": {
+      "client": {
+        "baseline_rss_bytes": 193511424,
+        "sampled_peak_rss_bytes": 207159296
+      },
+      "server": {
+        "baseline_rss_bytes": 78135296,
+        "sampled_peak_rss_bytes": 416710656
+      }
+    }
+  }
+}

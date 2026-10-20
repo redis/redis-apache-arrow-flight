@@ -28,9 +28,9 @@ import (
 // Flight SQL driver with adbc.flight.sql.rpc.with_cookie_middleware) sends
 // it back.
 //
-// The server keeps nothing for a cookie it hands out until a request
-// carries it back (or calls SetSessionOptions), so clients that drop
-// cookies cost nothing. A session's connection is opened by its first SQL
+// A freshly issued cookie reserves short-lived identity metadata until a
+// request carries it back (or calls SetSessionOptions). No ADBC connection is
+// opened for an unconfirmed cookie. A session's connection is opened by its first SQL
 // request. Sessions are closed by CloseSession or after being idle, and
 // live in this server's memory: with several servers, route a client to
 // the same one.
@@ -273,6 +273,11 @@ func connOption(ctx context.Context, conn adbc.ConnectionWithContext, key string
 	return o.GetOption(ctx, key)
 }
 
+type issuedSession struct {
+	owner string
+	at    time.Time
+}
+
 // sessionStore holds a server's sessions, by token.
 type sessionStore struct {
 	tenants *tenantCache
@@ -281,8 +286,11 @@ type sessionStore struct {
 
 	mu       sync.Mutex
 	sessions map[string]*session
-	stop     chan struct{}
-	done     chan struct{}
+	// Issued cookies reserve only a short-lived identity record, not a
+	// connection. This distinguishes a first confirmation from lost state.
+	issued map[string]issuedSession
+	stop   chan struct{}
+	done   chan struct{}
 }
 
 func newSessionStore(tenants *tenantCache, idle time.Duration, log *slog.Logger) *sessionStore {
@@ -291,6 +299,7 @@ func newSessionStore(tenants *tenantCache, idle time.Duration, log *slog.Logger)
 		idle:     idle,
 		log:      log,
 		sessions: map[string]*session{},
+		issued:   map[string]issuedSession{},
 		stop:     make(chan struct{}),
 		done:     make(chan struct{}),
 	}
@@ -298,13 +307,16 @@ func newSessionStore(tenants *tenantCache, idle time.Duration, log *slog.Logger)
 	return st
 }
 
-// get returns the session of token for owner, making it if the server
-// doesn't know token (the client kept a cookie this server, or a restarted
-// one, handed out). It returns nil when the session belongs to someone
+// get returns or creates a local session. Only ensureSession uses creation
+// directly; incoming cookies must first pass resume's existence/owner check. It returns nil when the session belongs to someone
 // else, or the store is full.
 func (st *sessionStore) get(token, owner string, confirmed bool) *session {
 	st.mu.Lock()
 	defer st.mu.Unlock()
+	return st.getLocked(token, owner, confirmed)
+}
+
+func (st *sessionStore) getLocked(token, owner string, confirmed bool) *session {
 	if s, ok := st.sessions[token]; ok {
 		if s.owner != owner {
 			return nil
@@ -318,11 +330,52 @@ func (st *sessionStore) get(token, owner string, confirmed bool) *session {
 		st.metrics().sessionStoreFull()
 		return nil
 	}
+	delete(st.issued, token)
 	s := &session{token: token, owner: owner, store: st, opts: map[string]string{},
 		lastUsed: time.Now(), confirmed: confirmed}
 	st.sessions[token] = s
 	st.log.Debug("session started", "session", token[:8])
 	return s
+}
+
+var errSessionLost = status.Error(codes.Aborted,
+	"the session is unknown on this server (wrong replica, restart, expiry or CloseSession); "+
+		"a new cookie was issued: reconnect to the owning replica or explicitly restore session options before retrying")
+
+func (st *sessionStore) issue(owner string) string {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if len(st.sessions)+len(st.issued) >= maxSessions {
+		st.metrics().sessionStoreFull()
+		return ""
+	}
+	if st.issued == nil {
+		st.issued = map[string]issuedSession{}
+	}
+	token := newSessionToken()
+	st.issued[token] = issuedSession{owner: owner, at: time.Now()}
+	return token
+}
+
+func (st *sessionStore) resume(token, owner string) (*session, error) {
+	if !validSessionToken(token) {
+		return nil, errSessionLost
+	}
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if s := st.sessions[token]; s != nil {
+		if s.owner != owner {
+			return nil, nil
+		} // rotate the cookie for this identity
+		return st.getLocked(token, owner, true), nil
+	}
+	if pending, ok := st.issued[token]; ok && time.Since(pending.at) < unconfirmedIdle {
+		if pending.owner != owner {
+			return nil, nil
+		}
+		return st.getLocked(token, owner, true), nil
+	}
+	return nil, errSessionLost
 }
 
 // metrics returns the server's metrics, if any.
@@ -387,6 +440,11 @@ func (st *sessionStore) reapLoop() {
 func (st *sessionStore) reap(now time.Time) {
 	var idle []*session
 	st.mu.Lock()
+	for token, pending := range st.issued {
+		if now.Sub(pending.at) >= unconfirmedIdle {
+			delete(st.issued, token)
+		}
+	}
 	for token, s := range st.sessions {
 		limit := st.idle
 		if !s.confirmed {
@@ -414,6 +472,7 @@ func (st *sessionStore) close() {
 	st.mu.Lock()
 	all := st.sessions
 	st.sessions = map[string]*session{}
+	st.issued = map[string]issuedSession{}
 	st.mu.Unlock()
 	for _, s := range all {
 		s.mu.Lock()
@@ -457,6 +516,9 @@ func ensureSession(ctx context.Context) (*session, error) {
 	if si == nil {
 		return nil, errSessionsOff
 	}
+	if si.token == "" {
+		return nil, status.Error(codes.ResourceExhausted, "the server has too many sessions or unconfirmed cookies")
+	}
 	if si.sess == nil {
 		if si.sess = si.store.get(si.token, si.owner, false); si.sess == nil {
 			return nil, status.Error(codes.ResourceExhausted, "the server has too many sessions")
@@ -488,7 +550,7 @@ func cookieToken(ctx context.Context) (string, bool) {
 			continue
 		}
 		for _, c := range cookies {
-			if c.Name == sessionCookie && validSessionToken(c.Value) {
+			if c.Name == sessionCookie && c.Value != "" {
 				return c.Value, true
 			}
 		}
@@ -500,28 +562,40 @@ func cookieToken(ctx context.Context) (string, bool) {
 // responses to requests without one. It runs after authentication, so a
 // session belongs to the identity that made it.
 func (st *sessionStore) middleware() flight.ServerMiddleware {
-	start := func(ctx context.Context, setHeader func(metadata.MD) error) context.Context {
+	start := func(ctx context.Context, setHeader func(metadata.MD) error) (context.Context, error) {
 		id, err := st.tenants.identityFrom(ctx)
 		if err != nil {
-			return ctx // not authenticated (the Handshake): no session yet
-		}
+			return ctx, nil
+		} // handshake has no authenticated session yet
 		si := &sessionInfo{store: st, owner: id.key()}
+		var resumeErr error
 		if token, ok := cookieToken(ctx); ok {
-			if si.sess = st.get(token, si.owner, true); si.sess != nil {
+			si.sess, resumeErr = st.resume(token, si.owner)
+			if si.sess != nil {
 				si.token = token
-				return context.WithValue(ctx, sessionCtxKey{}, si)
+				return context.WithValue(ctx, sessionCtxKey{}, si), nil
 			}
 		}
-		si.token = newSessionToken()
-		_ = setHeader(metadata.Pairs("set-cookie", sessionCookie+"="+si.token))
-		return context.WithValue(ctx, sessionCtxKey{}, si)
+		si.token = st.issue(si.owner)
+		if si.token != "" {
+			_ = setHeader(metadata.Pairs("set-cookie", sessionCookie+"="+si.token))
+		}
+		return context.WithValue(ctx, sessionCtxKey{}, si), resumeErr
 	}
 	return flight.ServerMiddleware{
 		Unary: func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, h grpc.UnaryHandler) (any, error) {
-			return h(start(ctx, func(md metadata.MD) error { return grpc.SetHeader(ctx, md) }), req)
+			next, err := start(ctx, func(md metadata.MD) error { return grpc.SetHeader(ctx, md) })
+			if err != nil {
+				return nil, err
+			}
+			return h(next, req)
 		},
 		Stream: func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, h grpc.StreamHandler) error {
-			return h(srv, &contextStream{ServerStream: ss, ctx: start(ss.Context(), ss.SetHeader)})
+			next, err := start(ss.Context(), ss.SetHeader)
+			if err != nil {
+				return err
+			}
+			return h(srv, &contextStream{ServerStream: ss, ctx: next})
 		},
 	}
 }

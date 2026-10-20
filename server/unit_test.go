@@ -341,6 +341,7 @@ func TestConnectStatus(t *testing.T) {
 		{errors.New("WRONGPASS invalid username-password pair or user is disabled."), codes.Unauthenticated},
 		{errors.New("NOAUTH Authentication required."), codes.Unauthenticated},
 		{errors.New("NOPERM User u has no permissions to run the 'ping' command"), codes.PermissionDenied},
+		{errors.New("ERR ACL failure in script: User u has no permissions to run the 'set' command"), codes.PermissionDenied},
 		{context.Canceled, codes.Canceled},
 		{context.DeadlineExceeded, codes.DeadlineExceeded},
 		{errors.New("dial tcp 127.0.0.1:1: connect: connection refused"), codes.Unavailable},
@@ -935,6 +936,7 @@ func TestConfigValidation(t *testing.T) {
 		{ADBCOptions: map[string]string{"uri": "redis://elsewhere"}},
 		{RedisURI: "http://not-redis"},
 		{MaxTableStreams: -1},
+		{StreamOverflow: "unbounded"},
 		{ResultMemory: -1},
 		{ShutdownTimeout: -time.Second},
 		{MetricsListen: "nonsense"},
@@ -1004,5 +1006,28 @@ func TestSqlInfoTypes(t *testing.T) {
 	}
 	if seen != len(want) {
 		t.Errorf("got %d SqlInfo values, want %d", seen, len(want))
+	}
+}
+
+func TestIssuedSessionCookies(t *testing.T) {
+	st := &sessionStore{log: testLogger(t), sessions: map[string]*session{}}
+	token := st.issue("owner")
+	if token == "" || st.count() != 0 || len(st.issued) != 1 {
+		t.Fatal("an issued cookie should reserve metadata, without an active session")
+	}
+	if _, err := st.resume("not-a-token", "owner"); status.Code(err) != codes.Aborted {
+		t.Fatalf("malformed cookie: %v", err)
+	}
+	if _, err := st.resume(newSessionToken(), "owner"); status.Code(err) != codes.Aborted {
+		t.Fatalf("unknown cookie: %v", err)
+	}
+	sess, err := st.resume(token, "owner")
+	if err != nil || sess == nil || !sess.confirmed || st.count() != 1 || len(st.issued) != 0 {
+		t.Fatalf("confirmation: %v, %v", sess, err)
+	}
+	pending := st.issue("owner")
+	st.reap(time.Now().Add(unconfirmedIdle + time.Second))
+	if _, err := st.resume(pending, "owner"); status.Code(err) != codes.Aborted {
+		t.Fatalf("expired issued cookie: %v", err)
 	}
 }

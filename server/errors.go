@@ -28,7 +28,7 @@ func toStatus(err error) error {
 	}
 	msg := err.Error()
 	// Redis's ACL errors, from the driver or go-redis.
-	if strings.Contains(msg, "NOPERM") {
+	if strings.Contains(msg, "NOPERM") || strings.Contains(msg, "ACL failure in script:") {
 		return status.Error(codes.PermissionDenied, msg)
 	}
 	if strings.Contains(msg, "WRONGPASS") || strings.Contains(msg, "NOAUTH") {

@@ -200,8 +200,17 @@ func TestIntegrationSessions(t *testing.T) {
 		if err != nil || res.GetStatus() != flight.CloseSessionResultClosed {
 			t.Fatalf("CloseSession = %v, %v", res, err)
 		}
-		// The same cookie now starts a new, empty session.
-		_, err = plain.Execute(sctx, "SELECT a FROM "+name)
+		// Lost state is explicit, rather than silently running with defaults.
+		var md metadata.MD
+		_, err = plain.Execute(sctx, "SELECT a FROM "+name, grpc.Header(&md))
+		if status.Code(err) != codes.Aborted {
+			t.Fatalf("closed session: %v", err)
+		}
+		fresh := sessionToken(md)
+		if fresh == "" || fresh == token {
+			t.Fatalf("no fresh session cookie: %v", md)
+		}
+		_, err = plain.Execute(withSession(ctx, fresh), "SELECT a FROM "+name)
 		failsMissing(t, err, "the temp table after CloseSession")
 	})
 
@@ -213,7 +222,16 @@ func TestIntegrationSessions(t *testing.T) {
 		update(t, sctx, c, "CREATE TEMP TABLE "+name+" AS SELECT 1 AS a")
 		wantRows(t, query(t, sctx, c, "SELECT a FROM "+name), "1")
 		time.Sleep(700 * time.Millisecond)
-		_, err := c.Execute(sctx, "SELECT a FROM "+name)
+		var md metadata.MD
+		_, err := c.Execute(sctx, "SELECT a FROM "+name, grpc.Header(&md))
+		if status.Code(err) != codes.Aborted {
+			t.Fatalf("expired session: %v", err)
+		}
+		fresh := sessionToken(md)
+		if fresh == "" {
+			t.Fatal("no recovery cookie")
+		}
+		_, err = c.Execute(withSession(ctx, fresh), "SELECT a FROM "+name)
 		failsMissing(t, err, "the temp table of an idle session")
 	})
 
@@ -308,4 +326,48 @@ func TestIntegrationSessionSettings(t *testing.T) {
 				"(and sessionOptions); then add it here", name)
 		}
 	}
+}
+
+// A cookie identifies connection-local state, not just a best-effort hint.
+// Unknown state must fail before a statement can use defaults on another node.
+func TestIntegrationSessionReplicaLoss(t *testing.T) {
+	uri := redisURI(t)
+	ctx := context.Background()
+	cfg := Config{RedisURI: uri}
+	owner, lis := startServer(t, cfg)
+	first := plainClient(t, lis)
+	other := newClients(t, cfg).sql
+	table := uniqueName("it_flight_sess_replica")
+	dropTable(t, first, table)
+	update(t, ctx, first, "CREATE TABLE "+table+" (id BIGINT)")
+	token := askSessionToken(t, ctx, first)
+	sctx := withSession(ctx, token)
+	update(t, sctx, first, "SET TIME ZONE 'Asia/Tokyo'")
+	temp := uniqueName("it_flight_sess_restart")
+	update(t, sctx, first, "CREATE TEMP TABLE "+temp+" AS SELECT 1 AS id")
+	var md metadata.MD
+	_, err := other.Execute(sctx, "INSERT INTO "+table+" VALUES (99)", grpc.Header(&md))
+	if status.Code(err) != codes.Aborted {
+		t.Fatalf("wrong replica executed a stateful request: %v", err)
+	}
+	wantRows(t, query(t, ctx, other, "SELECT COUNT(*) FROM "+table), "0")
+	fresh := sessionToken(md)
+	if fresh == "" || fresh == token {
+		t.Fatalf("wrong-replica recovery cookie: %v", md)
+	}
+	wantRows(t, query(t, withSession(ctx, fresh), other, "SHOW TimeZone"), "UTC")
+	wantRows(t, query(t, sctx, first, "SHOW TimeZone"), "Asia/Tokyo")
+	owner.Shutdown()
+	restarted := newClients(t, cfg).sql
+	md = nil
+	_, err = restarted.Execute(sctx, "SHOW TimeZone", grpc.Header(&md))
+	if status.Code(err) != codes.Aborted {
+		t.Fatalf("restart silently reset session state: %v", err)
+	}
+	fresh = sessionToken(md)
+	if fresh == "" {
+		t.Fatal("no restart recovery cookie")
+	}
+	_, err = restarted.Execute(withSession(ctx, fresh), "SELECT * FROM "+temp)
+	failsMissing(t, err, "temporary table after owner shutdown")
 }

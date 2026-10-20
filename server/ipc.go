@@ -184,9 +184,7 @@ func streamRecords(ctx context.Context, rdr array.RecordReader, live *liveResult
 				if ok, stuck := send(flight.StreamChunk{Data: part}); !ok {
 					releaseAll(parts[i+1:])
 					if stuck {
-						if live.stalled != nil {
-							live.stalled()
-						}
+						reportStall(ctx, live.stalled)
 						// Free what the result holds now, and tell the
 						// client, if it comes back, that rows are missing.
 						release()

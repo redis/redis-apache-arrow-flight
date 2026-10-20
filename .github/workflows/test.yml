@@ -82,7 +82,8 @@ jobs:
           REDIS_ADBC_TOKEN: ${{ secrets.REDIS_ADBC_READ_TOKEN }}
         run: |
           docker compose -f compose.yaml -f compose.private.yaml up --detach --build --wait flight
-          uv run examples/python/quickstart.py
+          uv run --with-requirements examples/python/requirements-smoke.txt examples/python/quickstart.py
+          uv run examples/python/dataset_to_sql.py
           curl -fsS http://127.0.0.1:9815/metrics | grep '^redis_flight_calls_total'
           curl -fsS http://127.0.0.1:9815/metrics | grep -q '^redis_flight_dataset_rows_read_total [1-9]'
 

@@ -19,8 +19,8 @@ func TestCookieToken(t *testing.T) {
 	for header, want := range map[string]string{
 		sessionCookie + "=" + token:                       token,
 		"a=b; " + sessionCookie + "=" + token + "; c=d":   token,
-		sessionCookie + "=not-a-token":                    "",
-		sessionCookie + "=" + strings.ToUpper(token)[:31]: "",
+		sessionCookie + "=not-a-token":                    "not-a-token",
+		sessionCookie + "=" + strings.ToUpper(token)[:31]: strings.ToUpper(token)[:31],
 		"other=" + token:                                  "",
 	} {
 		ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("cookie", header))
