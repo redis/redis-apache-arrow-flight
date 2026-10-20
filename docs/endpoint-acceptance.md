@@ -75,3 +75,25 @@ failover and the deployment system's rollback. Monitor RPC errors/latency,
 health, pool/stream saturation, result refusals, stalled results, Redis cursors
 and process memory. #57 remains open for this deployment evidence; the workload
 and starting objectives no longer require further user input.
+
+## Recorded local result (2026-10-20)
+
+Measured binary revision `1fa8716`, Redis 8.6.2, on an 18-logical-CPU macOS host
+with 36 GiB RAM. The raw records pin the Redis ADBC revision, client packages,
+source manifest and binary hash. Each profile used a fresh Flight process.
+
+| Path | Median first batch | Median full result |
+| --- | --- | --- |
+| Flight RPC scan | 6.63 ms | 6.82 ms |
+| Flight SQL scan | 55.07 ms | 55.79 ms |
+| RESP SCAN/HMGET plus Arrow conversion | 7.57 ms | 73.03 ms |
+
+These are three repeats per path. All recorded single-query cases and successful
+concurrent queries met the local 1-second first-batch/2-second total checks.
+The full-mix profile's 16 SQL readers completed in 0.498 seconds, with sampled
+server/client peaks of 397.4/197.6 MiB during concurrency. The separate scan-only
+buffer profile completed 16/16 readers in 0.429 seconds (211.4/200.7 MiB peaks).
+The reject profile accepted 11 and refused 5 with RESOURCE_EXHAUSTED; the exact
+split is scheduling dependent and is not a 16-reader service guarantee.
+A paused Redis request timed out in 1.004 seconds, then SQL and dataset reads
+recovered. The pre-change `4120689` server read newly written data successfully.

@@ -11,7 +11,7 @@ loss, temporary-object cleanup, default buffering and reject-before-execution.
 
 Local evidence on 2026-10-20:
 - Final full standalone and Cluster race suites passed, including the script-ACL
-  regression: server suites 23.995s and 23.714s, respectively. Static analysis and
+  regression: server suites 23.755s and 23.153s, respectively, after the handoff correction. Static analysis and
   credential boundary tests also passed.
 - Python quickstart and dataset-to-SQL example passed with PyArrow 26.0.0,
   ADBC Flight SQL/manager 1.12.0, pandas 3.0.6.

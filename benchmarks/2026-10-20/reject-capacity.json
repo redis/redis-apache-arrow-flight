@@ -1,0 +1,270 @@
+{
+  "methodology": "Synthetic local endpoint benchmark. Mutates uniquely named disposable fixtures.\n\nMeasures warmed-connection time to first batch, total transfer, Arrow payload\nbytes and sampled process RSS. Read the methodology before interpreting results:\nclient/server share one host; Redis/Docker memory and network emulation are not\nincluded. A redis-py SCAN+HMGET+Arrow conversion baseline compares unordered full\nscans only, not SQL operators. RSS sampled every 20ms can miss short peaks.\n",
+  "source": {
+    "commit": "1fa871658b719391a9a54b89409545e3258213bc",
+    "dirty": true,
+    "source_manifest_sha256": "ec0557ba009cb15a39e0906361cba877c8e7edb40f6b588d1dde8ccfbdc24e35",
+    "files": {
+      ".dockerignore": "d03e57acc36eae53f1b6e8a00ff309cdbca841eac4906ed19f5b3ab5aaed07a9",
+      ".github/actions/private-go/action.yml": "943417d436a34abb830254cfbfb7a56f8450451f3aa23ae583382be6deefc713",
+      ".github/workflows/release.yml": "bb8bc09067eef632002750339d15f8506711882788c9d4fb33da5348f90c26d2",
+      ".github/workflows/test.yml": "f35896bf58c2961f3ec4bfc8ba89c56db32d185423406a83e2f55b81583ffe94",
+      ".gitignore": "fea767aab1ad6637ffc4bdf55c4f64506b92be673a0ba044537bbc5010d6fee5",
+      "CLAUDE.md": "f58ee352a6f7407e853c6d3143362bc7f220282bcbd78c83c87818643b8310f4",
+      "Dockerfile": "8b5f545a48bcc095afbf503e79a9108800782e000cb8d9aca0b279da56308eaf",
+      "Makefile": "bd0ac472d4175725b6afde54553823f563aa8bfcedaa8d35672d3913c48afda2",
+      "README.md": "7d366bbaee0279304a195ba7918690fdb877cfe49cb79a4ad37019d18f5771af",
+      "REVIEW.md": "54cac41468f083700aa4a42272f405de4b1ab8269c8afe1d6e1e73845bae97f1",
+      "cmd/redis-flight-server/healthcheck.go": "52824b33436cf38e3466d017f2beb91c674cff23a43403accd26425e4d61f1ba",
+      "cmd/redis-flight-server/healthcheck_test.go": "5f90a3f57a869dbf73806455dca1bca435f07201361882bf80b229be6a6f7106",
+      "cmd/redis-flight-server/main.go": "2cb94ea5680db27824a240363584a938af8a5c957fbf0a5b9b75d9abbe65be76",
+      "cmd/redis-flight-server/main_test.go": "9da90f5271be87954b4a8efa4c5ea79e2eb063222789b44cd088a1a8beef578c",
+      "compose.private.yaml": "d55fe0babbcf12f612ca458ab1123671d54c5229cebabdba9516ac5baf85f3d8",
+      "compose.yaml": "2e0120b522ae08f4d8fcec820d70056d491934e7822760d26aac70945a05f72b",
+      "docs/client-compatibility.md": "afed5319553b0d3b1027c3fe1b95f3fc122682f2ec2b2fab04241a49a5f93962",
+      "docs/dataset-sql-workflow.md": "a404da1ea8359f86e434bd518a24b95fb18f3e58ed3ec76e9ce273ee02b52e4e",
+      "docs/endpoint-acceptance.md": "86a3dc448e7ce18bb8afec82d555c109d237d8fb558500f6ae8c3c3c4ce2400e",
+      "docs/flight-capabilities.md": "cd6dc8dba25ad403c8d5ffc700e66123343f06559c77394bc7693db05f0756d0",
+      "docs/sdlc/README.md": "ec3bd7df7f0fc20512c4f56e9226e939f2387b91ad1f7c7d207c9000dcb065ca",
+      "docs/sdlc/context.md": "15fc2c042ff25b74709dd072e0d6e7218d972e36a8ed3ba7e311cb720f3f051a",
+      "docs/sdlc/incident-template.md": "e0d3c4ba946a0b829e39032534a680ba2bf5fac08a5b8153905750c750d68e16",
+      "docs/sdlc/operations.md": "c0c30c31b77f50c41878c50b64ce4a76422fe0eae156a0158f64ddbe7a56e3ba",
+      "docs/sdlc/testing.md": "82fa3163a838057a8f99d27fc3eb811e6ea79f36d92f54103da3ff24756609ad",
+      "examples/jdbc/JdbcSmoke.java": "3f195c3dbeb0fc723ae5d5b158a21d5c2fcd63cc6c49ee4a0a82acea92ed0065",
+      "examples/python/benchmark.py": "90dc4a6fc7599378349c5dc67c82d3bef3057c3651a2bf6fa61d3ef60c5bd010",
+      "examples/python/dataset_to_sql.py": "a3c7da85caa4f261212f3db2e27030b2a340256c7bdd8ffee423d58f25c2c716",
+      "examples/python/failure_probe.py": "89157d2799ddf819caaf282f49b072e3df01b70d1eb5d3f973e92508c0dd8294",
+      "examples/python/quickstart.py": "758ea3d5299275e95ada1bae2c5b2f8e930b27bfa3c661be1603b39dd0c82c9c",
+      "examples/python/requirements-smoke.txt": "f7a1deae7d824ee158075ad48fe689ca0bf050faea682613cb346269d1062fdb",
+      "go.mod": "dfdad4db53ffd1a46372b999e3a01426ddda0ef11285f93c66dbcfe9cc52224f",
+      "go.sum": "a019283fd5a41a893b035ce0b81712456acb9bfc41753eda0717ad3ee77bcff8",
+      "intent.md": "f24e77264c078368142ef93726c4d40e1c408c96711441ddbba4cc79eea1a3e4",
+      "intent/endpoint-lifecycle/intent.md": "404976984f2e2002ffbcab0d30d949804e5f0235d0e14e1484faf3c449a82520",
+      "intent/endpoint-lifecycle/plan.md": "8435be20999e705ae88e986f497967dc8a7a50cfe6a07bdd30f78aec52fedd7c",
+      "intent/endpoint-lifecycle/spec.md": "dbcf48046d0b5879c0dac039b874bb1484c64d5c2e57b6393ba735b659f67324",
+      "intent/flight-capabilities/intent.md": "3d27992cc347a52d6edd11bf91d2d7b1a876c99a023a13411de5f784c518c046",
+      "intent/flight-capabilities/plan.md": "bcf832427b07db149925e63aa98d46d52899782c1e3a09548ad03a7989a6748b",
+      "intent/flight-capabilities/spec.md": "0632024bd249a572f147f8c6a5a681a5dae52794fe1d73c4fc97e4905735695e",
+      "intent/private-dependency-builds/intent.md": "c18981e1819244b055b009ff7fe6f52b48517600dd3cb3f32aff71df02d7e570",
+      "intent/private-dependency-builds/plan.md": "36850b10ce7a3ca7c0ba3d4e17922220ed7bf764e5a488385007e812aa3d1e64",
+      "intent/private-dependency-builds/spec.md": "ba74ac6cb5cae4c4b5c1f4ce5b32efaca85010e1d73ce705959616e9bc449e55",
+      "intent/redis-adbc-latest/intent.md": "467c8e3859ea267f6745987780e271bbd16d90179b188a179143894002ad0c56",
+      "intent/redis-adbc-latest/plan.md": "787cc04e328e4b9fe8eb7d6e11f4b73dc9791860c1cf92ae03d8566d766289c0",
+      "intent/redis-adbc-latest/spec.md": "bcb2f0254b28328cccd39beb6c0391149f7f02aa53d8a26988d16791c24065da",
+      "plan.md": "50828fb9113cafa1ad3e31eba3cabe1bcfedb5dd0088d9f5d8a68ac1fdd74f7f",
+      "scripts/github-credential.sh": "141bf82d7ea187671f8d897094a81871f91d455fb3cc4e11fa143a9a5a22cff7",
+      "scripts/test_private_modules.py": "d336689b0a5a3a29fb0c24aa27ebad827e1c63e5faf4a84db343db392a0f82a0",
+      "scripts/with-private-modules.sh": "1875bc83cd828e984cf737831dcb523d86ed2ceea49caa91e0c494da72506c1a",
+      "server/admission_integration_test.go": "017dff13e23c86fe45fa7069ce7648b3dd01eeffadb9d198c78ef7640eef89cd",
+      "server/auth.go": "a9f2a344fe1c2ce9b53094fcb259b989135609072f25edbd05a88fc643ed1e66",
+      "server/cancellation.go": "c5c5a86e6cfa0d22b52fef6e87f4cc73cc150a51488d45b304e03f24717487b4",
+      "server/cancellation_integration_test.go": "cb401a06ec9814bf6ba55d8337096cfd41c8043fd2de5fa01c6419879697f9ed",
+      "server/capabilities_test.go": "6f3540cd1b61927ab62471f5c65858cae00a48fe08a6061bb84d3484902f19e0",
+      "server/config.go": "66c3336e951625d9be5165d0d9d4125fce8c9d22c2b92fa4218b91e24364d839",
+      "server/cursors.go": "4ff82280ab0df445771c4713a0f2509d7b1159caa559f6829158e7a94945867f",
+      "server/dataset_bench_test.go": "f6e6603746d15a1a61fbcd65130a12b3d87991b8b5eabb49ef8b197a806ca076",
+      "server/datasets.go": "4f31e4dbb6a89d8545cdecd30453512c8f10195ad3ad05c2d014cc25c4d5effa",
+      "server/errors.go": "651d5d91353aa77f0271eb67738673872fc5b3246e9725b343388ff05654f081",
+      "server/health.go": "b5abb6e0821fa204c072ec7c4091a2448587ed4a7879a796fbc443a43600ba90",
+      "server/health_test.go": "65af36b76715436fa2bd0e60ae120065c7dee2aeee307e64126e22221ea9b7a6",
+      "server/helpers_test.go": "386ce95540408129899f9e5b211f73293e71eff95a66ee1d08bedac3730b4aaa",
+      "server/integration_test.go": "211fd322270e8c7dfa8695b3d6edec1cf7683e7f39f9542ade24d1e6ee52098f",
+      "server/ipc.go": "b7a7999c9c4084462a51b719664db3be3d7fe0a7bd065a4d5f0b65979ecd1884",
+      "server/metadata.go": "24215c0f7ca95a995db2cc1d27d57f1f9a43720c547dcbb0ff3cf9def5664b47",
+      "server/metrics.go": "a95b2c72f124cdee5b7cbd16947c125bcfcf0473825f4562a59b6ca4afc79600",
+      "server/metrics_test.go": "554e3bd8361d4150120c00b51884b39bd6130987f34b644afdbcc355cb758b59",
+      "server/pool.go": "aa016d3d45a6fd79c451e2c7e1773e91e7066674f44a846e70b1705d42606f7a",
+      "server/record_handoff.go": "a2584f945efbf244a8cb7c9abdf209882847f082d3f33704adb21e187821304c",
+      "server/record_handoff_test.go": "8295a4b8140e18c48f6c0343b0b10c9efb39f779747000a74d1f592546a9626d",
+      "server/redisclient.go": "36b81463056d43dc3b14a3ff7511d1bef26a2155bf8090159855d270d81b4444",
+      "server/router.go": "2f127ce6e84886fd8154cbe36504e4ab4e68778e164f81b6d0948c1263af0b1f",
+      "server/server.go": "c1dcfb2b8184b0619a0d6bf7b38b102f130e7dddbb404a1ee2f62a05a4e71066",
+      "server/session.go": "a9ee2c932b1825e478b547deedec2ab07073e282105993e6ef6de8b8191db772",
+      "server/session_integration_test.go": "4c3af832d9d1c149b694e3ba7df61fe862e6c378fa4da33c3f7d1cb3928e4fc5",
+      "server/session_test.go": "4727f9308dedd3ff2f11091af0ada2e35c0a9a8919c2c0767a36842596899277",
+      "server/sqlserver.go": "fc3bdfcbe106ff596609378eaf8e52f456badc82536eef6c1d29dd2ca2967e32",
+      "server/stream_integration_test.go": "7dbb15bd251e6275071d8e5b382ee5e12210eee4761b62fd73bb96927c9a2df6",
+      "server/tenant.go": "3d80b6a811d962db689ef46b0c3fac70d7c301abdad09aadf024799dc8040487",
+      "server/typeinfo.go": "9390b06f1ead678946b68437240c90fe675f2e57490557e948dcc8f2615ca8dc",
+      "server/unit_test.go": "a240d367a16a931262e884861bc016f5c80f2400711d6672960aa54789dcc9b5",
+      "spec.md": "7144ad86ba384e1e8955b516273f5168b75270c98e16d07b396274447163216c"
+    }
+  },
+  "rows": 10000,
+  "label_width": 64,
+  "repeats": 1,
+  "concurrency": 16,
+  "stream_overflow_policy": "reject",
+  "machine": {
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "cpu_count": 18,
+    "total_ram_bytes": 38654705664
+  },
+  "clients": {
+    "pyarrow": "26.0.0",
+    "adbc-driver-flightsql": "1.12.0",
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0",
+    "psutil": "7.2.2"
+  },
+  "redis_version": "8.6.2",
+  "results": [
+    {
+      "case": "sql_full_scan",
+      "repeat": 0,
+      "rows": 10000,
+      "arrow_payload_bytes": 880000,
+      "first_batch_seconds": 0.049540499996510334,
+      "total_seconds": 0.04997104199719615,
+      "rows_per_second": 200115.89913536512,
+      "arrow_mib_per_second": 16.794394611274843,
+      "memory": {
+        "client": {
+          "baseline_rss_bytes": 192266240,
+          "sampled_peak_rss_bytes": 195461120
+        },
+        "server": {
+          "baseline_rss_bytes": 53280768,
+          "sampled_peak_rss_bytes": 65224704
+        }
+      }
+    }
+  ],
+  "server_binary_sha256": "ad4acc2bf6d15f90a7af74f0fc5d50d53849af3d283d72d189a07cd1efd844b6",
+  "server_version": "1fa8716",
+  "endpoint_info": {
+    "vendor_name": "Redis Arrow Flight SQL Server",
+    "vendor_version": "1fa8716",
+    "vendor_arrow_version": "18.8.0",
+    "driver_name": "ADBC Flight SQL Driver - Go",
+    "driver_version": "v1.12.0",
+    "driver_arrow_version": "v18.7.0",
+    "driver_adbc_version": 1001000
+  },
+  "cases": [
+    "sql_full_scan"
+  ],
+  "concurrent_scans": {
+    "seconds": 0.33033458300633356,
+    "clients": [
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.24298629199620336,
+        "total_seconds": 0.24819433300581295,
+        "rows_per_second": 40291.00857740289,
+        "arrow_mib_per_second": 3.381356005488829
+      },
+      {
+        "error": "RESOURCE_EXHAUSTED",
+        "message": "[FlightSQL] no stream is available (user_limit); --stream-overflow=reject refuses this scan before execution: retry after a stream finishes (ResourceExhausted; DoGet: endpoint 0: [])"
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.1170166249939939,
+        "total_seconds": 0.14499383298971225,
+        "rows_per_second": 68968.450545821,
+        "arrow_mib_per_second": 5.788062713653802
+      },
+      {
+        "error": "RESOURCE_EXHAUSTED",
+        "message": "[FlightSQL] no stream is available (user_limit); --stream-overflow=reject refuses this scan before execution: retry after a stream finishes (ResourceExhausted; DoGet: endpoint 0: [])"
+      },
+      {
+        "error": "RESOURCE_EXHAUSTED",
+        "message": "[FlightSQL] no stream is available (user_limit); --stream-overflow=reject refuses this scan before execution: retry after a stream finishes (ResourceExhausted; DoGet: endpoint 0: [])"
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.10176333300478291,
+        "total_seconds": 0.12176045800151769,
+        "rows_per_second": 82128.46899668654,
+        "arrow_mib_per_second": 6.89249541445581
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.29997920800815336,
+        "total_seconds": 0.3010543749987846,
+        "rows_per_second": 33216.59085685226,
+        "arrow_mib_per_second": 2.787647242930411
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.22871583300002385,
+        "total_seconds": 0.22921716699784156,
+        "rows_per_second": 43626.74982408349,
+        "arrow_mib_per_second": 3.6613025517648192
+      },
+      {
+        "error": "RESOURCE_EXHAUSTED",
+        "message": "[FlightSQL] no stream is available (user_limit); --stream-overflow=reject refuses this scan before execution: retry after a stream finishes (ResourceExhausted; DoGet: endpoint 0: [])"
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.23697362499660812,
+        "total_seconds": 0.23795229100505821,
+        "rows_per_second": 42025.23101484838,
+        "arrow_mib_per_second": 3.5268977444712233
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.10181995799939614,
+        "total_seconds": 0.12199225000222214,
+        "rows_per_second": 81972.42037767028,
+        "arrow_mib_per_second": 6.87939929316996
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.2298353749938542,
+        "total_seconds": 0.23118974998942576,
+        "rows_per_second": 43254.51279936668,
+        "arrow_mib_per_second": 3.6300631774370844
+      },
+      {
+        "error": "RESOURCE_EXHAUSTED",
+        "message": "[FlightSQL] no stream is available (user_limit); --stream-overflow=reject refuses this scan before execution: retry after a stream finishes (ResourceExhausted; DoGet: endpoint 0: [])"
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.24526662500284147,
+        "total_seconds": 0.24611504099448211,
+        "rows_per_second": 40631.40537690339,
+        "arrow_mib_per_second": 3.4099232417750347
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.23073966699303128,
+        "total_seconds": 0.23122800000419375,
+        "rows_per_second": 43247.357585667094,
+        "arrow_mib_per_second": 3.6294626880061194
+      },
+      {
+        "rows": 10000,
+        "arrow_payload_bytes": 880000,
+        "first_batch_seconds": 0.24520891699648928,
+        "total_seconds": 0.24689399999624584,
+        "rows_per_second": 40503.21190531992,
+        "arrow_mib_per_second": 3.3991648174935842
+      }
+    ],
+    "memory": {
+      "client": {
+        "baseline_rss_bytes": 195444736,
+        "sampled_peak_rss_bytes": 205750272
+      },
+      "server": {
+        "baseline_rss_bytes": 65224704,
+        "sampled_peak_rss_bytes": 233897984
+      }
+    }
+  }
+}

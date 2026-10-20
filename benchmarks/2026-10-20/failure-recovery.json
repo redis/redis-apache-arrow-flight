@@ -1,0 +1,27 @@
+{
+  "fixture_rows": 3,
+  "redis_container": "redis-flight-test",
+  "checks": [
+    {
+      "check": "paused_redis_deadline",
+      "passed": true,
+      "seconds": 1.0044723750033882,
+      "error_type": "FlightTimedOutError"
+    },
+    {
+      "check": "dataset_and_sql_recover_after_redis_unpause",
+      "passed": true
+    },
+    {
+      "check": "pre_change_server_reads_new_dataset_and_sql_table",
+      "passed": true,
+      "baseline_server_revision": "4120689",
+      "reported_server_version": "rollback-4120689"
+    }
+  ],
+  "limitations": [
+    "Local disposable backend only; not production failover evidence.",
+    "No storage format changed in this work. Discard outstanding query tickets and cookie sessions during rollback.",
+    "Older servers do not enforce new cancellation records; do not mix them with cancellable-ticket readers."
+  ]
+}
