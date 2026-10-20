@@ -120,7 +120,8 @@ data has types that SQL tables can't hold.
 Datasets avoid converting Arrow values to SQL rows. A dataset read can pick
 columns (and fetch only those from Redis) and a range of batches, but only SQL
 can filter rows by value. Both can be combined: for example, upload a dataset,
-then bulk-ingest the rows you want to query into a SQL table.
+then bulk-ingest the rows you want to query into a SQL table. See the
+[executable dataset-to-SQL workflow](docs/dataset-sql-workflow.md).
 
 To measure dataset upload, full-read and one-column read performance on your
 Redis, run the [100,000-row, 10-column benchmarks](server/dataset_bench_test.go):
@@ -130,6 +131,9 @@ REDIS_URI=redis://localhost:6379/0 go test ./server -run '^$' -bench Dataset -be
 ```
 
 ## Data tools
+
+See the [versioned client validation matrix](docs/client-compatibility.md) for
+checks actually run and known client limitations.
 
 Use a **Flight SQL driver** to query SQL tables, or a **Flight client** to
 upload and download named datasets. Tools that consume Arrow tables can
@@ -306,7 +310,8 @@ Known limits of the JDBC driver (19.0.0):
 | `GetCatalogs`, `GetDbSchemas`, `GetTables` (with schemas), `GetTableTypes`, `GetSqlInfo`, `GetXdbcTypeInfo` | Yes. The catalog is `redis`; schemas are key namespaces (`public` by default) |
 | Primary and foreign keys | Empty results: the driver has no primary/foreign-key constraints |
 | Sessions: `SetSessionOptions`, `GetSessionOptions`, `CloseSession` | Yes, for clients that keep cookies: see [Sessions](#sessions) |
-| Transactions, savepoints, Substrait, cancellation | No |
+| Explicit query cancellation | `CancelFlightInfo`; the deprecated Flight SQL `CancelQuery` is translated to it. Applies to read-only query tickets with cancellation metadata; see below |
+| Transactions, savepoints, Substrait | No |
 
 How statements run:
 
@@ -358,6 +363,11 @@ How statements run:
     replicas keep their total `--max-table-streams` under the limit, or
     raise `search-index-cursor-limit` in Redis (and then
     `--max-table-streams`).
+  - Set `--stream-overflow=reject` (`FLIGHT_STREAM_OVERFLOW=reject`) to
+    refuse an eligible scan with `RESOURCE_EXHAUSTED` before execution when
+    no stream/cursor slot is available. Retry after a stream finishes. The
+    default `buffer` preserves the behavior below. This option does not bound
+    driver execution memory for joins, aggregates or other non-streaming queries.
   - A query that could stream but finds no stream free (past
     `--max-streams` or `--max-table-streams`, or with the index near its
     cursor limit) is read into memory before it is sent, and its
@@ -372,6 +382,32 @@ How statements run:
   - To read every result whole instead, pass
     `-adbc-option adbc.redis.stream_results=false`.
 - **Batches are sent at about 2 MiB each,** under gRPC's default 4 MiB limit.
+
+### Query cancellation
+
+`CancelFlightInfo` cancels a pending read-only SQL ticket or all active reads
+of it, including prepared-query tickets returned by GetFlightInfo. The legacy
+Flight SQL `CancelQuery` action maps to the same implementation. Active
+cancellation is cooperative: readers poll Redis every 250 ms, then cancel the
+execution context and release their cursors, connections and retained results.
+A completed query or already-executed write returns `NOT_CANCELLABLE`;
+cancellation never rolls back an autocommitted write. A racing active read can
+return `CANCELLING` until cleanup finishes. Partial data already sent may have
+reached the client; `CANCELLED` means the result is incomplete.
+
+Cancellation records live under `arrowflight:query:{<id>}` (or `-key-prefix`)
+and contain an opaque identity digest and lifecycle state, with no SQL or bound
+values. Newly issued cancellable tickets expire after 10 minutes without an
+active reader; readers renew that lease. Expired/unknown records give
+`NOT_FOUND`; another Redis identity gets `PERMISSION_DENIED`. Repeated
+cancellation is safe. Legacy tickets still work without explicit cancellation.
+With `--auth=none`, clients share one Redis identity and its cancellation scope.
+
+The Redis identity needs EVAL/GET/SET permissions on the query-metadata
+keys to create a cancellable ticket. If metadata creation is denied, SQL still
+works with a non-cancellable ticket. Other Redis errors remain errors. For
+multiple replicas, use the same Redis, key prefix and Redis identity; cancellation
+state is shared there. This does not make cookie sessions portable.
 
 ### Sessions
 
@@ -389,9 +425,10 @@ request.
     `adbc.flight.sql.rpc.with_cookie_middleware=true`. Each ADBC connection is
     then its own session.
   - arrow-go clients do with `flight.NewCookieMiddleware()`.
-- **What it costs.** The server keeps nothing for a cookie it hands out until
-  a request brings it back, so clients that don't keep cookies cost nothing:
-  they use the pool as before.
+- **What it costs.** A freshly issued cookie reserves identity metadata for
+  30 seconds, with at most 10,000 issued/active entries combined. No dedicated
+  ADBC connection is opened until session SQL or options need one. Clients that
+  do not return cookies continue to use the pool.
 - **When a session starts.** It begins with the client's *second* request,
   the first one carrying the cookie. Make a cheap call first (for example
   `GetSqlInfo`) if the very first statement is a `SET`.
@@ -410,7 +447,14 @@ request.
   its temporary tables are dropped. So does `--session-idle-timeout` (10
   minutes) without requests; a session made by SetSessionOptions whose cookie
   never came back closes after 30 seconds. A later request with the old cookie
-  starts a new, empty session.
+  fails with `ABORTED` and receives a fresh cookie. Restore required options
+  explicitly before retrying; the failed request was not executed.
+- **Replica/restart behavior.** Use session affinity so every cookie-bearing
+  request reaches its owning process. An unknown cookie (wrong replica,
+  restart, expiry or CloseSession) returns `ABORTED` before executing the
+  request and issues a fresh cookie. Reconnect to the owner, or explicitly
+  recreate settings and temporary objects before retrying. Shared bearer-token
+  secrets allow authentication across replicas; they do not share sessions.
 - **Ownership.** A session belongs to the Redis user that made it. With
   `--auth=redis-acl`, another user's request with the same cookie gets a
   session of its own.
@@ -572,6 +616,7 @@ Every flag can also be set with the environment variable shown.
 | `-dataset-endpoint-batches` | `FLIGHT_DATASET_ENDPOINT_BATCHES` | `0` (one endpoint) | Give a dataset's FlightInfo one endpoint per this many batches, for [parallel reads](#datasets) |
 | `-pool-max-idle` | `FLIGHT_POOL_MAX_IDLE` | `8` | Idle ADBC connections kept per Redis user |
 | `-pool-max-open` | `FLIGHT_POOL_MAX_OPEN` | `32` | ADBC connections in use at once per Redis user |
+| `-stream-overflow` | `FLIGHT_STREAM_OVERFLOW` | `buffer` | When an eligible scan has no stream capacity: `buffer` within the result budget, or `reject` before execution with `RESOURCE_EXHAUSTED` |
 | `-max-streams` | `FLIGHT_MAX_STREAMS` | `8` | Query results a Redis user can have [streaming](#flight-sql-support) from Redis at once, at most `-pool-max-open` minus 1. Each keeps a connection; further queries are read whole first, within `-result-memory` |
 | `-max-table-streams` | `FLIGHT_MAX_TABLE_STREAMS` | `32` | Query results that can stream from one table at once, across all users. Each keeps a cursor on the table's index, which allows 128 across every client (on standalone Redis, streams also stop at three quarters of them open); further queries are read whole first, within `-result-memory` |
 | `-result-memory` | `FLIGHT_RESULT_MEMORY` | 1 GiB | Bytes of memory that query results read whole for want of a stream may take at once, across the server. A result that doesn't fit fails with `RESOURCE_EXHAUSTED` |

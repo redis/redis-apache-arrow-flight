@@ -39,7 +39,7 @@ These are repository pins, not recommendations for latest versions. SQL requires
 
 ## Data contracts
 
-**SQL:** Redis ADBC owns the SQL engine and table layout (row HASHes and Search indexes). Read-only SELECT/SHOW statements execute when their tickets are consumed. Other statements execute while FlightInfo is requested; their results travel inline or through a Redis result key. Preserve the existing write-once behavior when a returned ticket is replayed; this is not a promise of general exactly-once semantics across retried client requests. Prepared clients must use the handle returned after binding. Transactions, savepoints, Substrait, `GetXdbcTypeInfo`, and protocol cancellation are unsupported; transport cancellation still cleans up calls.
+**SQL:** Redis ADBC owns the SQL engine and table layout (row HASHes and Search indexes). Read-only SELECT/SHOW statements execute when their tickets are consumed. Other statements execute while FlightInfo is requested; their results travel inline or through a Redis result key. Preserve the existing write-once behavior when a returned ticket is replayed; this is not a promise of general exactly-once semantics across retried client requests. Prepared clients must use the handle returned after binding. Transactions, savepoints and Substrait are unsupported. GetXdbcTypeInfo returns canonical scalar metadata. Explicit cancellation uses leased Redis query records; transport cancellation also cleans up calls.
 
 **Datasets:** A name is joined PATH segments, URL-path-escaped inside Redis keys. With the default prefix:
 
@@ -49,6 +49,7 @@ These are repository pins, not recommendations for latest versions. SQL requires
 | `arrowflight:ds:{<name>}:g<N>` | HASH layout `2`: schema, batch count, `<b>:rows` and `<b>:<c>` column IPC payloads |
 | Same generation key in legacy data | LIST of schema followed by batch IPC; still readable by current code |
 | `arrowflight:ds:{<name>}:seq` | Persistent monotonic sequence; survives expiry and drop |
+| `arrowflight:query:{<id>}` | STRING with owner digest, lifecycle state and active-read count; atomic writes with expiry, renewed by active readers |
 | `arrowflight:result:{<id>}` | Oversized SQL statement result; expires after 10 minutes |
 
 All keys involved in one dataset commit/drop share a cluster hash tag. Uploads publish via Lua only after the generation is complete. The later-started generation wins even if an older upload finishes last. Replaced generations have a five-minute grace period; abandoned uploads expire after one hour. A drop invalidates reads even for surviving old-generation payloads. Do not delete sequence keys as routine dataset cleanup.

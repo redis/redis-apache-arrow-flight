@@ -66,3 +66,22 @@ These steps are a manual runbook. No scheduled watcher, autonomous diagnosis, ex
 Keep a known-good artifact and configuration available, drain the affected instance, restore the compatible artifact/configuration through the environment's release mechanism, and verify health plus SQL/dataset/client behavior before restoring traffic. Record the operator decision and results. A concrete production command cannot be supplied until its deployment system is known.
 
 Current readers support legacy LIST generations and current HASH generations; older LIST-only readers fail on new HASH payloads. After new-format uploads, prefer a reader-compatible rollback build or a forward fix. Pause uploads during a storage-version transition until all replicas can read the resulting format. Reverting a server binary does not undo SQL mutations, dropped/expired datasets, or a storage migration. Restarting also loses process-local sessions and invalidates random-key bearer tokens; plan reconnection accordingly.
+
+## Cancellation/session rollout
+
+New cancellable query tickets depend on leased Redis control records and the new
+readers. Upgrade all readers before relying on explicit cancellation across a
+load-balanced fleet; old binaries ignore the cancellation ID. During rollback,
+discard outstanding tickets and reconnect clients. No dataset or SQL storage
+format changes are introduced by this endpoint lifecycle work.
+
+Session cookies reserve process-local metadata. Wrong-replica, restart, expiry
+and closed-session requests now fail with ABORTED before executing and receive
+a recovery cookie; restore application settings/temp objects explicitly before
+retrying. Preserve session affinity. Sharing the authentication token secret
+permits bearer authentication across replicas but does not migrate sessions.
+
+--stream-overflow=reject is an opt-in capacity policy for eligible scans; the
+default buffer policy is retained. Neither choice caps all driver execution
+memory for materialized operators. Use the measured benchmark methodology and
+production workload evidence when setting capacity targets.

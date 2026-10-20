@@ -96,6 +96,8 @@ func run() error {
 	num(&cfg.PoolMaxOpen, "pool-max-open", "FLIGHT_POOL_MAX_OPEN", 32, "ADBC connections in use at once per Redis user")
 	num(&cfg.MaxStreams, "max-streams", "FLIGHT_MAX_STREAMS", 8,
 		"query results a Redis user can stream from Redis at once, at most -pool-max-open minus 1; others are read whole first, within -result-memory")
+	str(&cfg.StreamOverflow, "stream-overflow", "FLIGHT_STREAM_OVERFLOW", "buffer",
+		"when an eligible scan has no free stream: buffer within -result-memory, or reject with RESOURCE_EXHAUSTED")
 	num(&cfg.MaxTableStreams, "max-table-streams", "FLIGHT_MAX_TABLE_STREAMS", 32,
 		"query results that can stream from one table at once, across all users; keep well under Redis's search-index-cursor-limit (128)")
 	num(&cfg.ResultMemory, "result-memory", "FLIGHT_RESULT_MEMORY", 1<<30,

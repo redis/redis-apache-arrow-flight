@@ -67,7 +67,8 @@ docker:
 	docker build --secret id=redis_adbc_token,env=REDIS_ADBC_TOKEN --build-arg VERSION=$(VERSION) -t redis-flight-server:$(VERSION) .
 
 example:
-	uv run examples/python/quickstart.py
+	uv run --with-requirements examples/python/requirements-smoke.txt examples/python/quickstart.py
+	uv run examples/python/dataset_to_sql.py
 
 # The Arrow Flight SQL JDBC driver, checked against Maven Central's SHA-1.
 $(JDBC_JAR):
