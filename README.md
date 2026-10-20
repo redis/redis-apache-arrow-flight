@@ -1,3 +1,5 @@
+<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a5e3e093-ccb6-4dd2-991a-0a75ab78f997" />
+
 # Redis Arrow Flight server
 
 A gRPC [Apache Arrow Flight](https://arrow.apache.org/docs/format/Flight.html)
