@@ -85,3 +85,6 @@ permits bearer authentication across replicas but does not migrate sessions.
 default buffer policy is retained. Neither choice caps all driver execution
 memory for materialized operators. Use the measured benchmark methodology and
 production workload evidence when setting capacity targets.
+
+See [endpoint acceptance defaults](../endpoint-acceptance.md) for the requested
+10,000-row workload, initial operational objectives and local benchmark method.

@@ -987,3 +987,7 @@ as a Go pseudo-version). To build against a local checkout instead:
 ```bash
 go mod edit -replace github.com/adbc-drivers/redis/go=../redis-adbc-driver/go
 ```
+
+The [endpoint acceptance defaults](docs/endpoint-acceptance.md) define the
+10,000-row local workload, reproducible measurements and proposed deployment
+objectives. See the document for measured results and remaining validation.

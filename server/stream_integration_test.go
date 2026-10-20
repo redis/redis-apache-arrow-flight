@@ -548,11 +548,26 @@ func TestIntegrationStreamResults(t *testing.T) {
 		cfg := streamConfig(uri)
 		cfg.PoolMaxOpen, cfg.StreamStallTimeout = 2, 300*time.Millisecond
 		c, metric := metricsClient(t, cfg)
-		rdr := openRead(t, context.Background(), c, "SELECT id, label FROM "+wide)
+		info, err := c.Execute(context.Background(), "SELECT id, label FROM "+wide)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := cancellationHandle(t, info)
+		rdr, err := c.DoGet(context.Background(), info.Endpoint[0].Ticket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(rdr.Release)
 		if !rdr.Next() {
 			t.Fatal(rdr.Err())
 		}
 		time.Sleep(time.Second)
+		// The client has not resumed: leases and cursors must already be free.
+		active, leaseErr := queryActive(context.Background(), admin, "arrowflight:query:{"+h.CancelID+"}")
+		if leaseErr != nil || active != 0 {
+			t.Fatalf("stalled query lease: active=%d, err=%v", active, leaseErr)
+		}
+		waitCursors(t, admin, wide, 0)
 		ids, err := readIDs(rdr)
 		if status.Code(err) != codes.DeadlineExceeded || len(ids)+500 >= streamRows {
 			t.Errorf("after stalling: %d more ids, err = %v; want DeadlineExceeded", len(ids), err)

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -161,6 +162,9 @@ func (s *sqlServer) executeCancellableQuery(parent context.Context, h statementH
 		return nil, nil, err
 	}
 	ctx, cancel := context.WithCancelCause(parent)
+	var stallOnce sync.Once
+	report := func() { stallOnce.Do(s.tenants.metrics.resultStalled) }
+	ctx = context.WithValue(ctx, stalledKey{}, report)
 	watched := make(chan struct{})
 	go func() {
 		defer close(watched)
@@ -203,6 +207,7 @@ func (s *sqlServer) executeCancellableQuery(parent context.Context, h statementH
 		return nil, nil, err
 	}
 	output := make(chan flight.StreamChunk, 1)
+	handoffs, _ := parent.Value(handoffKey{}).(*recordHandoffs)
 	handedOff = true
 	go func() {
 		defer close(output)
@@ -214,13 +219,36 @@ func (s *sqlServer) executeCancellableQuery(parent context.Context, h statementH
 				}
 				continue // drain to release the original reader and pool lease
 			}
+			var released <-chan struct{}
+			if chunk.Data != nil {
+				record := handoffs.wrap(chunk.Data)
+				chunk.Data, released = record, record.released
+			}
+			timer := time.NewTimer(s.tenants.cfg.StreamStallTimeout)
+			sent := false
 			select {
 			case output <- chunk:
+				sent = true
 			case <-ctx.Done():
-				if chunk.Data != nil {
-					chunk.Data.Release()
+			case <-timer.C:
+				report()
+				cancel(status.Error(codes.DeadlineExceeded, "the client stopped reading the query result (--stream-stall-timeout)"))
+			}
+			if !sent && chunk.Data != nil {
+				chunk.Data.Release()
+			}
+			// Pull the next batch only after the adapter has finished this
+			// one. A stopped transport must not keep the control lease alive.
+			if sent && released != nil {
+				select {
+				case <-released:
+				case <-ctx.Done():
+				case <-timer.C:
+					report()
+					cancel(status.Error(codes.DeadlineExceeded, "the client stopped reading the query result (--stream-stall-timeout)"))
 				}
 			}
+			timer.Stop()
 		}
 		if ctx.Err() != nil {
 			// Replace a queued batch with the terminal cancellation error.

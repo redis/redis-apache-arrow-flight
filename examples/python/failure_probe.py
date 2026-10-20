@@ -44,9 +44,14 @@ def main():
             started = time.perf_counter()
             try:
                 client.get_flight_info(desc, flight.FlightCallOptions(timeout=1))
-            except flight.FlightTimedOutError as error:
+            except (flight.FlightTimedOutError, flight.FlightCancelledError) as error:
+                # gRPC can report the client's expired deadline as RST_STREAM
+                # CANCEL rather than DEADLINE_EXCEEDED. Accept that only near
+                # the requested deadline, never an immediate unrelated cancel.
+                elapsed = time.perf_counter() - started
+                assert 0.8 <= elapsed <= 3, (type(error).__name__, elapsed)
                 report["checks"].append({"check": "paused_redis_deadline", "passed": True,
-                                         "seconds": time.perf_counter() - started, "error_type": type(error).__name__})
+                                         "seconds": elapsed, "error_type": type(error).__name__})
             else:
                 raise AssertionError("a paused backend did not produce the expected deadline error")
             finally:

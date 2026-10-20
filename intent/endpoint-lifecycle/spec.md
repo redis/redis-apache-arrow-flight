@@ -20,8 +20,9 @@
 - Pin client smoke versions; publish observed versus unvalidated application
   compatibility, including JDBC 19 getTypeInfo and #23 limitations.
 - Provide reproducible synthetic transfer/query/concurrency/memory measurements
-  and local failure/recovery/rollback evidence. Keep production targets unresolved
-  without representative workload/topology/ownership evidence.
+  and local failure/recovery/rollback evidence. Use the requested 10,000-row
+  baseline and reasonable documented workload/deployment objectives. Separate
+  measured local results from deployment validation.
 
 Rollout: new session semantics require reconnect/recovery; old replicas do not
 honor new cancellation records. Upgrade ticket readers together or retain routing

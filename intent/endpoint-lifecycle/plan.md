@@ -23,5 +23,14 @@ Local evidence on 2026-10-20:
   benchmarks/2026-10-20/. Measurements are synthetic local evidence, not SLOs.
 
 #50 remains open for driver execution-memory bounds beyond scan admission.
-#57 remains open for representative production workload/availability acceptance.
+#57 uses the requested 10,000-row baseline with 16 readers and documented
+default objectives in docs/endpoint-acceptance.md. Deployment and availability
+validation remain open; no further workload clarification is required.
 No external BI application or production deployment was validated.
+
+Review found that a stalled transport could retain the cancellation lease after
+its backend cursor was freed. Batch handoff acknowledgments now bound that wait
+by StreamStallTimeout. A shared one-shot stall reporter prevents double-counting.
+A DoGet ownership registry releases the SDK's current batch after a failed write;
+a checked-allocator test exercises the real adapter's transport-error path.
+The slow-consumer integration test checks query leases before the reader resumes.

@@ -80,7 +80,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--uri", default="grpc://localhost:18815")
     parser.add_argument("--redis-uri", default="redis://localhost:16379/0")
-    parser.add_argument("--rows", type=int, default=100_000)
+    parser.add_argument("--rows", type=int, default=10_000)
     parser.add_argument("--width", type=int, default=64)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--concurrency", type=int, default=16)
