@@ -3,7 +3,7 @@ module github.com/alberttwong/redis-apache-arrow-flight
 go 1.26.10
 
 require (
-	github.com/adbc-drivers/redis/go v0.0.0-20261020162618-a66467bc5e6a
+	github.com/adbc-drivers/redis/go v0.0.0-20261022161448-9cc8e25c0f01
 	github.com/apache/arrow-adbc/go/adbc v1.12.0
 	github.com/apache/arrow-go/v18 v18.8.0
 	github.com/prometheus/client_golang v1.25.0
@@ -13,13 +13,13 @@ require (
 )
 
 require (
-	github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20260903064016-31a68ee93796 // indirect
+	github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20261015034256-4c82882827b5 // indirect
 	github.com/andybalholm/brotli v1.2.6 // indirect
 	github.com/apache/thrift v0.25.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/dlclark/regexp2 v1.12.0 // indirect
+	github.com/dlclark/regexp2/v2 v2.9.1 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/goccy/go-json v0.11.2 // indirect
@@ -53,8 +53,8 @@ require (
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20261012220534-4341edf3f941 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20261019180522-ce908d29299b // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
 )
 
-replace github.com/adbc-drivers/redis/go => github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261020162618-a66467bc5e6a
+replace github.com/adbc-drivers/redis/go => github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261022161448-9cc8e25c0f01

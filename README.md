@@ -980,8 +980,8 @@ request that changes it, the Dockerfile or the Makefile builds and checks
 everything without publishing.
 
 The driver dependency is pinned in `go.mod` with a `replace` to the
-[v0.0.13 release](https://github.com/alberttwong/redis-adbc-driver/releases/tag/v0.0.13)
-of `github.com/alberttwong/redis-adbc-driver/go` (commit `8df997d3fd02`, recorded
+[v0.0.17 release](https://github.com/alberttwong/redis-adbc-driver/releases/tag/v0.0.17)
+of `github.com/alberttwong/redis-adbc-driver/go` (commit `9cc8e25c0f01`, recorded
 as a Go pseudo-version). To build against a local checkout instead:
 
 ```bash

@@ -19,7 +19,7 @@ The repository exercises Python ADBC/PyArrow, Go clients, and the Flight SQL JDB
 | --- | --- |
 | Go | `go 1.26.10` in [go.mod](../../go.mod) |
 | Arrow Go / ADBC | `v18.8.0` / `v1.12.0` in go.mod |
-| Redis driver | Module path `github.com/adbc-drivers/redis/go`, replaced by `github.com/alberttwong/redis-adbc-driver/go`, pseudo-version `v0.0.0-20261020162618-a66467bc5e6a` (upstream checked 2026-10-20) |
+| Redis driver | Module path `github.com/adbc-drivers/redis/go`, replaced by `github.com/alberttwong/redis-adbc-driver/go`, pseudo-version `v0.0.0-20261022161448-9cc8e25c0f01` (v0.0.17 release, upstream checked 2026-10-22) |
 | go-redis / gRPC / Prometheus client | `v9.22.0` / `v1.83.2` / `v1.24.1` in go.mod |
 | Test Redis | `redis:8.6.2` standalone and three-node cluster in [compose.yaml](../../compose.yaml) |
 | Container | Go build stage, static binary, distroless nonroot runtime in [Dockerfile](../../Dockerfile) |
