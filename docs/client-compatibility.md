@@ -17,6 +17,15 @@ Hosted workflow configuration is not itself evidence of a passing run.
 | Power BI | Not validated | None | Requires a custom ADBC Power Query connector; none is shipped |
 | Polars, DuckDB, R | Not validated | None | Arrow/ADBC consumption examples are not a compatibility guarantee |
 
+## Driver v0.0.17 follow-up validation
+
+On 2026-10-22, Redis ADBC v0.0.17 (revision `9cc8e25c0f01`) passed the Go
+standalone and Cluster race suites against disposable Redis 8.6.2, plus both
+Python smoke scripts against the rebuilt server. Python pins were ADBC
+driver/manager 1.12.0, PyArrow 26.0.0 and pandas 3.1.0. JDBC and manual BI
+clients were not rerun. See the [validation record](../intent/driver-v0.0.17/plan.md).
+The earlier matrix retains its original versions and evidence.
+
 ## Reproducing the standard client checks
 
 Use a disposable Redis with Search and a running server. Pin Python dependencies
