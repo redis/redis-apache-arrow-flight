@@ -25,6 +25,13 @@ Use the repository as the working source of truth for these Markdown artifacts. 
 
 ## Existing controls and gaps
 
+Proposed product work: [optional Active-Active control plane](../active-active-control-plane.md),
+with [intent](../../intent/active-active-control-plane/intent.md),
+[specification](../../intent/active-active-control-plane/spec.md),
+[plan](../../intent/active-active-control-plane/plan.md) and
+[evidence](../../intent/active-active-control-plane/evidence.md). This is a design,
+not an available runtime feature.
+
 Existing: format/vet checks, standalone and cluster race tests, client smoke tests, release artifact verification, runtime health and metrics. See [testing](testing.md) and [operations](operations.md).
 
 Not found in the inspected repository: Claude/Codex hook configuration, executable policy skills, agent eval workflows, production deployment manifests, alert rules, scheduled diagnosis, incident history, or recorded SLO baselines. Repository-hosted branch protections and environment settings were not inspected. Markdown guidance is advisory.
