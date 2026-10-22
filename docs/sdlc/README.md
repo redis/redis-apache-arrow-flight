@@ -37,3 +37,12 @@ Existing: format/vet checks, standalone and cluster race tests, client smoke tes
 Not found in the inspected repository: Claude/Codex hook configuration, executable policy skills, agent eval workflows, production deployment manifests, alert rules, scheduled diagnosis, incident history, or recorded SLO baselines. Repository-hosted branch protections and environment settings were not inspected. Markdown guidance is advisory.
 
 Candidate follow-up work is to assign owners, establish deployment/rollback evidence, approve representative agent evaluation tasks, and then design deterministic automation with its own tests. No schedule or external integration is enabled here.
+
+## Commercial feature classification
+
+Requestor policy: monitoring, optimization, automation, backup and security are
+paid-feature categories. Any matching feature/change requires a recorded
+commercial review before implementation/release. Apply the
+[commercial feature review gate](../active-active-control-plane.md#commercial-feature-review-gate)
+to both native driver and Flight work, including overlaps with existing behavior.
+No agent classification substitutes for a requestor/maintainer packaging decision.

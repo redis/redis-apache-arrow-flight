@@ -3,6 +3,12 @@
 Date: 2026-10-22. Author: Codex. Status: design delivered; runtime pending.
 Refs [intent](intent.md), [spec](spec.md), [evidence](evidence.md).
 
+Before implementation, classify every proposed capability against monitoring,
+optimization, automation, backup and security. Record paid packaging and obtain
+actual requestor/maintainer commercial decisions for any match; keep unresolved
+items pending. Inventory existing overlapping features and resolve the baseline
+TLS/security boundary without weakening safety. This applies to both projects.
+
 0. Establish the security/trust model first: separate runtime and management roles,
    verified TLS/CA/client-certificate options on each hop, tenant/action checks,
    endpoint restrictions, protected audit/secret storage, rotation/revocation and

@@ -20,3 +20,11 @@ The requestor prioritizes TLS and broader security now that the optional control
 plane is in scope. Treat secure transport, separated identities/admin privileges,
 secret lifecycle, endpoint trust and tenant isolation as prerequisites for enabling
 management/migration, not deferred hardening after functionality ships.
+
+Commercial policy: monitoring, optimization, automation, backup and security are
+paid-feature categories. A match to any one triggers requestor/maintainer review
+before implementation/release. Record category/scope, existing versus new behavior,
+paid packaging, standalone/safety impact and the actual decision. Current proposed
+security/TLS and operational/control-plane capabilities are pending that review;
+no implicit baseline exemption, existing-feature relicensing or billing/enforcement
+implementation is authorized by this documentation. Preserve safe TLS and execution.

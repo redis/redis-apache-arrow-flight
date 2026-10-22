@@ -37,3 +37,12 @@ currently defaults to AuthNone. These existing mechanisms do not prove the new
 security contract. No runtime security implementation or test pass is claimed.
 
 Security follow-up documentation checks passed: 40 local links and git diff --check.
+
+Commercial policy follow-up: the requestor designates monitoring, optimization,
+automation, backup and security as paid-feature categories and requires review
+on any match. Added a shared commercial gate, current candidate inventory and
+required decision evidence; current security/TLS scope is explicitly pending
+baseline-versus-premium review. No packaging approval, license/runtime change,
+billing integration or existing-feature removal is claimed.
+
+Commercial follow-up checks passed: 6 Markdown files, 41 local links and git diff --check.

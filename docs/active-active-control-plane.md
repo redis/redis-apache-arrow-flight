@@ -60,6 +60,43 @@ hot path or equate product active status with allocator, index or migration
 readiness. Qualify supported API fields/operations and authoritative source
 fencing independently. An ordinary-to-Active-Active in-place switch is not assumed.
 
+## Commercial feature review gate
+
+Requestor policy, 2026-10-22: monitoring, optimization, automation, backup and
+security are paid-feature categories. Matching **any one** category triggers
+mandatory commercial review before implementation or release; placement in the
+native driver rather than Flight does not exempt a feature. Treat matching new
+capabilities as paid scope pending a recorded packaging decision. Existing code
+is not automatically relicensed, removed or disabled by this design document.
+
+For each feature/change, record the matched categories (or an explicit no-match
+rationale), concrete scope, driver/Flight boundary, existing-versus-new behavior,
+proposed paid packaging, effect on standalone use and safety/availability, and
+the requestor/maintainer's actual review decision in the change record/PR. A
+missing decision remains pending; an agent's classification is not approval.
+Do not split or rename a feature to evade review. Review bug fixes and baseline
+requirements explicitly when they overlap a category rather than assuming an
+exemption or silently turning existing behavior into a paid entitlement.
+
+Current design items requiring that review include:
+
+| Category | Examples in this proposal | Commercial decision |
+|---|---|---|
+| Monitoring | Remote status, dashboards/exported metrics, operational logs/audit and alerts | Pending paid-feature review |
+| Optimization | Tuning/recommendations, adaptive resource policies and performance optimization capabilities | Pending paid-feature review |
+| Automation | Provisioning, migration/cutover orchestration, automatic management/configuration workflows | Pending paid-feature review |
+| Backup | Managed backup/restore policies, scheduling and recovery orchestration | Pending paid-feature review; no backup engine is added here |
+| Security | TLS/mTLS additions, identity/role management, credential/certificate lifecycle, access policies and protected audit | Pending paid-feature review, including baseline-versus-premium boundary |
+
+The security-first implementation gate still applies. Commercial packaging cannot
+justify insecure fallback, skipped certificate verification, privilege escalation
+or weakening data-integrity/recovery rules. Resolve baseline security and paid
+management scope together before implementation; this document does not declare
+all TLS free or select billing, licensing or entitlement-enforcement mechanisms.
+The standalone-without-Flight requirement remains; paid packaging and component
+placement are separate decisions. Existing observability/security/optimization
+capabilities must be inventoried during review before any packaging change.
+
 ## Security is a prerequisite for control-plane implementation
 
 Security is first-priority acceptance scope, before enabling remote management or

@@ -36,3 +36,11 @@ private network/admin isolation, protected audits and adversarial acceptance tes
 Existing AuthNone/health/metrics exceptions cannot grant management access. Native
 clients enforce their part without Flight. Product-native replication encryption
 must be qualified separately. See the architecture security contract for detail.
+
+Commercial policy: monitoring, optimization, automation, backup and security are
+paid-feature categories. A match to any one triggers requestor/maintainer review
+before implementation/release. Record category/scope, existing versus new behavior,
+paid packaging, standalone/safety impact and the actual decision. Current proposed
+security/TLS and operational/control-plane capabilities are pending that review;
+no implicit baseline exemption, existing-feature relicensing or billing/enforcement
+implementation is authorized by this documentation. Preserve safe TLS and execution.
