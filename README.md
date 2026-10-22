@@ -18,7 +18,7 @@ and out of Redis:
 
 ## Quick start
 
-You need Go 1.26.6 or newer, Docker and, for the Python example,
+You need Go 1.26.10 or newer, Docker and, for the Python example,
 [uv](https://docs.astral.sh/uv/). For tagged builds, see [Install](#install).
 
 ```bash
