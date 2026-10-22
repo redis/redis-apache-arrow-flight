@@ -5,7 +5,7 @@ Read [the SDLC index](docs/sdlc/README.md) and the change's intent, spec, and pl
 
 ## Commands
 
-- Build: `make build` → `bin/redis-flight-server`; requires Go from `go.mod` (1.26.6).
+- Build: `make build` → `bin/redis-flight-server`; requires Go from `go.mod` (1.26.10).
 - Unit tests: `env -u REDIS_URI make test`; Redis integration tests skip.
 - Integration: `make test-integration`; cluster: `make test-cluster`. Both start Docker Redis and run with `-race`.
 - Format check: `gofmt -l .` (empty output); static checks: `go vet ./...`.
