@@ -24,3 +24,15 @@ Date: 2026-10-22. Status: proposed. Refs [intent](intent.md), [plan](plan.md),
 Acceptance requires native-without-Flight and managed-job failure tests described
 in the plan. The exact identity/bootstrap, fencing, adapter/auth/API, dataset and
 resource policies remain unimplemented design gates, not current capabilities.
+
+Security is first-priority scope before remote management/live migration: verified
+TLS on data/control/Flight/management links (TLS >=1.2, prefer 1.3), explicit CA
+and product-supported client-certificate handling, no verification bypass or
+plaintext downgrade; separate data/runtime/status/management identities and
+least-privilege role scopes; tenant/action authorization for every admin job;
+trusted lineage/generation-bound configuration and endpoint restrictions; secret
+redaction and credential/certificate rotation/revocation including live pools;
+private network/admin isolation, protected audits and adversarial acceptance tests.
+Existing AuthNone/health/metrics exceptions cannot grant management access. Native
+clients enforce their part without Flight. Product-native replication encryption
+must be qualified separately. See the architecture security contract for detail.

@@ -3,6 +3,11 @@
 Date: 2026-10-22. Author: Codex. Status: design delivered; runtime pending.
 Refs [intent](intent.md), [spec](spec.md), [evidence](evidence.md).
 
+0. Establish the security/trust model first: separate runtime and management roles,
+   verified TLS/CA/client-certificate options on each hop, tenant/action checks,
+   endpoint restrictions, protected audit/secret storage, rotation/revocation and
+   negative tests. Gate management/migration enablement on this work; measure
+   performance with production security enabled. No insecure bootstrap fallback.
 1. Agree/pin the driver's independent common-format identity/bootstrap, readiness,
    configuration and outcome/event contract. Prove native ordinary/Active-Active
    execution with Flight never installed; Cloud empty INFO cannot be waved away.

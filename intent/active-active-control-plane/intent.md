@@ -15,3 +15,8 @@ capabilities; do not duplicate its execution/allocation/recovery engine.
 Cloud Pro qualification comes first (AWS us-west-1/us-west-2, at least three
 primary shards per region), Software next with the same minimum and verified
 4x QPF. This is planning only; no runtime change, release or deployment is claimed.
+
+The requestor prioritizes TLS and broader security now that the optional control
+plane is in scope. Treat secure transport, separated identities/admin privileges,
+secret lifecycle, endpoint trust and tenant isolation as prerequisites for enabling
+management/migration, not deferred hardening after functionality ships.

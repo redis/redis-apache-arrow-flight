@@ -26,3 +26,14 @@ control-endpoint option without claiming it solves bootstrap/fencing. No live AP
 requests or infrastructure operations were needed for this documentation review.
 
 Validation passed: 6 Markdown files, 40 local links and git diff --check.
+
+Security-priority follow-up: the requestor makes TLS and security first-priority
+scope for this control-plane design. Read the Redis security skill and official
+Cloud TLS, Software TLS and certificate guidance; added concrete per-hop trust,
+role/tenant separation, endpoint restrictions, secret rotation/revocation, audit
+and negative-test gates before enabling management/migration. Current driver
+sources expose rediss/custom CA handling; Flight exposes optional gRPC TLS and
+currently defaults to AuthNone. These existing mechanisms do not prove the new
+security contract. No runtime security implementation or test pass is claimed.
+
+Security follow-up documentation checks passed: 40 local links and git diff --check.

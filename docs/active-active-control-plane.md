@@ -60,6 +60,71 @@ hot path or equate product active status with allocator, index or migration
 readiness. Qualify supported API fields/operations and authoritative source
 fencing independently. An ordinary-to-Active-Active in-place switch is not assumed.
 
+## Security is a prerequisite for control-plane implementation
+
+Security is first-priority acceptance scope, before enabling remote management or
+live migration. These are proposed requirements, not claims about current defaults.
+Standalone drivers must enforce the same connection/control-state trust rules
+without Flight; the optional service must not weaken them.
+
+- **Verified encryption on every network hop.** Require TLS for deployed Redis
+  data/control connections, Flight clients/admin APIs and product-management HTTPS
+  calls. Set a TLS 1.2 minimum and prefer TLS 1.3 where supported. Verify trust
+  chains and DNS/IP subject alternative names; support explicit private CA bundles
+  and client certificates where required. An IP URI must match an IP SAN or use
+  an explicitly configured verified server name. No skip-verification option,
+  silent plaintext fallback or credential forwarding after an unverified redirect.
+  Any plaintext development mode is explicit, loopback-only, and cannot expose
+  privileged management. Qualify Redis-native inter-region/control replication
+  encryption separately; client TLS alone does not secure those links.
+- **Separate identities and least privilege.** Distinguish application data access,
+  driver runtime control-state access, read-only operator status and privileged
+  Flight deployment management. Applications never receive Cloud account/API keys
+  or management credentials. Define required Redis commands/key scopes per role,
+  including scripts/Search and cross-database access; verify product ACL behavior.
+  Protect issuer/owner records from ordinary DML identities. Authentication alone
+  does not authorize provisioning, endpoint changes or migration. Every admin/job
+  operation checks authenticated subject, tenant, deployment and action scope;
+  AuthNone is rejected for management. Delegated DDL must retain caller permissions
+  rather than inherit the schema owner's administrative access.
+- **Trust configuration and endpoint changes.** Authenticate and authorize control
+  records and bind them to tenant/database lineage, regional incarnation and
+  monotonic generations; TLS proves endpoint identity, not ledger freshness.
+  Reject stale/replayed/foreign handoffs. Allowlist product/control destinations,
+  constrain redirects and revalidate DNS/TLS on reconnect to prevent configuration
+  or URI inputs from turning privileged HTTP clients into arbitrary network access.
+  Provisioning credentials cannot be selected by an untrusted query or URI.
+- **Secret and certificate lifecycle.** Accept separate protected files or secret
+  references; do not put management keys, nested passwords or private keys in
+  connection URI query parameters, tickets, jobs, error text, logs or metrics.
+  Redact connection diagnostics and restrict file/control-record/backup access.
+  Support credential and CA/client-certificate rotation with bounded pool refresh;
+  test revocation against existing pooled sessions, not only new connections.
+  Define compromised-controller credential revocation and writer fencing without
+  reusing issued IDs or replaying uncertain writes. A hosted secrets service is
+  optional, not a new mandatory backend.
+- **Network and administrative isolation.** Prefer private endpoints and network
+  allowlists. Keep admin/status authorization separate from SQL, health and current
+  unauthenticated metrics listeners. Public health exposes only minimal liveness;
+  restrict metrics access at the deployment boundary and keep privileged job data
+  behind authorized APIs. Bound management requests, job admission and retries.
+- **Auditable changes and negative tests.** Record actor, authorized target/action,
+  request/job ID, generation, phase/outcome and time for configuration changes,
+  provisioning, migration, owner changes and authorization failures. Keep sensitive
+  audit records access-controlled with explicit retention and integrity/tamper
+  controls, separate from bounded public metric labels. Never log SQL values or
+  credentials. Qualify wrong/expired/untrusted certificates, hostname mismatch,
+  missing client certificates, ACL denial, cross-tenant requests, replayed handoffs,
+  malicious endpoint inputs, secret redaction and rotation/revocation under load.
+  Security failures fail closed with explicit errors; no insecure recovery bypass.
+
+Use [Cloud TLS guidance](https://redis.io/docs/latest/operate/rc/security/database-security/tls-ssl/),
+[Software TLS configuration](https://redis.io/docs/latest/operate/rs/security/encryption/tls/enable-tls/)
+and [Software certificate guidance](https://redis.io/docs/latest/operate/rs/security/certificates/)
+for product adapters. Qualify exact product versions, trust stores and client-auth
+capabilities. Measure ADBC performance with these security settings enabled;
+beta performance tolerance does not permit disabling verification or authorization.
+
 ## Managed migration workflow
 
 1. Observe an authorized desired-topology/configuration change; no driver migration
