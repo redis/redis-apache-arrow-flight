@@ -1,6 +1,6 @@
 module github.com/alberttwong/redis-apache-arrow-flight
 
-go 1.26.6
+go 1.26.10
 
 require (
 	github.com/adbc-drivers/redis/go v0.0.0-20261020162618-a66467bc5e6a

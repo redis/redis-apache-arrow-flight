@@ -17,7 +17,7 @@ The repository exercises Python ADBC/PyArrow, Go clients, and the Flight SQL JDB
 
 | Component | Checked-in value/source |
 | --- | --- |
-| Go | `go 1.26.6` in [go.mod](../../go.mod) |
+| Go | `go 1.26.10` in [go.mod](../../go.mod) |
 | Arrow Go / ADBC | `v18.8.0` / `v1.12.0` in go.mod |
 | Redis driver | Module path `github.com/adbc-drivers/redis/go`, replaced by `github.com/alberttwong/redis-adbc-driver/go`, pseudo-version `v0.0.0-20261020162618-a66467bc5e6a` (upstream checked 2026-10-20) |
 | go-redis / gRPC / Prometheus client | `v9.22.0` / `v1.83.2` / `v1.24.1` in go.mod |

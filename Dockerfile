@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # The build stage runs on the builder's platform and cross-compiles (the
 # server needs no cgo), so a multi-platform build needs no emulation.
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.26.10-alpine AS build
 RUN apk add --no-cache git ca-certificates
 WORKDIR /src
 COPY go.mod go.sum ./
