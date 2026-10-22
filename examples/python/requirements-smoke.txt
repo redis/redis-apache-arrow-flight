@@ -1,7 +1,8 @@
-# Versions used for the automated compatibility run on 2026-10-20.
+# Dependency pins refreshed on 2026-10-22; validation is recorded in
+# intent/dependency-refresh/plan.md.
 adbc-driver-flightsql==1.12.0
 adbc-driver-manager==1.12.0
 pyarrow==26.0.0
-pandas==3.0.6
+pandas==3.1.0
 redis==8.1.0
 psutil==7.2.2
