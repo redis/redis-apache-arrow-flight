@@ -24,3 +24,7 @@ Prior split evidence is superseded for driver packaging. Flight's own community
 capability flags/security rejection behavior remains in place; SQL delegates to
 the full driver in both builds. No new migration, backup or Active-Active runtime
 was implemented by this correction.
+
+2026-10-23 documentation follow-up: recorded the authoritative newer Active-Active
+proposal and clarified Flight ownership. No runtime files, build contracts or
+qualification claims changed. Diff/local-link checks pass; no server tests rerun.
