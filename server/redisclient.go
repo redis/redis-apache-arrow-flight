@@ -3,20 +3,15 @@ package server
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	goredis "github.com/redis/go-redis/v9"
+	"strings"
 )
 
 // clusterOption is the Redis ADBC driver's database option that selects
 // its client; the server's own client follows it too.
 const clusterOption = "adbc.redis.cluster"
 
-// newRedisClient connects a go-redis client the way the Redis ADBC driver
-// does (its database.go connect): mode "auto" uses the OSS Cluster API
-// client when the server reports cluster_enabled:1 and a single-endpoint
-// client otherwise (standalone Redis, or Redis Cloud / Redis Software through
-// their proxy); "true" and "false" force one or the other.
+// newRedisClient uses the community implementation; see the build-profile contract.
 func newRedisClient(ctx context.Context, opts *goredis.Options, mode string) (goredis.UniversalClient, error) {
 	switch mode {
 	case "", "auto", "true", "false":
@@ -61,7 +56,7 @@ func newRedisClient(ctx context.Context, opts *goredis.Options, mode string) (go
 	return cluster, nil
 }
 
-// clientOptions parses uri and applies the credentials, if given.
+// clientOptions uses the community implementation; see the build-profile contract.
 func clientOptions(uri string, id identity) (*goredis.Options, error) {
 	opts, err := goredis.ParseURL(uri)
 	if err != nil {
@@ -71,8 +66,9 @@ func clientOptions(uri string, id identity) (*goredis.Options, error) {
 		opts.Username = id.Username
 		opts.Password = id.Password
 	}
-	// CLIENT SETINFO needs a permission ACL users may lack; HELLO and AUTH
-	// are always allowed.
+	if opts.TLSConfig != nil || opts.Username != "" || opts.Password != "" {
+		return nil, errFeatureUnavailable
+	}
 	opts.DisableIdentity = true
 	return opts, nil
 }

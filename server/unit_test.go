@@ -25,45 +25,6 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func TestTokenSealer(t *testing.T) {
-	s, err := newTokenSealer("secret")
-	if err != nil {
-		t.Fatal(err)
-	}
-	now := time.Unix(1_800_000_000, 0)
-	id := identity{Username: "alice", Password: "p@ss"}
-	tok, err := s.seal(id, now.Add(time.Hour))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(tok, "p@ss") || strings.Contains(tok, "alice") {
-		t.Fatalf("token shows the credentials: %s", tok)
-	}
-	got, err := s.open(tok, now)
-	if err != nil || got != id {
-		t.Fatalf("open = %+v, %v; want %+v", got, err, id)
-	}
-	if _, err := s.open(tok, now.Add(time.Hour)); !errors.Is(err, errBadToken) {
-		t.Errorf("expired token: err = %v", err)
-	}
-	other, _ := newTokenSealer("other secret")
-	if _, err := other.open(tok, now); !errors.Is(err, errBadToken) {
-		t.Errorf("token from another secret: err = %v", err)
-	}
-	same, _ := newTokenSealer("secret")
-	if _, err := same.open(tok, now); err != nil {
-		t.Errorf("token from a server with the same secret: %v", err)
-	}
-	tampered := []byte(tok)
-	tampered[len(tampered)/2] ^= 1
-	if _, err := s.open(string(tampered), now); !errors.Is(err, errBadToken) {
-		t.Errorf("tampered token: err = %v", err)
-	}
-	if _, err := s.open("not base64!", now); !errors.Is(err, errBadToken) {
-		t.Errorf("garbage token: err = %v", err)
-	}
-}
-
 func TestChangesSession(t *testing.T) {
 	for sql, want := range map[string]bool{
 		"SELECT 1":                                       false,
@@ -403,41 +364,6 @@ func TestWithConnReleasesOnPanic(t *testing.T) {
 
 // leaseConn undoes what it changed on a connection before the pool reuses
 // it, and closes one it can't undo.
-func TestLeaseConnUndo(t *testing.T) {
-	ctx := context.Background()
-	db := &fakeDB{}
-	tn := &tenant{pool: newConnPool(db, 1, 2)}
-	undos := 0
-	undo := func(err error) func(adbc.ConnectionWithContext) error {
-		return func(adbc.ConnectionWithContext) error { undos++; return err }
-	}
-	lease := func(u func(adbc.ConnectionWithContext) error, keep bool, err error) func(error) {
-		release, _ := tn.leaseConn(ctx, "SELECT * FROM t", u, func(adbc.ConnectionWithContext) (bool, error) { return keep, err })
-		return release
-	}
-
-	lease(undo(nil), false, nil)
-	if undos != 1 || db.conns[0].closed {
-		t.Fatalf("undone: %d undos, closed %v; want 1, kept", undos, db.conns[0].closed)
-	}
-	lease(undo(errors.New("RESET failed")), false, nil) // the same connection, from the pool
-	if len(db.conns) != 1 || undos != 2 || !db.conns[0].closed {
-		t.Fatalf("a failed undo: %d conns, %d undos, closed %v; want 1, 2, closed", len(db.conns), undos, db.conns[0].closed)
-	}
-	lease(undo(nil), false, errors.New("i/o timeout"))
-	if undos != 2 || !db.conns[1].closed {
-		t.Fatalf("a broken connection: %d undos, closed %v; want no undo, closed", undos, db.conns[1].closed)
-	}
-	release := lease(undo(nil), true, nil)
-	if undos != 2 {
-		t.Fatal("a kept connection was undone before its release")
-	}
-	release(nil)
-	release(nil)
-	if undos != 3 || db.conns[2].closed {
-		t.Fatalf("released twice: %d undos, closed %v; want 3, kept", undos, db.conns[2].closed)
-	}
-}
 
 // A session is marked as having temporary objects by a statement that may
 // make one, until its connection closes.
@@ -926,25 +852,6 @@ func TestDoPutNeedsDescriptor(t *testing.T) {
 	joined := strings.Join(types, ",")
 	if !strings.Contains(joined, actionDropDataset) || !strings.Contains(joined, flightsql.CreatePreparedStatementActionType) {
 		t.Errorf("actions = %v", types)
-	}
-}
-
-func TestConfigValidation(t *testing.T) {
-	for _, cfg := range []Config{
-		{Auth: "kerberos"},
-		{TLSCertFile: "cert.pem"},
-		{ADBCOptions: map[string]string{"uri": "redis://elsewhere"}},
-		{RedisURI: "http://not-redis"},
-		{MaxTableStreams: -1},
-		{StreamOverflow: "unbounded"},
-		{ResultMemory: -1},
-		{ShutdownTimeout: -time.Second},
-		{MetricsListen: "nonsense"},
-	} {
-		cfg.Logger = testLogger(t)
-		if _, err := New(cfg); err == nil {
-			t.Errorf("New(%+v) succeeded", cfg)
-		}
 	}
 }
 

@@ -224,33 +224,19 @@ func (d *datasets) readMeta(ctx context.Context, rdb goredis.UniversalClient, na
 	return m, nil
 }
 
-// flightInfo describes a dataset: one endpoint, or with endpointBatches
-// set, one per that many batches, in order.
+// flightInfo uses the community implementation; see the build-profile contract.
 func (d *datasets) flightInfo(m datasetMeta) *flight.FlightInfo {
-	endpoint := func(dt datasetTicket) *flight.FlightEndpoint {
-		tkt, _ := json.Marshal(dt)
-		return &flight.FlightEndpoint{Ticket: &flight.Ticket{Ticket: tkt}}
-	}
-	dt := datasetTicket{Dataset: m.Name, Generation: m.Generation}
-	var endpoints []*flight.FlightEndpoint
-	if n := d.endpointBatches; n > 0 && m.Batches > n {
-		for start := int64(0); start < m.Batches; start += n {
-			dt.Batches = []int64{start, min(start+n, m.Batches)}
-			endpoints = append(endpoints, endpoint(dt))
-		}
-	} else {
-		endpoints = []*flight.FlightEndpoint{endpoint(dt)}
-	}
-	appMeta, _ := json.Marshal(m)
-	return &flight.FlightInfo{
-		Schema:           m.schema,
-		FlightDescriptor: &flight.FlightDescriptor{Type: flight.DescriptorPATH, Path: strings.Split(m.Name, "/")},
-		Endpoint:         endpoints,
-		TotalRecords:     m.Rows,
-		TotalBytes:       m.Bytes,
-		Ordered:          len(endpoints) > 1,
-		AppMetadata:      appMeta,
-	}
+	ticket,
+		_ := json.
+		Marshal(datasetTicket{Dataset: m.Name,
+			Generation: m.Generation,
+		})
+	metadata,
+		_ := json.
+		Marshal(m)
+	return &flight.FlightInfo{Schema: m.schema,
+		FlightDescriptor: &flight.FlightDescriptor{Type: flight.DescriptorPATH, Path: strings.Split(m.Name,
+			"/")}, Endpoint: []*flight.FlightEndpoint{{Ticket: &flight.Ticket{Ticket: ticket}}}, TotalRecords: m.Rows, TotalBytes: m.Bytes, AppMetadata: metadata}
 }
 
 func (d *datasets) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
@@ -683,8 +669,7 @@ func (r *datasetRead) corrupt(err error) error {
 	return status.Errorf(codes.DataLoss, "dataset %q generation %d is corrupt: %v", r.dt.Dataset, r.gen, err)
 }
 
-// columns reads a generation stored by column: the ticket's columns of its
-// batches, about readPageBytes of them per HMGET. head is its schema.
+// columns uses the community implementation; see the build-profile contract.
 func (r *datasetRead) columns(ctx context.Context, stream flight.FlightService_DoGetServer, head string, n int64) error {
 	s, _, err := readIPC([]byte(head), r.alloc)
 	if err != nil {
@@ -702,7 +687,7 @@ func (r *datasetRead) columns(ctx context.Context, stream flight.FlightService_D
 	}
 	w := flight.NewRecordWriter(stream, ipc.WithSchema(schema), ipc.WithAllocator(r.alloc))
 	defer w.Close()
-	// Fields per batch: its columns, or with none, its row count.
+
 	per := max(len(cols), 1)
 	// largest is the largest batch read so far, of these columns, which
 	// sizes the next page. Until one has been read, pages are sized for
@@ -715,8 +700,7 @@ func (r *datasetRead) columns(ctx context.Context, stream flight.FlightService_D
 			size = maxChunkBytes
 		}
 		end := min(start+pageLen(size), hi)
-		// The batch count last, which tells a generation that has expired
-		// from one missing a column.
+
 		fields := make([]string, 0, int(end-start)*per+1)
 		for b := start; b < end; b++ {
 			prefix := strconv.FormatInt(b, 10) + ":"
@@ -732,7 +716,7 @@ func (r *datasetRead) columns(ctx context.Context, stream flight.FlightService_D
 			return toStatus(err)
 		}
 		if vals[len(vals)-1] == nil {
-			return r.gone() // expired while being read
+			return r.gone()
 		}
 		strs := make([]string, len(fields))
 		for i := range strs {
@@ -746,8 +730,7 @@ func (r *datasetRead) columns(ctx context.Context, stream flight.FlightService_D
 			if err != nil {
 				return r.corrupt(err)
 			}
-			// At least 1: a batch read without columns (its row count alone)
-			// sizes the pages too.
+
 			largest = max(largest, size, 1)
 			r.bytes += size
 			err = w.Write(rec)
@@ -764,9 +747,7 @@ func (r *datasetRead) columns(ctx context.Context, stream flight.FlightService_D
 	return nil
 }
 
-// list reads a generation stored as a LIST, before the HASH layout: an
-// element per batch, after one with the schema alone, read whole and then
-// projected.
+// list uses the community implementation; see the build-profile contract.
 func (r *datasetRead) list(ctx context.Context, stream flight.FlightService_DoGetServer) error {
 	n, err := r.rdb.LLen(ctx, r.key).Result()
 	if err != nil {
@@ -785,7 +766,7 @@ func (r *datasetRead) list(ctx context.Context, stream flight.FlightService_DoGe
 			_ = w.Close()
 		}
 	}()
-	// send writes a list element: the schema first, then batches.
+
 	send := func(v string) error {
 		s, recs, err := readIPC([]byte(v), r.alloc)
 		if err != nil {
@@ -820,7 +801,7 @@ func (r *datasetRead) list(ctx context.Context, stream flight.FlightService_DoGe
 	// larger. A batch much larger than those before it can make one page
 	// go over readPageBytes.
 	var largest int64
-	// read sends the list elements [from, to).
+
 	read := func(from, to int64) error {
 		for start := from; start < to; {
 			size := largest
@@ -833,11 +814,11 @@ func (r *datasetRead) list(ctx context.Context, stream flight.FlightService_DoGe
 				return toStatus(err)
 			}
 			if int64(len(vals)) < end-start {
-				return r.gone() // expired while being read
+				return r.gone()
 			}
 			for i, v := range vals {
 				r.bytes += int64(len(v))
-				if start+int64(i) > 0 { // element 0 is the schema alone
+				if start+int64(i) > 0 {
 					largest = max(largest, int64(len(v)))
 				}
 				if err := send(v); err != nil {
@@ -848,10 +829,10 @@ func (r *datasetRead) list(ctx context.Context, stream flight.FlightService_DoGe
 		}
 		return nil
 	}
-	// Element 1+b is batch b.
+
 	lo, hi := r.dt.batchRange(n - 1)
 	if lo == 0 {
-		return read(0, 1+hi) // the schema and the batches together
+		return read(0, 1+hi)
 	}
 	if err := read(0, 1); err != nil {
 		return err

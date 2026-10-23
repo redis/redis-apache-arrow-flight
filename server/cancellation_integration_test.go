@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+
 	"sync"
 	"testing"
 	"time"
@@ -211,47 +211,6 @@ func TestIntegrationQueryCancellation(t *testing.T) {
 	})
 }
 
-func TestIntegrationCancellationIdentity(t *testing.T) {
-	uri := redisURI(t)
-	ctx := context.Background()
-	admin := adminClient(t, uri)
-	cfg := Config{RedisURI: uri, Auth: AuthRedisACL, TokenSecret: "cancel-identities", DisableSessions: true}
-	cl := newClients(t, cfg)
-	users := []string{uniqueName("it_flight_cancel_a"), uniqueName("it_flight_cancel_b")}
-	contexts := []context.Context{}
-	for _, user := range users {
-		if err := eachNode(admin, func(ctx context.Context, c *goredis.Client) error {
-			return c.Do(ctx, "ACL", "SETUSER", user, "on", ">pw", "~*", "+@all").Err()
-		}); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() {
-			_ = eachNode(admin, func(ctx context.Context, c *goredis.Client) error { return c.Do(ctx, "ACL", "DELUSER", user).Err() })
-		})
-		authenticated, err := cl.fl.AuthenticateBasicToken(ctx, user, "pw")
-		if err != nil {
-			t.Fatal(err)
-		}
-		contexts = append(contexts, authenticated)
-	}
-	info, err := cl.sql.Execute(contexts[0], "SELECT 1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	h := cancellationHandle(t, info)
-	t.Cleanup(func() { _ = admin.Del(ctx, "arrowflight:query:{"+h.CancelID+"}").Err() })
-	if _, err := cl.sql.CancelFlightInfo(contexts[1], &flight.CancelFlightInfoRequest{Info: info}); status.Code(err) != codes.PermissionDenied {
-		t.Fatal(fmt.Sprintf("another user's cancellation: %v", err))
-	}
-	if _, err := cl.sql.DoGet(contexts[1], info.Endpoint[0].Ticket); status.Code(err) != codes.PermissionDenied {
-		t.Fatalf("another user's fetch: %v", err)
-	}
-	result, err := cl.sql.CancelQuery(contexts[0], info) // deprecated API maps to CancelFlightInfo too
-	if err != nil || result == 0 {
-		t.Fatalf("owner legacy cancel: %v, %v", result, err)
-	}
-}
-
 func queryActive(ctx context.Context, admin goredis.UniversalClient, key string) (int, error) {
 	raw, err := admin.Get(ctx, key).Bytes()
 	if err != nil {
@@ -260,41 +219,4 @@ func queryActive(ctx context.Context, admin goredis.UniversalClient, key string)
 	var record struct{ Active int }
 	err = json.Unmarshal(raw, &record)
 	return record.Active, err
-}
-
-func TestIntegrationCancellationReadOnlyFallback(t *testing.T) {
-	uri := redisURI(t)
-	ctx := context.Background()
-	admin := adminClient(t, uri)
-	user := uniqueName("it_flight_cancel_readonly")
-	if err := eachNode(admin, func(ctx context.Context, c *goredis.Client) error {
-		return c.Do(ctx, "ACL", "SETUSER", user, "on", ">pw", "~*", "+@all", "-set").Err()
-	}); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_ = eachNode(admin, func(ctx context.Context, c *goredis.Client) error { return c.Do(ctx, "ACL", "DELUSER", user).Err() })
-	})
-	cl := newClients(t, Config{RedisURI: uri, Auth: AuthRedisACL, TokenSecret: "readonly", DisableSessions: true})
-	authenticated, err := cl.fl.AuthenticateBasicToken(ctx, user, "pw")
-	if err != nil {
-		t.Fatal(err)
-	}
-	before := len(keysMatching(t, admin, "arrowflight:query:*"))
-	info, err := cl.sql.Execute(authenticated, "SELECT 1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if h := cancellationHandle(t, info); h.CancelID != "" {
-		t.Fatal("SET-denied identity got a cancellable ticket")
-	}
-	result, err := cl.sql.CancelFlightInfo(authenticated, &flight.CancelFlightInfoRequest{Info: info})
-	if err != nil || result.Status != flight.CancelStatusNotCancellable {
-		t.Fatalf("read-only cancel: %v, %v", result, err)
-	}
-	_, rows := fetch(t, authenticated, cl.sql, info)
-	wantRows(t, rows, "1")
-	if after := len(keysMatching(t, admin, "arrowflight:query:*")); after > before {
-		t.Fatalf("failed registration left a control key: before %d, after %d", before, after)
-	}
 }

@@ -1,14 +1,10 @@
 package server
 
 import (
-	"net/http"
-	"strings"
-	"time"
-
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc/codes"
+	"net/http"
+	"time"
 )
 
 // metricsPrefix starts every metric's name.
@@ -62,152 +58,59 @@ type metrics struct {
 }
 
 func newMetrics() *metrics {
-	reg := prometheus.NewRegistry()
-	f := func(c prometheus.Collector) { reg.MustRegister(c) }
-	name := func(s string) string { return metricsPrefix + s }
-	m := &metrics{
-		reg: reg,
-		calls: prometheus.NewCounterVec(prometheus.CounterOpts{Name: name("calls_total"),
-			Help: "Calls finished, by method and gRPC code."}, []string{"method", "code"}),
-		callSeconds: prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: name("call_duration_seconds"),
-			Help:    "How long calls took, by method. DoGet and DoPut are timed until their stream ends.",
-			Buckets: []float64{.001, .005, .01, .05, .1, .5, 1, 5, 10, 60, 300, 1800}}, []string{"method"}),
-		streamed: prometheus.NewCounter(prometheus.CounterOpts{Name: name("queries_streamed_total"),
-			Help: "Query results streamed from Redis as they were sent."}),
-		readWhole: prometheus.NewCounterVec(prometheus.CounterOpts{Name: name("queries_read_whole_total"),
-			Help: "Query results read whole into memory before they were sent, by why: query (the driver doesn't " +
-				"stream it, or returned it whole), session (a session that may have temporary objects), user_limit (-max-streams), " +
-				"table_limit (-max-table-streams), index_cursors (the index near its cursor limit)."},
-			[]string{"reason"}),
-		streamsOpen: prometheus.NewGauge(prometheus.GaugeOpts{Name: name("query_streams_open"),
-			Help: "Query results streaming from Redis now, each with a connection and a cursor."}),
-		stalled: prometheus.NewCounter(prometheus.CounterOpts{Name: name("query_results_stalled_total"),
-			Help: "Query results ended because the client took longer than -stream-stall-timeout to read a batch."}),
-		memoryRefused: prometheus.NewCounter(prometheus.CounterOpts{Name: name("result_memory_refusals_total"),
-			Help: "Query results refused with RESOURCE_EXHAUSTED for not fitting in -result-memory."}),
-		cursorLimit: prometheus.NewCounter(prometheus.CounterOpts{Name: name("index_cursor_limit_errors_total"),
-			Help: "Calls that failed because a table's index had no cursor left (INDEX_CURSOR_LIMIT)."}),
-		poolWait: prometheus.NewHistogram(prometheus.HistogramOpts{Name: name("pool_wait_seconds"),
-			Help:    "How long requests that found -pool-max-open connections in use waited for one.",
-			Buckets: []float64{.001, .01, .1, .5, 1, 5, 30}}),
-		sessionsFull: prometheus.NewCounter(prometheus.CounterOpts{Name: name("sessions_full_total"),
-			Help: "Requests that used the pool because the server had as many sessions as it keeps."}),
-		sessionConns: prometheus.NewGauge(prometheus.GaugeOpts{Name: name("session_connections"),
-			Help: "ADBC connections open for sessions (outside the pool)."}),
-		dsRowsWritten: prometheus.NewCounter(prometheus.CounterOpts{Name: name("dataset_rows_written_total"),
-			Help: "Rows of dataset uploads committed."}),
-		dsBytesWrite: prometheus.NewCounter(prometheus.CounterOpts{Name: name("dataset_bytes_written_total"),
-			Help: "Arrow IPC bytes of dataset uploads committed."}),
-		dsRowsRead: prometheus.NewCounter(prometheus.CounterOpts{Name: name("dataset_rows_read_total"),
-			Help: "Rows of datasets sent."}),
-		dsBytesRead: prometheus.NewCounter(prometheus.CounterOpts{Name: name("dataset_bytes_read_total"),
-			Help: "Arrow IPC bytes of datasets read from Redis."}),
-	}
-	for _, c := range []prometheus.Collector{m.calls, m.callSeconds, m.streamed, m.readWhole, m.streamsOpen,
-		m.stalled, m.memoryRefused, m.cursorLimit, m.poolWait, m.sessionsFull, m.sessionConns,
-		m.dsRowsWritten, m.dsBytesWrite, m.dsRowsRead, m.dsBytesRead} {
-		f(c)
-	}
-	for _, r := range wholeReasons {
-		m.readWhole.WithLabelValues(string(r))
-	}
-	f(collectors.NewGoCollector())
-	f(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	f(prometheus.NewGaugeFunc(prometheus.GaugeOpts{Name: name("build_info"), Help: "The server's version.",
-		ConstLabels: prometheus.Labels{"version": Version}}, func() float64 { return 1 }))
-	return m
+	return &metrics{}
 }
 
-// watch adds the gauges read from the server's state at each scrape.
+// watch uses the community implementation; see the build-profile contract.
 func (m *metrics) watch(tenants *tenantCache, sessions *sessionStore, results *resultBudget, health *redisHealth) {
-	m.reg.MustRegister(&stateCollector{tenants: tenants, sessions: sessions, results: results, health: health})
 }
 
 func (m *metrics) handler() http.Handler {
-	return promhttp.HandlerFor(m.reg, promhttp.HandlerOpts{Registry: m.reg})
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
 }
 
-// shortMethod is a gRPC method's name without its service.
+// shortMethod uses the community implementation; see the build-profile contract.
 func shortMethod(full string) string {
-	return full[strings.LastIndexByte(full, '/')+1:]
+	var zero0 string
+	return zero0
 }
 
 func (m *metrics) call(method string, code codes.Code, d time.Duration) {
-	if m == nil {
-		return
-	}
-	method = shortMethod(method)
-	m.calls.WithLabelValues(method, code.String()).Inc()
-	m.callSeconds.WithLabelValues(method).Observe(d.Seconds())
 }
 
 func (m *metrics) queryReadWhole(why wholeReason) {
-	if m != nil {
-		m.readWhole.WithLabelValues(string(why)).Inc()
-	}
 }
 
 func (m *metrics) streamStarted() {
-	if m != nil {
-		m.streamed.Inc()
-		m.streamsOpen.Inc()
-	}
 }
 
 func (m *metrics) streamEnded() {
-	if m != nil {
-		m.streamsOpen.Dec()
-	}
 }
 
 func (m *metrics) resultStalled() {
-	if m != nil {
-		m.stalled.Inc()
-	}
 }
 
 func (m *metrics) resultMemoryRefused() {
-	if m != nil {
-		m.memoryRefused.Inc()
-	}
 }
 
 func (m *metrics) cursorLimitError() {
-	if m != nil {
-		m.cursorLimit.Inc()
-	}
 }
 
 func (m *metrics) poolWaited(d time.Duration) {
-	if m != nil {
-		m.poolWait.Observe(d.Seconds())
-	}
 }
 
 func (m *metrics) sessionStoreFull() {
-	if m != nil {
-		m.sessionsFull.Inc()
-	}
 }
 
 func (m *metrics) sessionConn(delta float64) {
-	if m != nil {
-		m.sessionConns.Add(delta)
-	}
 }
 
 func (m *metrics) datasetWritten(rows, bytes int64) {
-	if m != nil {
-		m.dsRowsWritten.Add(float64(rows))
-		m.dsBytesWrite.Add(float64(bytes))
-	}
 }
 
 func (m *metrics) datasetRead(rows, bytes int64) {
-	if m != nil {
-		m.dsRowsRead.Add(float64(rows))
-		m.dsBytesRead.Add(float64(bytes))
-	}
 }
 
 // stateCollector reports what the server holds at each scrape.
@@ -233,21 +136,7 @@ var (
 )
 
 func (c *stateCollector) Describe(ch chan<- *prometheus.Desc) {
-	prometheus.DescribeByCollect(c, ch)
 }
 
 func (c *stateCollector) Collect(ch chan<- prometheus.Metric) {
-	tenants, inUse, idle := c.tenants.poolStats()
-	ch <- prometheus.MustNewConstMetric(poolConnsDesc, prometheus.GaugeValue, float64(inUse), "in_use")
-	ch <- prometheus.MustNewConstMetric(poolConnsDesc, prometheus.GaugeValue, float64(idle), "idle")
-	ch <- prometheus.MustNewConstMetric(tenantsDesc, prometheus.GaugeValue, float64(tenants))
-	if c.sessions != nil {
-		ch <- prometheus.MustNewConstMetric(sessionsDesc, prometheus.GaugeValue, float64(c.sessions.count()))
-	}
-	ch <- prometheus.MustNewConstMetric(resultMemoryDesc, prometheus.GaugeValue, float64(c.results.used.Load()))
-	up := 0.0
-	if c.health.up.Load() {
-		up = 1
-	}
-	ch <- prometheus.MustNewConstMetric(redisUpDesc, prometheus.GaugeValue, up)
 }

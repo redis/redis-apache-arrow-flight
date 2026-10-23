@@ -2,6 +2,10 @@
 
 # Redis Arrow Flight server
 
+Build profiles: this checkout builds **community** with paid-feature stubs.
+Use an enterprise composition for TLS/authentication, monitoring, tuning and
+automation. See [build profiles](docs/build-profiles.md) for exact availability.
+
 A gRPC [Apache Arrow Flight](https://arrow.apache.org/docs/format/Flight.html)
 and [Flight SQL](https://arrow.apache.org/docs/format/FlightSql.html) server
 for Redis, written in Go. One endpoint serves two ways to move Arrow data in

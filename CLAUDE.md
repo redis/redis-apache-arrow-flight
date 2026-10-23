@@ -34,3 +34,12 @@ Read [the SDLC index](docs/sdlc/README.md) and the change's intent, spec, and pl
 ## Completion
 
 Follow [REVIEW.md](REVIEW.md). Run checks appropriate to the change and report commands, results, skips, and limitations. Use a disposable Redis for integration tests and examples. Update affected docs with behavior changes. This file is advisory; no agent hooks or eval runner are configured by this documentation.
+
+## Community and enterprise split
+
+Default builds use community implementations; read [build profiles](docs/build-profiles.md).
+Do not reintroduce paid implementations into public source or add private imports
+to its module. Preserve core SQL/protocol/storage/resource safety and fail closed
+when a requested security feature is absent. Paid tests belong with their original
+implementations; do not weaken assertions to make the community profile pass.
+Enterprise source composition must match the qualified full-module fingerprint.
