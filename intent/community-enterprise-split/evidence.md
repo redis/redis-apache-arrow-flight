@@ -1,29 +1,26 @@
-# Evidence
+# Flight-only commercial boundary validation
 
-Implementation in progress, 2026-10-22. User authorization: execute the chosen
-community-stub/complete-enterprise split. Human code review is pending.
-Full-module source fingerprints prevent stale composition. Original feature test
-files are preserved in the enterprise source map; community keeps shared core
-checks and new explicit profile isolation/failure/SQL tests. No private repository
-identity or operational credential is published here. Detailed validation results
-are appended after final checks; no full integration pass is implied.
+Date: 2026-10-23. The maintainer restricted the commercial feature rule to Flight.
+Driver PR #501 was reverted by #504; the full driver remains available in its
+normal build. Both Flight profiles pin the restored driver commit
+0ec68215d240 (v0.0.0-20261023155825-0ec68215d240), with no driver enterprise
+composition or profile dependency. Flight-owned paid implementations remain split.
 
-Driver dependency check, 2026-10-22: latest upstream release v0.0.18 and main
-f22241ac641b0dc0d251695a0a154fa71935d961 were inspected before pinning. This
-change intentionally selects split runtime ebfb32ee2a15b5582db061902f3ff9f9e100ac9b,
-not an unrelated main upgrade. Preserve the fork replacement at immutable
-v0.0.0-20261023004747-ebfb32ee2a15; go.sum records its checksum.
+Before changing the dependency, checked latest driver release v0.0.18 and default
+branch 518db9a7bb308994b6af5c7b3eec71be973ad8a2 on 2026-10-23. The selected
+revision deliberately restores the pre-split tree rather than retaining stubs.
 
-Community and enterprise unit suites pass. Community builds/tests also pass with
-GOFLAGS empty, GOWORK off and GOPROXY off against cached public modules. Both
-executables build. New profile checks verify the driver and Flight editions agree;
-enterprise startup/composition rejects a missing matching enterprise driver.
-Community monitoring returns HTTP 204 and health UNKNOWN; requests for missing
-TLS/authentication fail explicitly. Basic lifecycle logging remains core, and the
-community Dockerfile has no permanently failing paid health probe.
+Driver and both Flight unit suites pass with REDIS_URI unset; backend integration
+skips are expected. The full driver shared library and both Flight executables
+build. Six Python composition safety tests pass, including building without an
+additional driver composition. Whole-module fingerprint validation remains enabled.
 
-Both profiles pass selected Software/4x integration for complete SQL round trips,
-SQL semantics, ingestion and write-once ticket replay. This is focused integration,
-not the entire Flight suite or multi-region/dataset qualification. Six composition
-safety tests pass in each extension project. No benchmark, Cloud deployment or
-new backup/migration/Active-Active implementation is claimed. Human review pending.
+Redis Software 8.6.2 was verified by `make -C go redis-up`: 1 shard, active 4x QPF.
+Both Flight profiles pass focused integration for TestBuildIntegrationRoundTrip,
+TestIntegrationSQL, TestIntegrationWritesRunOnce and TestIntegrationIngest. No
+Cloud, multi-region, full integration-suite or performance qualification is claimed.
+
+Prior split evidence is superseded for driver packaging. Flight's own community
+capability flags/security rejection behavior remains in place; SQL delegates to
+the full driver in both builds. No new migration, backup or Active-Active runtime
+was implemented by this correction.

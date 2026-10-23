@@ -10,8 +10,8 @@ plugin, a Flight requirement for native ADBC, or a network license check.
 |---|---|---|
 | SQL/ADBC/Arrow or Flight protocol | Correct basic execution, types, errors and cleanup | Same APIs plus implemented paid capabilities |
 | Monitoring | No diagnostics file, empty optional metrics; Flight metrics HTTP 204 and health UNKNOWN | Existing diagnostics, metrics, backend health and request logging |
-| Optimization | Serial/residual SQL execution; basic connections and one dataset endpoint | Pushdown/parallel aggregation, tuning, precision-safe index sort, pooling and accelerated streaming as implemented |
-| Automation | Basic protocol/shard routing; no optional physical rename or proactive abandoned-job recovery | Optional physical rename orchestration, proactive recovery and existing management automation |
+| Optimization | Full driver SQL execution; basic Flight connections and one dataset endpoint | Full driver SQL execution plus Flight pooling and accelerated streaming as implemented |
+| Automation | Full driver automation; basic Flight protocol/shard routing | Full driver automation plus existing Flight management automation |
 | Security | Requested TLS/authentication/security operations fail explicitly before execution | Existing verified TLS/custom CA, Redis credentials/ACL integration and Flight authentication |
 | Backup, Active-Active adaptation and infrastructure migration | Unavailable | Not yet implemented; this split does not implement the roadmap |
 
@@ -23,8 +23,9 @@ monitoring and automation cannot remove those invariants.
 
 Go callers can inspect `server.FeatureCapabilities()`. Community health UNKNOWN
 must not be interpreted as Redis readiness. Dataset reads still return all rows
-through their single basic endpoint. Enterprise Flight requires a matching
-enterprise driver composition, not an older driver hidden transitively.
+through their single basic endpoint. Both Flight profiles use the same full public
+ADBC driver. The commercial rule applies only to Flight-owned implementations;
+driver monitoring, optimization, automation and security remain in the driver.
 
 ## Build and qualification
 

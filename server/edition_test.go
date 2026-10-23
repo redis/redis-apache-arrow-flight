@@ -2,16 +2,12 @@ package server
 
 import (
 	"errors"
-	redis "github.com/adbc-drivers/redis/go"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
 func TestBuildProfileSecurityAndTelemetry(t *testing.T) {
-	if redis.FeatureCapabilities()["enterprise"] != enterpriseBuild {
-		t.Fatal("Flight and driver build profiles do not match")
-	}
 	if FeatureCapabilities()["security"] != enterpriseBuild {
 		t.Fatal("wrong capability")
 	}

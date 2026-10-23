@@ -995,3 +995,7 @@ go mod edit -replace github.com/adbc-drivers/redis/go=../redis-adbc-driver/go
 The [endpoint acceptance defaults](docs/endpoint-acceptance.md) define the
 10,000-row local workload, reproducible measurements and proposed deployment
 objectives. See the document for measured results and remaining validation.
+
+Both Flight build profiles use the full Redis ADBC driver. The paid-feature
+packaging rule applies to Flight-owned features only; see
+[build profiles](docs/build-profiles.md).
