@@ -1,12 +1,13 @@
 # Public integration and paid-feature build boundary
 
-Status: proposed build/interface contract, 2026-10-22; runtime implementation in review.
+Status: Active-Active control-plane design only; reconciled 2026-10-23.
+The build split exists; migration/adaptation runtime is not implemented.
 
 Monitoring, optimization, automation, backup and security implementations belong
 in a separate commercial extension for Flight-owned capabilities only. The public
 Flight project retains integration contracts and compilable community stubs.
 The ADBC driver retains its full implementation and has no enterprise split.
-This supersedes earlier placement of paid implementations directly in these
+This supersedes earlier placement of paid implementations directly in the
 public Flight project. This document does not publish implementation repository details.
 
 ## Community stubs and enterprise builds
@@ -80,3 +81,20 @@ composed enterprise source. See [build profiles](build-profiles.md) and the runt
 change evidence. This implements feature placement/build behavior, not the future
 Active-Active allocator, migration, backup or advanced security roadmap. Full
 Software qualification results and unresolved failures must remain explicit.
+
+## Authoritative Active-Active proposal
+
+The maintainer selected the current driver proposal on 2026-10-23 over the
+older driver proposal. It owns the shared runtime/format
+contract: complete current-driver feature parity with local SQL behavior, native
+operation without Flight, Redis-hosted root/regional coordination, preserved IDs,
+keys and planned-cutover retained results. Root fencing/durability and independent
+native identity remain implementation gates, not solved product capabilities.
+
+Flight owns optional management APIs, provisioning/tooling integration, migration
+and status/progress/ETA/logs/metrics; it calls the same driver contracts rather
+than becoming a mandatory allocator endpoint or a second SQL/metadata engine.
+Qualify Cloud Pro first in AWS us-west-1/us-west-2 with at least three primary
+shards per regional database, Software next with verified 4x QPF. Support two or
+more regions. The previous append/read-only and partition exclusions are
+superseded. No Active-Active runtime or new qualification is claimed here.
