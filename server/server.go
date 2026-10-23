@@ -37,9 +37,6 @@ type Server struct {
 
 // New uses the community implementation; see the build-profile contract.
 func New(cfg Config) (*Server, error) {
-	if err := validateEnterpriseDriver(); err != nil {
-		return nil, err
-	}
 	cfg.setDefaults()
 	if !enterpriseBuild && (cfg.Auth != AuthNone || cfg.TLSCertFile != "" || cfg.TLSKeyFile != "") {
 		return nil, errFeatureUnavailable

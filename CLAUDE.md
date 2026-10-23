@@ -43,3 +43,8 @@ to its module. Preserve core SQL/protocol/storage/resource safety and fail close
 when a requested security feature is absent. Paid tests belong with their original
 implementations; do not weaken assertions to make the community profile pass.
 Enterprise source composition must match the qualified full-module fingerprint.
+
+The commercial feature rule applies only to Flight-owned implementations. Both
+Flight profiles use the same full public ADBC driver, including its monitoring,
+optimization, automation and security capabilities. No driver enterprise package
+or separate driver composition is required.

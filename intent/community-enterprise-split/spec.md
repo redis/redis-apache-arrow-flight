@@ -17,3 +17,8 @@ per the requestor's selected model, not a new license or entitlement system.
 Basic endpoint/protocol/shard routing, authoritative row-ID lookup and per-table
 SQL integrity guards remain core contracts. The automation boundary covers
 optional orchestration/proactive recovery, not disabling those mandatory paths.
+
+The commercial feature rule applies only to Flight-owned implementations. Both
+Flight profiles use the same full public ADBC driver, including its monitoring,
+optimization, automation and security capabilities. No driver enterprise package
+or separate driver composition is required.

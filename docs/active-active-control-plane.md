@@ -3,10 +3,11 @@
 Status: proposed build/interface contract, 2026-10-22; runtime implementation in review.
 
 Monitoring, optimization, automation, backup and security implementations belong
-in separate commercial extension packages. Public driver/Flight projects retain
-provider interfaces, integration contracts and compilable community stubs.
+in a separate commercial extension for Flight-owned capabilities only. The public
+Flight project retains integration contracts and compilable community stubs.
+The ADBC driver retains its full implementation and has no enterprise split.
 This supersedes earlier placement of paid implementations directly in these
-public projects. This document does not publish implementation repository details.
+public Flight project. This document does not publish implementation repository details.
 
 ## Community stubs and enterprise builds
 
@@ -50,8 +51,8 @@ accident. A linker flag alone is not isolation of paid implementation source.
 
 ## Integration requirements
 
-Native ADBC must work without a running Flight service. Driver extension code
-runs locally in its enterprise artifact. Flight integrates its own extension
+Native ADBC works without a running Flight service or an enterprise composition.
+Both Flight profiles use the same full public driver. Flight integrates its own extension
 providers and delegates SQL to ADBC. The optional full control plane is an
 enterprise capability. Preserve IDs/keys, local consistency, retained results,
 caller identity, deadlines and uncertain-write classification. Redis owns native
@@ -59,7 +60,7 @@ physical HA, persistence and CRDT replication; no new replication engine is adde
 
 ## Commercial feature review gate
 
-A match to monitoring, optimization, automation, backup or security triggers
+A Flight-owned match to monitoring, optimization, automation, backup or security triggers
 requestor/maintainer review before implementation/release. Record existing/new
 scope, build-profile behavior, packaging, standalone/safety impact and the actual
 decision. The chosen build model does not itself select a license or entitlement
