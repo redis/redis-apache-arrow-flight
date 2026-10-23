@@ -46,3 +46,8 @@ commercial review before implementation/release. Apply the
 [commercial feature review gate](../active-active-control-plane.md#commercial-feature-review-gate)
 to both native driver and Flight work, including overlaps with existing behavior.
 No agent classification substitutes for a requestor/maintainer packaging decision.
+
+Community/enterprise build contract: public interfaces and stubs compile without
+commercial dependencies; enterprise composition supplies full implementations.
+See the feature boundary linked above for availability/error behavior. Code
+extraction and build-profile qualification remain pending.

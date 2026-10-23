@@ -28,3 +28,11 @@ paid packaging, standalone/safety impact and the actual decision. Current propos
 security/TLS and operational/control-plane capabilities are pending that review;
 no implicit baseline exemption, existing-feature relicensing or billing/enforcement
 implementation is authorized by this documentation. Preserve safe TLS and execution.
+
+Build-profile update: community builds compile with public provider interfaces
+and stubs; enterprise artifacts link complete implemented paid features. No
+private dependencies are resolved by a clean community build. Optional telemetry
+returns no feature data; SQL execution retains correct basic results. Requested
+management/security/backup operations cannot silently succeed when their provider
+is absent. Preserve safe failure and explicit capability reporting. Runtime
+source extraction and both-profile tests remain pending.

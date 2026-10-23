@@ -46,3 +46,11 @@ baseline-versus-premium review. No packaging approval, license/runtime change,
 billing integration or existing-feature removal is claimed.
 
 Commercial follow-up checks passed: 6 Markdown files, 41 local links and git diff --check.
+
+Build-profile update: community builds compile with public provider interfaces
+and stubs; enterprise artifacts link complete implemented paid features. No
+private dependencies are resolved by a clean community build. Optional telemetry
+returns no feature data; SQL execution retains correct basic results. Requested
+management/security/backup operations cannot silently succeed when their provider
+is absent. Preserve safe failure and explicit capability reporting. Runtime
+source extraction and both-profile tests remain pending.
