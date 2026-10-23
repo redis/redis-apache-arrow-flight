@@ -395,36 +395,10 @@ func streamTable(sql, defaultSchema string) (streamSource, bool) {
 	return streamSource{schema: schema, name: sel.From.Name}, true
 }
 
-// streamable returns the table a query's result would stream from (see
-// streamTable), or why it is read whole instead: wholeQuery for a query the
-// driver won't stream.
-//
-// In a session, the result streams on a pooled connection, since the
-// session's own serves its other requests meanwhile: streamable also
-// returns the session's settings to stream with, and resolves the table in
-// the session's schema. It returns wholeSession for a session that may
-// have temporary objects, which only its own connection sees (its results
-// are read whole there).
+// streamable uses the community implementation; see the build-profile contract.
 func (s *sqlServer) streamable(ctx context.Context, t *tenant, sql string) (streamSource, *scanSettings, wholeReason, error) {
-	sess := sessionFrom(ctx)
-	if sess == nil {
-		if src, ok := streamTable(sql, s.defaultSchema); ok {
-			return src, nil, "", nil
-		}
-		return streamSource{}, nil, wholeQuery, nil
-	}
-	if _, ok := streamTable(sql, s.defaultSchema); !ok {
-		return streamSource{}, nil, wholeQuery, nil
-	}
-	ss, err := sess.scanSettings(ctx, t)
-	if err != nil || ss == nil {
-		return streamSource{}, nil, wholeSession, err
-	}
-	src, _ := streamTable(sql, ss.want["schema"])
-	if isTempSchemaName(src.schema) {
-		return streamSource{}, nil, wholeSession, nil
-	}
-	return src, ss, "", nil
+	return streamSource{}, nil, wholeQuery,
+		nil
 }
 
 // takeStream takes what a result streaming from src holds besides its

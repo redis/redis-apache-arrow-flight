@@ -3,12 +3,10 @@ package server
 import (
 	"context"
 	"errors"
-	"strings"
-	"sync"
-	"time"
-
 	redis "github.com/adbc-drivers/redis/go"
 	"github.com/apache/arrow-adbc/go/adbc"
+	"strings"
+	"sync"
 )
 
 // connPool keeps open ADBC connections for reuse. Opening one is expensive
@@ -36,66 +34,40 @@ func newConnPool(db adbc.DatabaseWithContext, maxIdle, maxOpen int) *connPool {
 
 var errPoolClosed = errors.New("the connection pool is closed")
 
-// get returns an idle connection, or opens one. It waits while maxOpen
-// connections are in use.
+// get uses the community implementation; see the build-profile contract.
 func (p *connPool) get(ctx context.Context) (adbc.ConnectionWithContext, error) {
 	select {
 	case p.sem <- struct{}{}:
-	default:
-		start := time.Now()
-		select {
-		case p.sem <- struct{}{}:
-			p.metrics.poolWaited(time.Since(start))
-		case <-ctx.Done():
-			p.metrics.poolWaited(time.Since(start))
-			return nil, ctx.Err()
-		}
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 	p.mu.Lock()
-	if p.closed {
-		p.mu.Unlock()
+	closed := p.closed
+	p.mu.Unlock()
+	if closed {
 		<-p.sem
 		return nil, errPoolClosed
 	}
-	if n := len(p.idle); n > 0 {
-		c := p.idle[n-1]
-		p.idle = p.idle[:n-1]
-		p.mu.Unlock()
-		return c, nil
-	}
-	p.mu.Unlock()
 	c, err := p.db.Open(ctx)
 	if err != nil {
 		<-p.sem
-		return nil, err
 	}
-	return c, nil
+	return c, err
 }
 
-// put returns a connection that get gave out: to the idle list if reuse is
-// true and there is room, else it closes it.
+// put uses the community implementation; see the build-profile contract.
 func (p *connPool) put(c adbc.ConnectionWithContext, reuse bool) {
-	defer func() { <-p.sem }()
-	p.mu.Lock()
-	if reuse && !p.closed && len(p.idle) < p.max {
-		p.idle = append(p.idle, c)
-		p.mu.Unlock()
-		return
-	}
-	p.mu.Unlock()
+	defer func() {
+		<-p.sem
+	}()
 	_ = c.Close(context.Background())
 }
 
-// close closes the idle connections; connections in use are closed when
-// they are put back.
+// close uses the community implementation; see the build-profile contract.
 func (p *connPool) close() {
 	p.mu.Lock()
-	idle := p.idle
-	p.idle, p.closed = nil, true
+	p.closed = true
 	p.mu.Unlock()
-	for _, c := range idle {
-		_ = c.Close(context.Background())
-	}
 }
 
 // reusable reports whether a connection can go back to the pool after

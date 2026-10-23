@@ -59,71 +59,7 @@ func wantExit1(t *testing.T, out string, err error, want string) {
 	}
 }
 
-func TestHealthcheckFlag(t *testing.T) {
-	down := []string{"REDIS_URI=redis://127.0.0.1:1/0"} // nothing listens on port 1
-
-	t.Run("not serving while Redis is down", func(t *testing.T) {
-		c := startCommand(t, down)
-		out, err := healthcheck(t, "-listen", c.addr)
-		wantExit1(t, out, err, "NOT_SERVING")
-	})
-
-	t.Run("nothing listening", func(t *testing.T) {
-		lis, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			t.Fatal(err)
-		}
-		addr := lis.Addr().String()
-		_ = lis.Close()
-		start := time.Now()
-		out, err := healthcheck(t, "-listen", addr)
-		wantExit1(t, out, err, addr)
-		if d := time.Since(start); d > 10*time.Second {
-			t.Errorf("-healthcheck took %v", d)
-		}
-	})
-
-	t.Run("TLS, pinned to -tls-cert", func(t *testing.T) {
-		dir := t.TempDir()
-		cert, key := writeCert(t, dir, "server")
-		c := startCommand(t, down, "-tls-cert", cert, "-tls-key", key)
-		// The handshake succeeds, so the check gets as far as the status.
-		out, err := healthcheck(t, "-listen", c.addr, "-tls-cert", cert)
-		wantExit1(t, out, err, "NOT_SERVING")
-		// Another certificate is refused.
-		other, _ := writeCert(t, dir, "other")
-		out, err = healthcheck(t, "-listen", c.addr, "-tls-cert", other)
-		wantExit1(t, out, err, "certificate")
-		// Without the certificate, a plaintext check of a TLS server fails.
-		out, err = healthcheck(t, "-listen", c.addr)
-		if err == nil {
-			t.Errorf("a plaintext -healthcheck of a TLS server passed: %s", out)
-		}
-	})
-}
-
 // With Redis up, -healthcheck exits 0.
-func TestIntegrationHealthcheckFlag(t *testing.T) {
-	uri := os.Getenv("REDIS_URI")
-	if uri == "" {
-		t.Skip("set REDIS_URI to run the integration tests")
-	}
-	c := startCommand(t, []string{"REDIS_URI=" + uri})
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		out, err := healthcheck(t, "-listen", c.addr)
-		if err == nil {
-			if strings.TrimSpace(out) != "SERVING" {
-				t.Errorf("-healthcheck printed %q, want SERVING", out)
-			}
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("-healthcheck: %v\n%s", err, out)
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-}
 
 // writeCert writes a self-signed certificate for 127.0.0.1 and its key to
 // dir, and returns their paths.

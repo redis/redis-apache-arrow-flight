@@ -51,3 +51,5 @@ Community/enterprise build contract: public interfaces and stubs compile without
 commercial dependencies; enterprise composition supplies full implementations.
 See the feature boundary linked above for availability/error behavior. Code
 extraction and build-profile qualification remain pending.
+
+Runtime split: [intent](../../intent/community-enterprise-split/intent.md), [specification](../../intent/community-enterprise-split/spec.md), [plan](../../intent/community-enterprise-split/plan.md), [evidence](../../intent/community-enterprise-split/evidence.md).

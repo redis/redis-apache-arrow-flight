@@ -1,6 +1,6 @@
 # Public integration and paid-feature build boundary
 
-Status: proposed build/interface contract, 2026-10-22; runtime extraction pending.
+Status: proposed build/interface contract, 2026-10-22; runtime implementation in review.
 
 Monitoring, optimization, automation, backup and security implementations belong
 in separate commercial extension packages. Public driver/Flight projects retain
@@ -74,8 +74,8 @@ fallback. Security tests include unavailable-provider behavior in both profiles.
 
 ## Extraction status
 
-Existing runtime source is not yet extracted. Required work is versioned provider
-APIs, community stubs, paid implementation/test moves, enterprise composition and
-both-profile qualification. Keep current code until the paired replacement builds
-and passes relevant tests. No paid runtime availability or new server support is
-claimed by this documentation update.
+The runtime split now uses compile-time community implementations and separately
+composed enterprise source. See [build profiles](build-profiles.md) and the runtime
+change evidence. This implements feature placement/build behavior, not the future
+Active-Active allocator, migration, backup or advanced security roadmap. Full
+Software qualification results and unresolved failures must remain explicit.

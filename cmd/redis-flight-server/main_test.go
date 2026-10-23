@@ -8,7 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
-	"net/http"
+
 	"os"
 	"os/exec"
 	"regexp"
@@ -430,21 +430,3 @@ func TestIntegrationSIGTERM(t *testing.T) {
 }
 
 // -metrics-listen serves the Prometheus metrics.
-func TestMetricsListenFlag(t *testing.T) {
-	c := startCommand(t, []string{"REDIS_URI=redis://127.0.0.1:1/0"}, "-metrics-listen", "127.0.0.1:0")
-	var addr string
-	select {
-	case addr = <-c.metricsAddr:
-	case <-time.After(10 * time.Second):
-		t.Fatal("the server didn't log serving metrics")
-	}
-	res, err := http.Get("http://" + addr + "/metrics")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer res.Body.Close()
-	body, _ := io.ReadAll(res.Body)
-	if res.StatusCode != http.StatusOK || !strings.Contains(string(body), "redis_flight_build_info") {
-		t.Errorf("GET /metrics: %d\n%s", res.StatusCode, body)
-	}
-}

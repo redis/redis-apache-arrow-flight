@@ -12,7 +12,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	"github.com/apache/arrow-go/v18/arrow/flight/flightsql"
 	"github.com/apache/arrow-go/v18/arrow/memory"
-	goredis "github.com/redis/go-redis/v9"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -257,48 +257,6 @@ func TestIntegrationSessions(t *testing.T) {
 
 // A session belongs to the Redis user that made it: another user's
 // request with its cookie gets a session of its own.
-func TestIntegrationSessionOwner(t *testing.T) {
-	uri := redisURI(t)
-	ctx := context.Background()
-	admin := adminClient(t, uri)
-	alice, bob := uniqueName("it_flight_alice"), uniqueName("it_flight_bob")
-	for _, user := range []string{alice, bob} {
-		if err := eachNode(admin, func(ctx context.Context, c *goredis.Client) error {
-			return c.Do(ctx, "ACL", "SETUSER", user, "on", ">pw", "resetchannels", "~*", "+@all").Err()
-		}); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() {
-			_ = eachNode(admin, func(ctx context.Context, c *goredis.Client) error {
-				return c.Do(ctx, "ACL", "DELUSER", user).Err()
-			})
-		})
-	}
-	lis := startTestServer(t, Config{RedisURI: uri, Auth: AuthRedisACL, TokenSecret: "sessions"})
-	c := plainClient(t, lis)
-	actx, err := c.Client.AuthenticateBasicToken(ctx, alice, "pw")
-	if err != nil {
-		t.Fatal(err)
-	}
-	bctx, err := c.Client.AuthenticateBasicToken(ctx, bob, "pw")
-	if err != nil {
-		t.Fatal(err)
-	}
-	token := askSessionToken(t, actx, c)
-	name := uniqueName("it_flight_sess_owner")
-	update(t, withSession(actx, token), c, "CREATE TEMP TABLE "+name+" AS SELECT 1 AS a")
-	wantRows(t, query(t, withSession(actx, token), c, "SELECT a FROM "+name), "1")
-
-	var md metadata.MD
-	_, err = c.Execute(withSession(bctx, token), "SELECT a FROM "+name, grpc.Header(&md))
-	failsMissing(t, err, "another user's request with the session cookie")
-	if got := sessionToken(md); got == "" || got == token {
-		t.Errorf("bob got set-cookie %q, want a session of his own", got)
-	}
-	if !strings.Contains(alice, "alice") {
-		t.Fatal("unreachable")
-	}
-}
 
 // A session's scans stream on a pooled connection with only the settings
 // in scanOptions carried over: of the driver's SET parameters, only

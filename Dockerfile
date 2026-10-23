@@ -19,9 +19,6 @@ FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/redis-flight-server /redis-flight-server
 ENV FLIGHT_LISTEN=0.0.0.0:8815
 EXPOSE 8815
-# Healthy while the server serves and Redis answers. The check reads the
-# same environment as the server (FLIGHT_LISTEN, FLIGHT_TLS_CERT), not its
-# command-line flags.
-HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
-    CMD ["/redis-flight-server", "-healthcheck"]
+# Community backend monitoring is unavailable; do not install a failing paid probe.
+HEALTHCHECK NONE
 ENTRYPOINT ["/redis-flight-server"]

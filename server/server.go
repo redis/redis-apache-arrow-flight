@@ -2,24 +2,21 @@ package server
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/apache/arrow-go/v18/arrow/flight"
+	"github.com/apache/arrow-go/v18/arrow/flight/flightsql"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 	"log/slog"
 	"net"
 	"net/http"
 	"runtime/debug"
 	"sync"
 	"time"
-
-	"github.com/apache/arrow-go/v18/arrow/flight"
-	"github.com/apache/arrow-go/v18/arrow/flight/flightsql"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/status"
 )
 
 // Server is the Arrow Flight server.
@@ -38,21 +35,21 @@ type Server struct {
 	shutdown  sync.Once
 }
 
-// New makes a Server from cfg. It opens ADBC connections only when
-// requests come in, and pings Redis in the background for its health
-// status, so it starts even if Redis is down.
+// New uses the community implementation; see the build-profile contract.
 func New(cfg Config) (*Server, error) {
+	if err := validateEnterpriseDriver(); err != nil {
+		return nil, err
+	}
 	cfg.setDefaults()
+	if !enterpriseBuild && (cfg.Auth != AuthNone || cfg.TLSCertFile != "" || cfg.TLSKeyFile != "") {
+		return nil, errFeatureUnavailable
+	}
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 	if _, err := clientOptions(cfg.RedisURI, identity{}); err != nil {
 		return nil, err
 	}
-
-	// Health checks skip logging and metrics (probes call often),
-	// authentication and sessions. The log comes first, so a panic is
-	// logged and counted as the Internal error it becomes.
 	m := newMetrics()
 	middleware := []flight.ServerMiddleware{skipHealth(logMiddleware(cfg.Logger, m)), recoverMiddleware(cfg.Logger)}
 	if cfg.Auth == AuthRedisACL {
@@ -61,39 +58,16 @@ func New(cfg Config) (*Server, error) {
 			return nil, err
 		}
 		if cfg.TokenSecret == "" {
-			cfg.Logger.Warn("no token secret is set: tokens are valid only until this server restarts, " +
-				"and other servers won't accept them")
+			cfg.Logger.Warn("no token secret is set: tokens are valid only until this server restarts, " + "and other servers won't accept them")
 		}
 		v := &aclValidator{uri: cfg.RedisURI, sealer: sealer, ttl: cfg.TokenTTL, now: time.Now}
 		middleware = append(middleware, skipHealth(flight.CreateServerBasicAuthMiddleware(v)))
 	}
-
-	opts := []grpc.ServerOption{
-		grpc.MaxRecvMsgSize(cfg.MaxMsgSize),
-		// So Shutdown, once Stop has cancelled the calls still running, waits
-		// for them to give back their connections and cursors.
-		grpc.WaitForHandlers(true),
-		// Ping idle connections, so a client that has vanished doesn't hold
-		// a call (and its connection and cursor) until TCP gives up.
-		grpc.KeepaliveParams(keepalive.ServerParameters{Time: time.Minute, Timeout: 20 * time.Second}),
-		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 10 * time.Second, PermitWithoutStream: true}),
-	}
-	if cfg.TLSCertFile != "" {
-		cert, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load the TLS certificate: %w", err)
-		}
-		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
-			Certificates: []tls.Certificate{cert},
-			MinVersion:   tls.VersionTLS12,
-		})))
-	}
-
+	opts := []grpc.ServerOption{grpc.MaxRecvMsgSize(cfg.MaxMsgSize), grpc.WaitForHandlers(true), grpc.KeepaliveParams(keepalive.ServerParameters{Time: time.Minute, Timeout: 20 * time.Second}), grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 10 * time.Second, PermitWithoutStream: true})}
 	tenants := newTenantCache(&cfg)
 	tenants.metrics = m
 	var sessions *sessionStore
 	if !cfg.DisableSessions {
-		// After authentication: a session belongs to who made it.
 		sessions = newSessionStore(tenants, cfg.SessionIdleTimeout, cfg.Logger)
 		middleware = append(middleware, skipHealth(sessions.middleware()))
 	}
@@ -116,14 +90,7 @@ func New(cfg Config) (*Server, error) {
 	m.watch(tenants, sessions, sql.results, health)
 	drain, stopDrain := context.WithCancel(context.Background())
 	middleware = append(middleware, flight.ServerMiddleware{Stream: healthDrain(drain)})
-	r := &router{
-		sql: flightsql.NewFlightServerWithAllocator(sql, cfg.Allocator),
-		ds: &datasets{tenants: tenants, prefix: cfg.KeyPrefix, ttl: cfg.DatasetTTL,
-			endpointBatches: int64(cfg.DatasetEndpointBatches), alloc: cfg.Allocator},
-	}
-	// The gRPC server is built as flight.NewServerWithMiddleware would, but
-	// kept, so Shutdown can Stop it. (Its interceptors for a
-	// BaseFlightServer auth handler do nothing here: the router has none.)
+	r := &router{sql: flightsql.NewFlightServerWithAllocator(sql, cfg.Allocator), ds: &datasets{tenants: tenants, prefix: cfg.KeyPrefix, ttl: cfg.DatasetTTL, endpointBatches: int64(cfg.DatasetEndpointBatches), alloc: cfg.Allocator}}
 	var unary []grpc.UnaryServerInterceptor
 	var stream []grpc.StreamServerInterceptor
 	for _, m := range middleware {
@@ -140,9 +107,7 @@ func New(cfg Config) (*Server, error) {
 	healthpb.RegisterHealthServer(gs, health.hs)
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", m.handler())
-	return &Server{cfg: cfg, log: cfg.Logger, tenants: tenants, sessions: sessions, grpc: gs,
-		health: health, metrics: m, stopDrain: stopDrain,
-		metricsHTTP: &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}}, nil
+	return &Server{cfg: cfg, log: cfg.Logger, tenants: tenants, sessions: sessions, grpc: gs, health: health, metrics: m, stopDrain: stopDrain, metricsHTTP: &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}}, nil
 }
 
 // MetricsHandler serves the server's Prometheus metrics, for a server of
@@ -259,45 +224,7 @@ func recoverMiddleware(log *slog.Logger) flight.ServerMiddleware {
 	}
 }
 
-// logMiddleware logs and counts each call: it logs at debug level when it
-// succeeds, at info level for client errors, and at warn level for server
-// errors and for a limit reached (an index out of cursors, a result over
-// ResultMemory).
+// logMiddleware uses the community implementation; see the build-profile contract.
 func logMiddleware(log *slog.Logger, m *metrics) flight.ServerMiddleware {
-	done := func(ctx context.Context, method string, start time.Time, err error) {
-		code, took := status.Code(err), time.Since(start)
-		m.call(method, code, took)
-		cursorLimit := isCursorLimit(err)
-		if cursorLimit {
-			m.cursorLimitError()
-		}
-		level := slog.LevelDebug
-		switch {
-		case code == codes.OK, code == codes.Canceled:
-		case code == codes.Internal, code == codes.Unknown, code == codes.Unavailable, code == codes.DataLoss,
-			cursorLimit, errors.Is(err, errResultMemory):
-			level = slog.LevelWarn
-		default:
-			level = slog.LevelInfo
-		}
-		attrs := []any{"method", method, "code", code.String(), "duration", took}
-		if err != nil {
-			attrs = append(attrs, "error", status.Convert(err).Message())
-		}
-		log.Log(ctx, level, "call", attrs...)
-	}
-	return flight.ServerMiddleware{
-		Unary: func(ctx context.Context, req any, info *grpc.UnaryServerInfo, h grpc.UnaryHandler) (any, error) {
-			start := time.Now()
-			resp, err := h(ctx, req)
-			done(ctx, info.FullMethod, start, err)
-			return resp, err
-		},
-		Stream: func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, h grpc.StreamHandler) error {
-			start := time.Now()
-			err := h(srv, ss)
-			done(ss.Context(), info.FullMethod, start, err)
-			return err
-		},
-	}
+	return flight.ServerMiddleware{}
 }
