@@ -13,7 +13,8 @@ plugin, a Flight requirement for native ADBC, or a network license check.
 | Optimization | Full driver SQL execution; basic Flight connections and one dataset endpoint | Full driver SQL execution plus Flight pooling and accelerated streaming as implemented |
 | Automation | Full driver automation; basic Flight protocol/shard routing | Full driver automation plus existing Flight management automation |
 | Security | Requested TLS/authentication/security operations fail explicitly before execution | Existing verified TLS/custom CA, Redis credentials/ACL integration and Flight authentication |
-| Backup, Active-Active adaptation and infrastructure migration | Unavailable | Not yet implemented; this split does not implement the roadmap |
+| Backup and infrastructure migration | Unavailable | Not yet implemented; this split does not implement the roadmap |
+| Flight-owned Active-Active features | Shared contracts and compilable unavailable stubs; no managed actions or feature data | Automatic Enterprise placement for all such features; implementations and qualification remain pending |
 
 Community security stubs do not authenticate credentials, accept certificates,
 skip verification or downgrade a secure connection to plaintext. Use enterprise
@@ -26,6 +27,12 @@ must not be interpreted as Redis readiness. Dataset reads still return all rows
 through their single basic endpoint. Both Flight profiles use the same full public
 ADBC driver. The commercial rule applies only to Flight-owned implementations;
 driver monitoring, optimization, automation and security remain in the driver.
+The maintainer's 2026-10-25 Active-Active rule applies to Flight-owned capabilities,
+including managed-profile variations, independently of those review categories.
+The driver's native Active-Active support remains public. Generic SQL delegation
+does not require a new edition gate; requesting an absent Flight Active-Active
+provider must fail explicitly before side effects. No entitlement mechanism is
+introduced by this classification.
 
 ## Build and qualification
 

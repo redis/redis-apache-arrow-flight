@@ -4,10 +4,12 @@ Date: 2026-10-22. Author: Codex. Status: design delivered; runtime pending.
 Refs [intent](intent.md), [spec](spec.md), [evidence](evidence.md).
 
 Before implementation, classify every proposed capability against monitoring,
-optimization, automation, backup and security. Record paid packaging and obtain
-actual requestor/maintainer commercial decisions for any match; keep unresolved
-items pending. Inventory existing overlapping features and resolve the baseline
-TLS/security boundary without weakening safety. This applies to both projects.
+optimization, automation, backup and security. All Flight-owned Active-Active
+features are automatically Enterprise under the maintainer's 2026-10-25 decision;
+record that classification without another edition decision. For other matches,
+record the actual commercial decision and keep unresolved packaging pending.
+Inventory overlapping features and preserve the TLS/security boundary. This rule
+applies only to Flight; the complete native driver remains public.
 
 0. Establish the security/trust model first: separate runtime and management roles,
    verified TLS/CA/client-certificate options on each hop, tenant/action checks,
@@ -48,7 +50,8 @@ private dependencies are resolved by a clean community build. Optional telemetry
 returns no feature data; SQL execution retains correct basic results. Requested
 management/security/backup operations cannot silently succeed when their provider
 is absent. Preserve safe failure and explicit capability reporting. Runtime
-source extraction and both-profile tests remain pending.
+source extraction already exists; the Active-Active runtime and its qualification
+remain pending.
 
 ## Managed-profile decision (2026-10-25)
 
@@ -58,4 +61,4 @@ changed decision, service dependency, authority boundary, outage behavior, safe
 transition and acceptance tests before implementing it. Native requirements remain
 the baseline unless individually reclassified; attaching Flight does not silently
 change them. This operating profile is distinct from community/enterprise builds.
-See the [shared profile contract](https://github.com/alberttwong/redis-adbc-driver/blob/b71bc7c5678b3128abcf4a3029f8214e11943926/docs/flight-managed-profile.md).
+See the [shared profile contract](https://github.com/alberttwong/redis-adbc-driver/blob/067cb6bc4d608eb39d6e9b139c122b31adb6aca9/docs/flight-managed-profile.md).

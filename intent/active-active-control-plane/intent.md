@@ -21,13 +21,14 @@ plane is in scope. Treat secure transport, separated identities/admin privileges
 secret lifecycle, endpoint trust and tenant isolation as prerequisites for enabling
 management/migration, not deferred hardening after functionality ships.
 
-Commercial policy: monitoring, optimization, automation, backup and security are
-paid-feature categories. A match to any one triggers requestor/maintainer review
-before implementation/release. Record category/scope, existing versus new behavior,
-paid packaging, standalone/safety impact and the actual decision. Current proposed
-security/TLS and operational/control-plane capabilities are pending that review;
-no implicit baseline exemption, existing-feature relicensing or billing/enforcement
-implementation is authorized by this documentation. Preserve safe TLS and execution.
+Commercial policy applies only to Flight-owned implementations. Monitoring,
+optimization, automation, backup and security are paid-feature review categories.
+On 2026-10-25 the maintainer additionally assigned all Flight-owned Active-Active
+features to Enterprise automatically, including managed-profile variations still
+to be designed. Record the settled edition decision, existing/new scope, shared
+contracts, community absence behavior and safety/qualification requirements.
+The full native driver remains public. No relicensing or entitlement mechanism
+is authorized by this documentation; preserve safe TLS and execution.
 
 Build-profile update: community builds compile with public provider interfaces
 and stubs; enterprise artifacts link complete implemented paid features. No
@@ -35,7 +36,8 @@ private dependencies are resolved by a clean community build. Optional telemetry
 returns no feature data; SQL execution retains correct basic results. Requested
 management/security/backup operations cannot silently succeed when their provider
 is absent. Preserve safe failure and explicit capability reporting. Runtime
-source extraction and both-profile tests remain pending.
+source extraction already exists; the Active-Active runtime and its qualification
+remain pending.
 
 ## Managed-profile decision (2026-10-25)
 
@@ -45,4 +47,4 @@ changed decision, service dependency, authority boundary, outage behavior, safe
 transition and acceptance tests before implementing it. Native requirements remain
 the baseline unless individually reclassified; attaching Flight does not silently
 change them. This operating profile is distinct from community/enterprise builds.
-See the [shared profile contract](https://github.com/alberttwong/redis-adbc-driver/blob/b71bc7c5678b3128abcf4a3029f8214e11943926/docs/flight-managed-profile.md).
+See the [shared profile contract](https://github.com/alberttwong/redis-adbc-driver/blob/067cb6bc4d608eb39d6e9b139c122b31adb6aca9/docs/flight-managed-profile.md).

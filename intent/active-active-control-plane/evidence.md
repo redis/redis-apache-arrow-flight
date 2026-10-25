@@ -69,3 +69,21 @@ SDLC commercial scope to Flight-owned implementations only. The native driver
 retains its full public implementation. This is documentation only: no Go module,
 provider, build composition, runtime or infrastructure changed. Local Markdown
 links and whitespace were checked; no runtime tests were repeated.
+
+## Automatic Active-Active enterprise placement (2026-10-25)
+
+Albert Wong explicitly directed that Active-Active features automatically belong
+in Flight Enterprise. From source `092f0d0`, updated repository guidance, build
+profiles, architecture and current change records: every Flight-owned
+Active-Active capability is Enterprise, including undecided managed variations,
+without a separate MOABS category/edition decision. Public contracts and
+unavailable community stubs remain; the full native driver stays public.
+
+Removed stale current-plan wording applying the commercial rule to the driver
+and describing the existing source split as pending. Historical evidence remains
+dated. Documentation-only validation covers local Markdown links, whitespace and
+policy consistency: all 41 local links in the eight changed Markdown files and
+`git diff --check` passed. Inspection of `server/edition.go` confirms that
+`active_active` remains false; classification does not enable the capability.
+No code, provider, module pin, composition fingerprint, entitlement mechanism or
+infrastructure changed; no runtime tests were rerun.

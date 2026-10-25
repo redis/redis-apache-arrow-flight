@@ -48,3 +48,8 @@ The commercial feature rule applies only to Flight-owned implementations. Both
 Flight profiles use the same full public ADBC driver, including its monitoring,
 optimization, automation and security capabilities. No driver enterprise package
 or separate driver composition is required.
+
+All Flight-owned Active-Active features automatically belong in Flight Enterprise,
+including future managed-profile variations, whether or not they match a MOABS
+category. Community keeps shared contracts and unavailable stubs. The edition
+decision is settled; architecture, safety and qualification still require review.

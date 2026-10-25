@@ -46,7 +46,11 @@ commercial review before implementation/release. Apply the
 [commercial feature review gate](../active-active-control-plane.md#commercial-feature-review-gate)
 to Flight-owned implementations, including overlaps with existing behavior.
 The full native driver remains public and is outside this commercial rule.
-No agent classification substitutes for a requestor/maintainer packaging decision.
+On 2026-10-25 the maintainer explicitly decided that all Flight-owned Active-Active
+features automatically belong in Flight Enterprise, regardless of those five
+categories. Record this settled edition decision for each such feature; its
+individual design and qualification still require review. No agent classification
+substitutes for a requestor/maintainer packaging decision on other features.
 
 Community/enterprise build contract: public interfaces and stubs compile without
 commercial dependencies; enterprise composition supplies full implementations.

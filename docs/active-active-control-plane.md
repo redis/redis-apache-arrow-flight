@@ -10,6 +10,13 @@ The ADBC driver retains its full implementation and has no enterprise split.
 This supersedes earlier placement of paid implementations directly in the
 public Flight project. This document does not publish implementation repository details.
 
+On 2026-10-25 the maintainer additionally classified every Flight-owned
+Active-Active feature as Flight Enterprise automatically, whether or not it fits
+those five categories. This includes managed-profile variations whose designs
+are still TBD. The edition decision is settled; individual capability contracts,
+safety and qualification remain required. Native Active-Active functionality
+stays in the full public driver and does not acquire an enterprise dependency.
+
 ## Community stubs and enterprise builds
 
 The requestor selects two build profiles. Community builds compile from public
@@ -26,6 +33,7 @@ or network license service is introduced by this build model.
 | Automation | No job/action is performed; explicit unavailable result for requested management operations | Provisioning, discovery/control workflows and automation |
 | Backup | No backup/restore side effect or success claim; explicit unavailable result | Managed native-product backup/restore orchestration when implemented |
 | Security | No paid security output or privilege grant; reject operations requiring an absent provider | Complete configured TLS/auth/authorization and security management |
+| Flight-owned Active-Active | Contracts and compilable unavailable stubs; no feature data, managed action or success claim | All implemented Active-Active capabilities; roadmap items remain unavailable until implemented and qualified |
 
 “No output” applies to optional feature data, not successful empty SQL rows,
 empty Arrow schemas or successful no-op mutations. Preserve correct SQL/ADBC
@@ -62,10 +70,17 @@ physical HA, persistence and CRDT replication; no new replication engine is adde
 ## Commercial feature review gate
 
 A Flight-owned match to monitoring, optimization, automation, backup or security triggers
-requestor/maintainer review before implementation/release. Record existing/new
-scope, build-profile behavior, packaging, standalone/safety impact and the actual
+requestor/maintainer review before implementation/release. All Flight-owned
+Active-Active features are already classified as Enterprise by the maintainer;
+record that decision without asking for another category/edition decision. Record
+existing/new scope, build-profile behavior, packaging, standalone/safety impact and the actual
 decision. The chosen build model does not itself select a license or entitlement
 system. Source copyright/license notices remain intact.
+
+Active-Active scope includes Flight-specific topology discovery, provisioning,
+migration/cutover, regional policy/routing, schema coordination, admission/drain,
+recovery, dataset adaptation and status. Shared SQL delegation still uses the
+complete public driver; it does not extract or gate the driver's native support.
 
 ## Security is a prerequisite for control-plane implementation
 
@@ -122,8 +137,9 @@ safe activation/exit and qualification. There is no silent fallback to a weaker
 native contract after losing Flight. Central service availability does not itself
 prove fencing, durability or global SQL consistency.
 
-See the [shared managed-profile proposal](https://github.com/alberttwong/redis-adbc-driver/blob/b71bc7c5678b3128abcf4a3029f8214e11943926/docs/flight-managed-profile.md). Public contracts and
-unavailable community stubs may describe selected capabilities; Flight-owned
-paid implementations remain enterprise scope under the existing commercial gate.
+See the [shared managed-profile proposal](https://github.com/alberttwong/redis-adbc-driver/blob/067cb6bc4d608eb39d6e9b139c122b31adb6aca9/docs/flight-managed-profile.md). Public contracts and
+unavailable community stubs may describe selected capabilities; all Flight-owned
+Active-Active implementations automatically belong in Enterprise. Classification
+does not approve a particular architectural variation or imply implementation.
 No provider, public option, dependency update or managed runtime is implemented
 by this documentation change.
