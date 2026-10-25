@@ -12,7 +12,7 @@ provisioning/data migration/fencing/cutover, desired policy and operator status,
 logs/metrics. Preserve independent native correctness and the current driver
 capabilities; do not duplicate its execution/allocation/recovery engine.
 
-Cloud Pro qualification comes first (AWS us-west-1/us-west-2, at least three
+Cloud Pro qualification comes first (AWS us-west-2/us-east-1, at least three
 primary shards per region), Software next with the same minimum and verified
 4x QPF. This is planning only; no runtime change, release or deployment is claimed.
 
@@ -36,3 +36,13 @@ returns no feature data; SQL execution retains correct basic results. Requested
 management/security/backup operations cannot silently succeed when their provider
 is absent. Preserve safe failure and explicit capability reporting. Runtime
 source extraction and both-profile tests remain pending.
+
+## Managed-profile decision (2026-10-25)
+
+The maintainer permits selected architectural decisions to change in an explicit
+Flight-managed operating profile. Exact variations remain undecided. Record each
+changed decision, service dependency, authority boundary, outage behavior, safe
+transition and acceptance tests before implementing it. Native requirements remain
+the baseline unless individually reclassified; attaching Flight does not silently
+change them. This operating profile is distinct from community/enterprise builds.
+See the [shared profile contract](https://github.com/alberttwong/redis-adbc-driver/blob/b71bc7c5678b3128abcf4a3029f8214e11943926/docs/flight-managed-profile.md).

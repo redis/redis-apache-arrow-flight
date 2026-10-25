@@ -54,3 +54,18 @@ returns no feature data; SQL execution retains correct basic results. Requested
 management/security/backup operations cannot silently succeed when their provider
 is absent. Preserve safe failure and explicit capability reporting. Runtime
 source extraction and both-profile tests remain pending.
+
+## Managed-profile alignment (2026-10-25)
+
+The maintainer explicitly requested that optional Flight management may change
+selected architecture decisions, enabling centrally coordinated capabilities
+unavailable under standalone constraints. Updated the public design and change
+records to distinguish operating profiles from build profiles and to require
+explicit per-capability dependencies, authorization, failure behavior and safe
+transitions. Candidate changes remain undecided; this does not implement them.
+
+Corrected the current Cloud target to approved AWS us-west-2/us-east-1 and the
+SDLC commercial scope to Flight-owned implementations only. The native driver
+retains its full public implementation. This is documentation only: no Go module,
+provider, build composition, runtime or infrastructure changed. Local Markdown
+links and whitespace were checked; no runtime tests were repeated.

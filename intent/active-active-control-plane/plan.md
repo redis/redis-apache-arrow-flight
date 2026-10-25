@@ -31,7 +31,7 @@ TLS/security boundary without weakening safety. This applies to both projects.
    Verify complete Arrow values/effects, not just a command response or row count.
 6. Review/qualify dataset generation/publication/migration separately. Retain its
    atomic publication, replay, ownership, same-slot and lifecycle guarantees.
-7. Cloud Pro first: AWS us-west-1/us-west-2, at least three primary shards per
+7. Cloud Pro first: AWS us-west-2/us-east-1, at least three primary shards per
    regional application DB. Software next: at least three plus verified 4x QPF
    per instance. Record exact versions/settings, costs/ownership and cleanup.
 8. When runtime integration is ready, check the latest upstream driver release
@@ -49,3 +49,13 @@ returns no feature data; SQL execution retains correct basic results. Requested
 management/security/backup operations cannot silently succeed when their provider
 is absent. Preserve safe failure and explicit capability reporting. Runtime
 source extraction and both-profile tests remain pending.
+
+## Managed-profile decision (2026-10-25)
+
+The maintainer permits selected architectural decisions to change in an explicit
+Flight-managed operating profile. Exact variations remain undecided. Record each
+changed decision, service dependency, authority boundary, outage behavior, safe
+transition and acceptance tests before implementing it. Native requirements remain
+the baseline unless individually reclassified; attaching Flight does not silently
+change them. This operating profile is distinct from community/enterprise builds.
+See the [shared profile contract](https://github.com/alberttwong/redis-adbc-driver/blob/b71bc7c5678b3128abcf4a3029f8214e11943926/docs/flight-managed-profile.md).

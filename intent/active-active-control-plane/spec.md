@@ -52,3 +52,13 @@ returns no feature data; SQL execution retains correct basic results. Requested
 management/security/backup operations cannot silently succeed when their provider
 is absent. Preserve safe failure and explicit capability reporting. Runtime
 source extraction and both-profile tests remain pending.
+
+## Managed-profile decision (2026-10-25)
+
+The maintainer permits selected architectural decisions to change in an explicit
+Flight-managed operating profile. Exact variations remain undecided. Record each
+changed decision, service dependency, authority boundary, outage behavior, safe
+transition and acceptance tests before implementing it. Native requirements remain
+the baseline unless individually reclassified; attaching Flight does not silently
+change them. This operating profile is distinct from community/enterprise builds.
+See the [shared profile contract](https://github.com/alberttwong/redis-adbc-driver/blob/b71bc7c5678b3128abcf4a3029f8214e11943926/docs/flight-managed-profile.md).

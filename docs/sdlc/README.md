@@ -44,12 +44,13 @@ Requestor policy: monitoring, optimization, automation, backup and security are
 paid-feature categories. Any matching feature/change requires a recorded
 commercial review before implementation/release. Apply the
 [commercial feature review gate](../active-active-control-plane.md#commercial-feature-review-gate)
-to both native driver and Flight work, including overlaps with existing behavior.
+to Flight-owned implementations, including overlaps with existing behavior.
+The full native driver remains public and is outside this commercial rule.
 No agent classification substitutes for a requestor/maintainer packaging decision.
 
 Community/enterprise build contract: public interfaces and stubs compile without
 commercial dependencies; enterprise composition supplies full implementations.
-See the feature boundary linked above for availability/error behavior. Code
-extraction and build-profile qualification remain pending.
+See the feature boundary linked above for availability/error behavior. The existing extraction/build evidence is recorded below; the future managed
+control-plane runtime remains unimplemented.
 
 Runtime split: [intent](../../intent/community-enterprise-split/intent.md), [specification](../../intent/community-enterprise-split/spec.md), [plan](../../intent/community-enterprise-split/plan.md), [evidence](../../intent/community-enterprise-split/evidence.md).

@@ -1,6 +1,6 @@
 # Public integration and paid-feature build boundary
 
-Status: Active-Active control-plane design only; reconciled 2026-10-23.
+Status: Active-Active control-plane design only; reconciled 2026-10-25.
 The build split exists; migration/adaptation runtime is not implemented.
 
 Monitoring, optimization, automation, backup and security implementations belong
@@ -94,7 +94,36 @@ native identity remain implementation gates, not solved product capabilities.
 Flight owns optional management APIs, provisioning/tooling integration, migration
 and status/progress/ETA/logs/metrics; it calls the same driver contracts rather
 than becoming a mandatory allocator endpoint or a second SQL/metadata engine.
-Qualify Cloud Pro first in AWS us-west-1/us-west-2 with at least three primary
+Qualify Cloud Pro first in AWS us-west-2/us-east-1 with at least three primary
 shards per regional database, Software next with verified 4x QPF. Support two or
 more regions. The previous append/read-only and partition exclusions are
 superseded. No Active-Active runtime or new qualification is claimed here.
+
+## Optional Flight-managed architectural profile
+
+On 2026-10-25 the maintainer requested an explicit operating-profile option that
+allows selected design decisions to change when Flight provides a centralized
+managed plane. This may change schema execution/ownership, admission coordination,
+recovery responsibility, enrollment/authority management and availability
+dependencies. It can enable capabilities unavailable to a standalone driver
+under its process and authority constraints. Individual variations remain TBD.
+
+This operating profile is separate from the community/enterprise build profile.
+Native mode retains the standalone contract unless a particular requirement is
+explicitly reclassified. Flight-managed mode may require an available authorized
+control plane for named operations under an approved capability contract. Merely
+attaching Flight does not activate that contract or change an existing native
+deployment's guarantees.
+
+For each variation, record the baseline decision being changed, required managed
+capabilities, driver/control-plane/data-service/Redis responsibilities, caller
+authorization, durable evidence, Flight/WAN failure behavior, caller deadlines,
+safe activation/exit and qualification. There is no silent fallback to a weaker
+native contract after losing Flight. Central service availability does not itself
+prove fencing, durability or global SQL consistency.
+
+See the [shared managed-profile proposal](https://github.com/alberttwong/redis-adbc-driver/blob/b71bc7c5678b3128abcf4a3029f8214e11943926/docs/flight-managed-profile.md). Public contracts and
+unavailable community stubs may describe selected capabilities; Flight-owned
+paid implementations remain enterprise scope under the existing commercial gate.
+No provider, public option, dependency update or managed runtime is implemented
+by this documentation change.
