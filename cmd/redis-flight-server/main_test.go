@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redis/redis-apache-arrow-flight/server"
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/flight"
@@ -25,6 +24,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/redis/redis-apache-arrow-flight/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
