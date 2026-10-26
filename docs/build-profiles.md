@@ -61,8 +61,10 @@ Cancellation and shutdown tests use results large enough to keep the transport
 active even when SQL results have already been buffered.
 
 The community Compose service has no backend health probe, matching its image.
-`docker compose up --wait` waits for Redis health and the Flight container to run;
-it does not establish Flight readiness. CI then runs `scripts/wait-flight.py`
+Start Flight with `docker compose up --detach --build flight`, without `--wait`:
+Compose versions may reject `--wait` for an explicitly disabled healthcheck.
+Redis still uses its own healthcheck before Flight starts. CI then runs
+`scripts/wait-flight.py`
 through the pinned Python smoke environment to verify a real `SELECT 1` round
 trip before the examples. The metrics check requires HTTP 204 with an empty body.
 Release binary verification requires the documented health UNKNOWN response,
