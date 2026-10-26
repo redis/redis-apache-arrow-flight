@@ -7,8 +7,9 @@ that distinction explicit so a client never silently changes storage or types.
 `examples/python/dataset_to_sql.py` demonstrates the supported standard-client
 workflow: upload a dataset, discover/read its endpoints, select scalar columns,
 use ADBC bulk ingestion to create a SQL table, query it, then drop both fixtures.
-It uses unique names, nullable values and cleanup, and checks that direct nested
-SQL ingestion fails with an unsupported-type error. The example was run locally
+It uses unique names, nullable values and cleanup, and checks that direct struct
+SQL ingestion fails with an unsupported-type error. The pinned driver supports
+one-dimensional lists as SQL arrays; lists alone are not an unsupported fixture. The example was run locally
 with PyArrow 26.0.0 and ADBC Flight SQL/manager 1.12.0 and is included in CI.
 
 No server-side import action is added. Standard Flight plus ADBC already covers
@@ -22,7 +23,7 @@ publish it before exposing it to readers.
 The small example materializes data on the client. Large imports should project
 columns using dataset tickets and feed record batches incrementally to ingestion.
 When FlightInfo has multiple endpoints, consume every endpoint. Preserve nullable
-values, signed ranges, decimal precision and timezone semantics; nested arrays
+values, signed ranges, decimal precision and timezone semantics; unsupported nested types such as structs
 need an explicit supported transformation or must remain Flight datasets.
 Dictionary columns supported by the backend are decoded to their value types;
 SQL storage does not preserve a dataset's dictionary encoding.
