@@ -74,7 +74,7 @@ jobs:
       # Community has no backend health probe. Wait for a real SQL round trip.
       - name: Python quickstart
         run: |
-          docker compose up --detach --build --wait flight
+          docker compose up --detach --build flight
           uv run --with-requirements examples/python/requirements-smoke.txt python scripts/wait-flight.py
           uv run --with-requirements examples/python/requirements-smoke.txt examples/python/quickstart.py
           uv run examples/python/dataset_to_sql.py
