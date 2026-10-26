@@ -1232,14 +1232,19 @@ func TestIntegrationDatasetReads(t *testing.T) {
 				t.Errorf("column n, batches [9, 10): %d rows, %v", len(rows), err)
 			}
 
-			// Endpoints of 4 batches each: 4, 4 and 2, which together are the dataset.
+			// Enterprise splits endpoints into 4, 4 and 2 batches. Community
+			// keeps all ten batches in one endpoint, even when splitting is requested.
 			fc4 := newClients(t, Config{RedisURI: uri, KeyPrefix: prefix, DatasetEndpointBatches: 4}).fl
 			info, err := fc4.GetFlightInfo(ctx, datasetDesc(name))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(info.Endpoint) != 3 {
-				t.Fatalf("got %d endpoints, want 3", len(info.Endpoint))
+			wantBatches := []int{10}
+			if FeatureCapabilities()["optimization"] {
+				wantBatches = []int{4, 4, 2}
+			}
+			if len(info.Endpoint) != len(wantBatches) {
+				t.Fatalf("got %d endpoints, want %d", len(info.Endpoint), len(wantBatches))
 			}
 			var all []string
 			for i, ep := range info.Endpoint {
@@ -1247,7 +1252,7 @@ func TestIntegrationDatasetReads(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if want := []int{4, 4, 2}[i]; batches != want {
+				if want := wantBatches[i]; batches != want {
 					t.Errorf("endpoint %d has %d batches, want %d", i, batches, want)
 				}
 				all = append(all, rows...)

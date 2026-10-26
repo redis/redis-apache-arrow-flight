@@ -39,6 +39,10 @@ def main():
         "id": pa.array([1, 2, 3], pa.int64()),
         "label": pa.array(["one", None, "three"], pa.string()),
         "embedding": pa.array([[1.0], [2.0, 3.0], []], pa.list_(pa.float32())),
+        # The pinned driver supports one-dimensional lists as SQL arrays, but
+        # struct ingestion is still unsupported and must fail explicitly.
+        "metadata": pa.array([{"source": "a"}, None, {"source": "c"}],
+                             pa.struct([("source", pa.string())])),
     })
     desc = flight.FlightDescriptor.for_path(*dataset.split("/"))
     with sql.connect(args.uri, db_kwargs=kwargs, autocommit=True) as conn, conn.cursor() as cur:
@@ -52,7 +56,7 @@ def main():
             downloaded = pa.concat_tables([client.do_get(ep.ticket, options).read_all() for ep in info.endpoints])
             assert downloaded.equals(source)
             # Uploading is independent of SQL; ingestion of a nested type fails
-            # explicitly instead of silently stringifying or flattening it.
+            # explicitly for the struct rather than silently flattening it.
             try:
                 cur.adbc_ingest(rejected, downloaded, mode="create")
             except (adbc_driver_manager.ProgrammingError, adbc_driver_manager.NotSupportedError) as error:

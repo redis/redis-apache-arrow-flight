@@ -49,3 +49,23 @@ intact. Core result/lifecycle tests and explicit stub/fail-closed tests remain
 public. Preserve exact Arrow values, errors, cleanup, and cancellation. Software
 integration requires verified active 4x QPF; no Active-Active or benchmark
 qualification follows from a successful build or unit pass.
+
+## Community CI
+
+CI runs core integration tests against standalone Redis and a three-shard
+cluster. Dataset tests require all rows through one community endpoint and keep
+the enterprise endpoint-splitting assertions when optimization is available.
+Stream-admission rejection is enterprise-only; community separately checks that
+buffered queries preserve SQL errors, complete all rows and release cursors.
+Cancellation and shutdown tests use results large enough to keep the transport
+active even when SQL results have already been buffered.
+
+The community Compose service has no backend health probe, matching its image.
+Start Flight with `docker compose up --detach --build flight`, without `--wait`:
+Compose versions may reject `--wait` for an explicitly disabled healthcheck.
+Redis still uses its own healthcheck before Flight starts. CI then runs
+`scripts/wait-flight.py`
+through the pinned Python smoke environment to verify a real `SELECT 1` round
+trip before the examples. The metrics check requires HTTP 204 with an empty body.
+Release binary verification requires the documented health UNKNOWN response,
+while the reusable test workflow exercises actual SQL and dataset behavior.

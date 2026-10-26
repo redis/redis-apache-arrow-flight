@@ -49,7 +49,7 @@ func TestIntegrationQueryCancellation(t *testing.T) {
 	admin := adminClient(t, uri)
 	table := uniqueName("it_flight_cancel")
 	dropTable(t, first, table)
-	ingestRows(t, first, table, streamRows, 200) // more than gRPC can buffer
+	ingestRows(t, first, table, streamRows, 2000) // keep the transport active even when SQL is buffered
 	query := "SELECT id,label FROM " + table
 	execute := func() *flight.FlightInfo {
 		t.Helper()
@@ -92,6 +92,10 @@ func TestIntegrationQueryCancellation(t *testing.T) {
 		if err != nil || result.Status != flight.CancelStatusCancelling {
 			t.Fatalf("active cancel=%v, %v", result, err)
 		}
+		// Cross-replica cancellation is polled. Keep the reader paused until
+		// that notification can arrive; draining a buffered community result
+		// immediately can finish it before the next poll.
+		time.Sleep(2 * queryPollInterval)
 		for rdr.Next() {
 		}
 		if status.Code(rdr.Err()) != codes.Canceled {

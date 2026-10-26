@@ -62,9 +62,7 @@ services:
       - "127.0.0.1:${FLIGHT_PORT:-8815}:8815"
       # Prometheus metrics, at /metrics (plain HTTP, no auth).
       - "127.0.0.1:${FLIGHT_METRICS_PORT:-9815}:9815"
-    # Healthy once it serves and Redis answers (gRPC health service).
+    # Community reports health UNKNOWN; readiness is checked with real SQL
+    # by the client smoke tests. Enterprise compositions supply their own probe.
     healthcheck:
-      test: ["CMD", "/redis-flight-server", "-healthcheck"]
-      interval: 2s
-      timeout: 3s
-      retries: 15
+      disable: true

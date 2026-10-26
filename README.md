@@ -44,11 +44,14 @@ uv run examples/python/quickstart.py
 To run Redis and the server together in Docker instead:
 
 ```bash
-docker compose up --detach --build --wait
+docker compose up --detach --build
 ```
 
-`--wait` returns once the server's [health check](#health-checks) passes:
-it serves, and Redis answers.
+Compose waits for Redis health before starting Flight. It does not establish
+Flight readiness; do not use `--wait` with the community service, which has no
+backend healthcheck.
+Community health reports `UNKNOWN`; verify application readiness with a real SQL
+query, as `scripts/wait-flight.py` does in CI. See [build profiles](docs/build-profiles.md).
 
 ### Install
 
@@ -647,6 +650,9 @@ vanished doesn't hold a call, a connection or a cursor until TCP gives up.
 
 #### Health checks
 
+Backend health monitoring below requires enterprise. Community reports `UNKNOWN`,
+which is not readiness, and its image and Compose service have no backend probe.
+
 The server has the standard
 [gRPC health service](https://github.com/grpc/grpc/blob/master/doc/health-checking.md)
 (`grpc.health.v1.Health`), on the Flight port. Its calls need no
@@ -691,6 +697,9 @@ The kubelet's gRPC probe doesn't do TLS. With TLS, use an `exec` probe that
 runs `/redis-flight-server -healthcheck`.
 
 #### Metrics
+
+The metric series below require enterprise. Community `/metrics` returns HTTP 204
+with an empty body.
 
 With `--metrics-listen` (`FLIGHT_METRICS_LISTEN`), the server serves
 [Prometheus](https://prometheus.io/) metrics at `/metrics` on that address.
