@@ -44,10 +44,12 @@ uv run examples/python/quickstart.py
 To run Redis and the server together in Docker instead:
 
 ```bash
-docker compose up --detach --build --wait
+docker compose up --detach --build
 ```
 
-`--wait` waits for Redis health and the community Flight container to run.
+Compose waits for Redis health before starting Flight. It does not establish
+Flight readiness; do not use `--wait` with the community service, which has no
+backend healthcheck.
 Community health reports `UNKNOWN`; verify application readiness with a real SQL
 query, as `scripts/wait-flight.py` does in CI. See [build profiles](docs/build-profiles.md).
 
