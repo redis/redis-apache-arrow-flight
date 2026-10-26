@@ -283,7 +283,7 @@ func TestIntegrationSIGTERM(t *testing.T) {
 	})
 	// Wide rows, more than gRPC buffers, so the stream keeps its cursor.
 	const tableRows = 25_000
-	rec := rows(0, tableRows, 200)
+	rec := rows(0, tableRows, 2000)
 	rdr, err := array.NewRecordReader(rec.Schema(), []arrow.RecordBatch{rec})
 	rec.Release()
 	if err != nil {
@@ -335,7 +335,8 @@ func TestIntegrationSIGTERM(t *testing.T) {
 		t.Fatalf("the session's temporary table has indexes %v, want one", got)
 	}
 
-	// A result streaming from Redis, with its first batch read.
+	// A result larger than the transport buffers, with its first batch read.
+	// Community reads SQL whole; enterprise additionally holds a Redis cursor.
 	fc := flight.NewClientFromConn(dial(t, c.addr), nil)
 	info, err := sqlClient(fc).Execute(ctx, "SELECT id, label FROM "+table)
 	if err != nil {
@@ -354,7 +355,7 @@ func TestIntegrationSIGTERM(t *testing.T) {
 		t.Fatal(result.Err())
 	}
 	index := "idx:public:" + table
-	if n := cursors(t, admin, index); n == 0 {
+	if n := cursors(t, admin, index); server.FeatureCapabilities()["optimization"] && n == 0 {
 		t.Fatal("the result isn't streaming: no cursor is open")
 	}
 
