@@ -47,6 +47,7 @@ func TestIntegrationStreamOverflowReject(t *testing.T) {
 	// Schema-only and non-scan operations do not need a stream slot.
 	wantRows(t, query(t, ctx, noStreams, "SELECT 1"), "1")
 }
+
 // Community queries use basic connections and buffered results, so paid stream
 // limits must not reject otherwise valid SQL or hide the driver's SQL errors.
 func TestIntegrationCommunityBufferedQueries(t *testing.T) {
