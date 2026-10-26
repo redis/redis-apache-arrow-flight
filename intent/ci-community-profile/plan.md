@@ -13,3 +13,8 @@ community server and disposable Redis 8.6.2. Metrics returned empty HTTP 204;
 -healthcheck returned UNKNOWN with exit 1. YAML and whitespace checks passed.
 Enterprise composition is revision-coupled and was not requalified here. Hosted
 CI and full release/platform checks remain the final acceptance evidence.
+
+Hosted follow-up: both Redis race suites and the static build passed. The smoke
+step exposed a runner Compose version that rejects --wait for a disabled
+healthcheck. Removed --wait from Flight startup; bounded SQL readiness remains
+the acceptance gate, and Redis retains its own startup healthcheck.
