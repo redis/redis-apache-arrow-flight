@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alberttwong/redis-apache-arrow-flight/server"
+	"github.com/redis/redis-apache-arrow-flight/server"
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/flight"

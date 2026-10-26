@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alberttwong/redis-apache-arrow-flight/server"
+	"github.com/redis/redis-apache-arrow-flight/server"
 )
 
 // optionsFlag collects repeated key=value flags.

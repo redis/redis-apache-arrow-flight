@@ -1,5 +1,5 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -s -w -X github.com/alberttwong/redis-apache-arrow-flight/server.Version=$(VERSION)
+LDFLAGS := -s -w -X github.com/redis/redis-apache-arrow-flight/server.Version=$(VERSION)
 REDIS_PORT ?= 6379
 REDIS_URI ?= redis://localhost:$(REDIS_PORT)/0
 
@@ -64,7 +64,7 @@ redis-down:
 	docker compose --profile cluster down
 
 docker:
-	docker build --secret id=redis_adbc_token,env=REDIS_ADBC_TOKEN --build-arg VERSION=$(VERSION) -t redis-flight-server:$(VERSION) .
+	docker build --build-arg VERSION=$(VERSION) -t redis-flight-server:$(VERSION) .
 
 example:
 	uv run --with-requirements examples/python/requirements-smoke.txt examples/python/quickstart.py

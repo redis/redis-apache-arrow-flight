@@ -19,4 +19,4 @@ This project is a Flight SQL and Flight RPC endpoint backed by Redis. Both inter
 
 DoExchange is not needed for the defined park/fetch dataset workflow. No application-specific bidirectional transform is promised. A future proposal must specify descriptor and schemas, authorization, backpressure and cancellation for an actual consumer before adding that method.
 
-The [JDBC schema limitation](https://github.com/alberttwong/redis-apache-arrow-flight/issues/23) still applies to statements whose result schema is unknown when prepared. This matrix does not imply every SQL query streams or that Tableau/Power BI work without compatibility testing.
+The [JDBC schema limitation](https://github.com/redis/redis-apache-arrow-flight/issues/17) still applies to statements whose result schema is unknown when prepared. This matrix does not imply every SQL query streams or that Tableau/Power BI work without compatibility testing.

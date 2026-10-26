@@ -51,7 +51,7 @@ Flight SQL GetXdbcTypeInfo. JdbcSmoke records that client limitation explicitly;
 the Go wire-level tests validate the endpoint's type information separately.
 This is independent of table schemas returned through GetTables/GetSchema.
 
-[#23](https://github.com/alberttwong/redis-apache-arrow-flight/issues/23) covers
+[#17](https://github.com/redis/redis-apache-arrow-flight/issues/17) covers
 JDBC 19 classifying prepared statements with no dataset schema as updates. Use
 separate statements for scripts whose final schema depends on earlier writes,
 and explicit casts/types for parameter-only projections. Do not claim a newer

@@ -2,8 +2,6 @@ github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20261015034256-4c8288282
 github.com/adbc-drivers/driverbase-go/driverbase v0.0.0-20261015034256-4c82882827b5/go.mod h1:SJcN00wQp8U/zqURA+g92kpCBUTaGhAkFVeLsfolfBo=
 github.com/adbc-drivers/driverbase-go/testutil v0.0.0-20261015034256-4c82882827b5 h1:fGInIm0UeQHAAGgJSTyKuVIMnpijOs/br90w9otvztA=
 github.com/adbc-drivers/driverbase-go/testutil v0.0.0-20261015034256-4c82882827b5/go.mod h1:RDUzmP1TwC3OZe8Wo+qq6TlECxoN06bF/JIQQmJqgMo=
-github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261023155825-0ec68215d240 h1:siGPn87tGsE+D895m5uY10RNMoE/bzx+NQhdhY0Nm6o=
-github.com/alberttwong/redis-adbc-driver/go v0.0.0-20261023155825-0ec68215d240/go.mod h1:wq1VrT/NSy0q2lsd7hv8zFU+Kt6WQJ3kSgyqepN6MI0=
 github.com/andybalholm/brotli v1.2.6 h1:ftYnfj6usCp+UGV5kSJ3+chpMQgU+gJf/AxsUQ52REI=
 github.com/andybalholm/brotli v1.2.6/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 github.com/apache/arrow-adbc/go/adbc v1.12.0 h1:1S7h8M12a+JZPuduuBo0kIQIRq+4heUikMnHBQ9seXE=
@@ -65,6 +63,8 @@ github.com/prometheus/procfs v0.22.0 h1:6q9+/JL9IKAPbCmBrv9n5O5Ty3NKnciV5X7YGw0o
 github.com/prometheus/procfs v0.22.0/go.mod h1:CvmFr/GVhIjIvWJZW3tgkODBQMRIf0EyWMQLHCHab58=
 github.com/redis/go-redis/v9 v9.23.0 h1:/TTVdJa8BRNsybwwGGnmiYktHNlUXtbOQxlWpHBPL3s=
 github.com/redis/go-redis/v9 v9.23.0/go.mod h1:EWP2UUk+XDaI1s5nQB5mablZN6vccXlmBQTyfnF87D0=
+github.com/redis/redis-adbc-driver/go v0.0.0-20261026173111-2f053d3affad h1:GMbckfNsdQQjasNtFWvAKvTIP6CwDX6ee3HUYyE6B1I=
+github.com/redis/redis-adbc-driver/go v0.0.0-20261026173111-2f053d3affad/go.mod h1:wq1VrT/NSy0q2lsd7hv8zFU+Kt6WQJ3kSgyqepN6MI0=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/stretchr/objx v0.5.3 h1:jmXUvGomnU1o3W/V5h2VEradbpJDwGrzugQQvL0POH4=

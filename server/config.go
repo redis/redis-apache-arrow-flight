@@ -22,7 +22,7 @@ import (
 )
 
 // Version is the server's version, set at build time with
-// -ldflags "-X github.com/alberttwong/redis-apache-arrow-flight/server.Version=…".
+// -ldflags "-X github.com/redis/redis-apache-arrow-flight/server.Version=…".
 var Version = "dev"
 
 // ServerName is reported as the Flight SQL server name.

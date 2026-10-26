@@ -1,7 +1,7 @@
 # Releases a tag: runs the test workflow on it, builds static binaries for
 # Linux (amd64, arm64) and macOS (arm64) and a multi-arch container image,
 # checks each binary on its own platform, then pushes the image to
-# ghcr.io/alberttwong/redis-apache-arrow-flight and attaches the binaries,
+# ghcr.io/redis/redis-apache-arrow-flight and attaches the binaries,
 # with SHA-256 checksums, to the tag's GitHub release (made if there is none
 # yet; a tag with a "-" makes a prerelease).
 #
@@ -24,8 +24,6 @@ on:
       - .github/workflows/release.yml
       - Dockerfile
       - Makefile
-      - scripts/**
-      - .github/actions/private-go/**
 
 permissions:
   contents: read
@@ -43,8 +41,6 @@ env:
 jobs:
   test:
     uses: ./.github/workflows/test.yml
-    secrets:
-      REDIS_ADBC_READ_TOKEN: ${{ secrets.REDIS_ADBC_READ_TOKEN }}
     with:
       ref: ${{ inputs.tag || github.sha }}
 
@@ -60,9 +56,8 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: ./.github/actions/private-go
-        with:
-          token: ${{ secrets.REDIS_ADBC_READ_TOKEN }}
+      - name: Download Go dependencies
+        run: go mod download
 
       - name: Build
         run: |
@@ -159,8 +154,6 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: .
-          secrets: |
-            redis_adbc_token=${{ secrets.REDIS_ADBC_READ_TOKEN }}
           platforms: linux/amd64
           build-args: VERSION=${{ env.VERSION }}
           tags: redis-flight-server:check
@@ -181,8 +174,6 @@ jobs:
       - uses: docker/build-push-action@v7
         with:
           context: .
-          secrets: |
-            redis_adbc_token=${{ secrets.REDIS_ADBC_READ_TOKEN }}
           platforms: linux/amd64,linux/arm64
           build-args: VERSION=${{ env.VERSION }}
           tags: ${{ steps.meta.outputs.tags }}

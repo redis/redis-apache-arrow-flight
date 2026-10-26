@@ -11,7 +11,7 @@ and [Flight SQL](https://arrow.apache.org/docs/format/FlightSql.html) server
 for Redis, written in Go. One endpoint serves two ways to move Arrow data in
 and out of Redis:
 
-| | **Flight SQL**, backed by the [Redis ADBC driver](https://github.com/alberttwong/redis-adbc-driver) | **Flight datasets**, stored as Arrow IPC |
+| | **Flight SQL**, backed by the [Redis ADBC driver](https://github.com/redis/redis-adbc-driver) | **Flight datasets**, stored as Arrow IPC |
 |-|-|-|
 | Requests | Flight SQL commands (`CMD` descriptors) | `PATH` descriptors, such as `["sales", "2026-10"]` |
 | What you do | SQL: filters, `GROUP BY`, joins, windows, `INSERT` / `UPDATE` / `DELETE`, DDL, bulk ingest, catalog metadata | Upload a whole table by name, download it, list and drop |
@@ -52,35 +52,21 @@ it serves, and Redis answers.
 
 ### Install
 
-Source builds require read access to the private Redis ADBC driver fork.
-With an existing GitHub-authenticated Git setup, use
-`./scripts/with-private-modules.sh make build`. Alternatively provide
-`REDIS_ADBC_TOKEN`, a token with read-only Contents access to
-`alberttwong/redis-adbc-driver`; the wrapper uses it through an ephemeral
-Git credential helper. Public dependencies still use checksum verification,
-and the checked-in `go.sum` pins every module's contents.
-
-For Docker, set `REDIS_ADBC_TOKEN` in the calling environment and use
-`make docker`, or `docker compose -f compose.yaml -f compose.private.yaml up --detach --build --wait`.
-BuildKit mounts the token only during dependency download. Do not pass it as
-a build argument or copy a credential file into the build context.
-
-CI and release workflows require the repository/organization secret
-`REDIS_ADBC_READ_TOKEN` with the same restricted read access. The workflow's
-ordinary `GITHUB_TOKEN` cannot read another private repository. Fork PRs do
-not receive this secret: validate reviewed fork contributions from a trusted
-branch, without switching to `pull_request_target`. Configure the secret
-before relying on clean hosted builds; see [issue #58](https://github.com/alberttwong/redis-apache-arrow-flight/issues/58).
+Source builds download the pinned [public Redis ADBC driver](https://github.com/redis/redis-adbc-driver).
+No GitHub token or private dependency secret is required for local, Docker,
+or GitHub Actions builds. Run `make build` for a local binary, or `make docker`
+for a container image. Public module downloads use Go checksum verification
+and the checked-in `go.sum`.
 
 The [release workflow](.github/workflows/release.yml) is configured to publish
 static binaries for Linux (amd64, arm64) and macOS (arm64), with SHA-256
 checksums, and a multi-arch image on the GitHub Container Registry. To use a
-published [release](https://github.com/alberttwong/redis-apache-arrow-flight/releases),
+published [release](https://github.com/redis/redis-apache-arrow-flight/releases),
 set `VERSION` to its tag and use these commands. If the release list is empty,
 build from source with the [quick start](#quick-start).
 
 ```bash
-curl -fsSL --remote-name-all https://github.com/alberttwong/redis-apache-arrow-flight/releases/download/$VERSION/redis-flight-server-$VERSION-linux-amd64.tar.gz{,.sha256}
+curl -fsSL --remote-name-all https://github.com/redis/redis-apache-arrow-flight/releases/download/$VERSION/redis-flight-server-$VERSION-linux-amd64.tar.gz{,.sha256}
 ```
 
 ```bash
@@ -88,7 +74,7 @@ shasum -a 256 -c redis-flight-server-$VERSION-linux-amd64.tar.gz.sha256 && tar -
 ```
 
 ```bash
-docker run --rm -p 8815:8815 -e REDIS_URI=redis://host.docker.internal:6379/0 ghcr.io/alberttwong/redis-apache-arrow-flight:${VERSION#v}
+docker run --rm -p 8815:8815 -e REDIS_URI=redis://host.docker.internal:6379/0 ghcr.io/redis/redis-apache-arrow-flight:${VERSION#v}
 ```
 
 This container example uses Docker Desktop's `host.docker.internal` to reach
@@ -193,7 +179,7 @@ with flight_sql.connect("grpc://localhost:8815", autocommit=True) as conn, conn.
 
 Pass `autocommit=True`: the driver runs every statement in autocommit mode.
 The SQL dialect is the Redis ADBC driver's, which is close to PostgreSQL;
-see its [Supported SQL](https://github.com/alberttwong/redis-adbc-driver#supported-sql).
+see its [Supported SQL](https://github.com/redis/redis-adbc-driver#supported-sql).
 Parameters may be written `?` or `$1`.
 
 ### Datasets from Python (pyarrow.flight)
@@ -339,7 +325,7 @@ How statements run:
   them, whatever the table's size. Other queries (aggregates, joins,
   `DISTINCT`, window functions, sorts the driver does) are built whole in
   memory first. The driver's
-  [Streamed results](https://github.com/alberttwong/redis-adbc-driver#streamed-results)
+  [Streamed results](https://github.com/redis/redis-adbc-driver#streamed-results)
   has the exact rules.
   - A streaming result keeps its pooled connection until it has been sent,
     or the client goes away. Each Redis user can have `--max-streams` (8)
@@ -587,7 +573,7 @@ client.authenticate_basic_token("alice", "…")  # pyarrow.flight: returns the h
   token secret and TLS are therefore what you need behind a load balancer.
   Without a secret, tokens last only until the server restarts.
 - **ACL rules.** A user needs the commands the
-  [Redis ADBC driver lists](https://github.com/alberttwong/redis-adbc-driver#server-requirements)
+  [Redis ADBC driver lists](https://github.com/redis/redis-adbc-driver#server-requirements)
   for SQL. For datasets, it also needs the key pattern `~arrowflight:*` and
   these commands:
   - to write: `+incr +hset +pexpire +persist +unlink +del +eval +evalsha`
@@ -629,7 +615,7 @@ Every flag can also be set with the environment variable shown.
 | `-session-idle-timeout` | `FLIGHT_SESSION_IDLE_TIMEOUT` | `10m` | Close a session after this long without requests |
 | `-max-msg-size` | `FLIGHT_MAX_MSG_SIZE` | 64 MiB | Largest gRPC message accepted |
 | `-shutdown-timeout` | `FLIGHT_SHUTDOWN_TIMEOUT` | `25s` | On SIGTERM or SIGINT, let running calls finish for this long, then [cancel them](#shutdown) |
-| `-adbc-option k=v` (repeatable) | `FLIGHT_ADBC_OPTIONS` (comma-separated) | | [Redis ADBC driver options](https://github.com/alberttwong/redis-adbc-driver#options), such as `adbc.redis.aggregate_pushdown=all`, `adbc.redis.default_schema=sales`, `adbc.redis.cluster=true` |
+| `-adbc-option k=v` (repeatable) | `FLIGHT_ADBC_OPTIONS` (comma-separated) | | [Redis ADBC driver options](https://github.com/redis/redis-adbc-driver#options), such as `adbc.redis.aggregate_pushdown=all`, `adbc.redis.default_schema=sales`, `adbc.redis.cluster=true` |
 | `-metrics-listen` | `FLIGHT_METRICS_LISTEN` | off | Address to serve [Prometheus metrics](#metrics) on, at `/metrics` (plain HTTP, no auth) |
 | `-log-level` | `FLIGHT_LOG_LEVEL` | `info` | `debug` logs every call but health checks |
 | `-healthcheck` | | | Check the server at `-listen` with the [gRPC health service](#health-checks) and exit: 0 if it serves, 1 if not. Trusts only `-tls-cert` when that is set |
@@ -984,8 +970,8 @@ request that changes it, the Dockerfile or the Makefile builds and checks
 everything without publishing.
 
 The driver dependency is pinned in `go.mod` with a `replace` to the
-[v0.0.17 release](https://github.com/alberttwong/redis-adbc-driver/releases/tag/v0.0.17)
-of `github.com/alberttwong/redis-adbc-driver/go` (commit `9cc8e25c0f01`, recorded
+[v0.0.18 release](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.18)
+of `github.com/redis/redis-adbc-driver/go` (commit `2f053d3affad`, recorded
 as a Go pseudo-version). To build against a local checkout instead:
 
 ```bash

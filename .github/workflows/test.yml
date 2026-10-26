@@ -7,9 +7,6 @@ on:
   workflow_dispatch:
   # The release workflow runs it on the tag it releases.
   workflow_call:
-    secrets:
-      REDIS_ADBC_READ_TOKEN:
-        required: false
     inputs:
       ref:
         description: The commit to test (default the event's)
@@ -36,9 +33,8 @@ jobs:
           go-version-file: go.mod
       - uses: astral-sh/setup-uv@v10.2.0
 
-      - uses: ./.github/actions/private-go
-        with:
-          token: ${{ secrets.REDIS_ADBC_READ_TOKEN }}
+      - name: Download Go dependencies
+        run: go mod download
 
       - name: Format and vet
         run: |
@@ -48,7 +44,6 @@ jobs:
             exit 1
           fi
           go vet ./...
-          python3 -m unittest discover -s scripts -p 'test_*.py'
 
       # The same Redis as compose.yaml runs locally: standalone, and a
       # 3-shard cluster in one container.
@@ -78,10 +73,8 @@ jobs:
       # the Docker image.
       # --wait waits for the health check: serving, with Redis reachable.
       - name: Python quickstart
-        env:
-          REDIS_ADBC_TOKEN: ${{ secrets.REDIS_ADBC_READ_TOKEN }}
         run: |
-          docker compose -f compose.yaml -f compose.private.yaml up --detach --build --wait flight
+          docker compose up --detach --build --wait flight
           uv run --with-requirements examples/python/requirements-smoke.txt examples/python/quickstart.py
           uv run examples/python/dataset_to_sql.py
           curl -fsS http://127.0.0.1:9815/metrics | grep '^redis_flight_calls_total'
