@@ -1,0 +1,5 @@
+{
+  "redis_fixture_keys_remaining": 0,
+  "flight_dataset_removed": true,
+  "sequence_tombstone_removed": "arrowflight:perf20261030:ds:{flightperf_12f3af966f3f}:seq"
+}

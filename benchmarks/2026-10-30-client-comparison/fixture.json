@@ -1,0 +1,101 @@
+{
+  "names": {
+    "sales": "flightperf_12f3af966f3f_sales",
+    "customers": "flightperf_12f3af966f3f_customers",
+    "bench_shipped": "flightperf_12f3af966f3f_bench_shipped"
+  },
+  "dataset": "flightperf_12f3af966f3f",
+  "rows": 100000,
+  "repeat": 5,
+  "versions": {
+    "pyarrow": "26.0.0",
+    "adbc-driver-flightsql": "1.12.0",
+    "adbc-driver-manager": "1.12.0",
+    "redis": "8.1.0",
+    "duckdb": "2.0.0"
+  },
+  "redis_version": "8.6.2",
+  "adbc_ingest_seconds": 1.26384333399983,
+  "queries": [
+    {
+      "label": "point lookup by __rowid",
+      "sql": "SELECT * FROM flightperf_12f3af966f3f_sales WHERE __rowid = 4242"
+    },
+    {
+      "label": "indexed filter + top 10",
+      "sql": "SELECT order_id, product, quantity FROM flightperf_12f3af966f3f_sales WHERE country = 'JPN' AND status = 'shipped' ORDER BY quantity DESC LIMIT 10"
+    },
+    {
+      "label": "indexed range COUNT",
+      "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE quantity BETWEEN 5 AND 10"
+    },
+    {
+      "label": "LIKE prefix COUNT",
+      "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE product LIKE 'gi%'"
+    },
+    {
+      "label": "interval range COUNT",
+      "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE ordered_at >= TIMESTAMP '2025-12-31 00:00:00' - INTERVAL '30 days'"
+    },
+    {
+      "label": "GROUP BY, index reduce",
+      "sql": "SELECT country, COUNT(*), SUM(quantity) FROM flightperf_12f3af966f3f_sales GROUP BY country"
+    },
+    {
+      "label": "GROUP BY, driver (AVG double)",
+      "sql": "SELECT country, AVG(discount) FROM flightperf_12f3af966f3f_sales GROUP BY country"
+    },
+    {
+      "label": "GROUP BY expression, driver",
+      "sql": "SELECT product, SUM(quantity * unit_price) FROM flightperf_12f3af966f3f_sales GROUP BY product"
+    },
+    {
+      "label": "GROUP BY DATE_TRUNC, driver",
+      "sql": "SELECT DATE_TRUNC('month', ordered_at) AS m, COUNT(*) FROM flightperf_12f3af966f3f_sales GROUP BY m ORDER BY m"
+    },
+    {
+      "label": "non-indexed filter (scan)",
+      "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE notes LIKE '%order 1%'"
+    },
+    {
+      "label": "fetch 10% of rows",
+      "sql": "SELECT order_id, country, quantity FROM flightperf_12f3af966f3f_sales WHERE order_id <= 10000"
+    },
+    {
+      "label": "full scan, all columns",
+      "sql": "SELECT * FROM flightperf_12f3af966f3f_sales"
+    },
+    {
+      "label": "selective join (index lookup)",
+      "sql": "SELECT c.name, COUNT(*) FROM flightperf_12f3af966f3f_sales s JOIN flightperf_12f3af966f3f_customers c ON s.customer_id = c.customer_id WHERE c.country = 'JPN' AND s.status = 'shipped' GROUP BY c.name"
+    },
+    {
+      "label": "unfiltered join (hash join)",
+      "sql": "SELECT c.country, COUNT(*) FROM flightperf_12f3af966f3f_sales s JOIN flightperf_12f3af966f3f_customers c ON s.customer_id = c.customer_id GROUP BY c.country"
+    },
+    {
+      "label": "correlated subquery (50 rows)",
+      "sql": "SELECT c.name, (SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales s WHERE s.customer_id = c.customer_id) FROM flightperf_12f3af966f3f_customers c"
+    },
+    {
+      "label": "IN (SELECT \u2026), half the rows",
+      "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE order_id IN (SELECT order_id FROM flightperf_12f3af966f3f_sales WHERE quantity > 10)"
+    },
+    {
+      "label": "correlated EXISTS (semi-join)",
+      "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales s WHERE EXISTS (SELECT 1 FROM flightperf_12f3af966f3f_sales r WHERE r.order_id = s.order_id AND r.quantity > 10)"
+    },
+    {
+      "label": "correlated EXISTS, no inner rows",
+      "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales s WHERE EXISTS (SELECT 1 FROM flightperf_12f3af966f3f_sales r WHERE r.order_id = s.order_id AND r.quantity > 20)"
+    },
+    {
+      "label": "UNION of two filters",
+      "sql": "SELECT order_id FROM flightperf_12f3af966f3f_sales WHERE country = 'JPN' AND quantity = 20 UNION SELECT order_id FROM flightperf_12f3af966f3f_sales WHERE product = 'gizmo' AND quantity = 20"
+    },
+    {
+      "label": "view with pushed filter",
+      "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_bench_shipped WHERE country = 'JPN' AND quantity >= 15"
+    }
+  ]
+}

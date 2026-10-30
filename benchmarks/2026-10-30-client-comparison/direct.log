@@ -1,0 +1,21 @@
+direct_redis_adbc point lookup by __rowid 0.006016540999553399
+direct_redis_adbc indexed filter + top 10 0.05302174999815179
+direct_redis_adbc indexed range COUNT 0.007604999998875428
+direct_redis_adbc LIKE prefix COUNT 0.04686816599860322
+direct_redis_adbc interval range COUNT 0.004689917001087451
+direct_redis_adbc GROUP BY, index reduce 0.26680983299957006
+direct_redis_adbc GROUP BY, driver (AVG double) 0.5611525829990569
+direct_redis_adbc GROUP BY expression, driver 0.6457401250008843
+direct_redis_adbc GROUP BY DATE_TRUNC, driver 0.6820249169977615
+direct_redis_adbc non-indexed filter (scan) 0.13145708400043077
+direct_redis_adbc fetch 10% of rows 0.07505920800031163
+direct_redis_adbc full scan, all columns 0.7923807919978572
+direct_redis_adbc selective join (index lookup) 0.029579958001704654
+direct_redis_adbc unfiltered join (hash join) 0.4431193759992311
+direct_redis_adbc correlated subquery (50 rows) 0.041875499999150634
+direct_redis_adbc IN (SELECT …), half the rows 0.9154157919983845
+direct_redis_adbc correlated EXISTS (semi-join) 1.1110025419984595
+direct_redis_adbc correlated EXISTS, no inner rows 0.011876667002070462
+direct_redis_adbc UNION of two filters 0.09891508299915586
+direct_redis_adbc view with pushed filter 0.012780708999343915
+direct-driver fixture cleanup verified

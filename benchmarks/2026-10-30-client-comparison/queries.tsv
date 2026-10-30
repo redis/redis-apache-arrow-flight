@@ -1,0 +1,20 @@
+point lookup by __rowid	SELECT * FROM flightperf_12f3af966f3f_sales WHERE __rowid = 4242
+indexed filter + top 10	SELECT order_id, product, quantity FROM flightperf_12f3af966f3f_sales WHERE country = 'JPN' AND status = 'shipped' ORDER BY quantity DESC LIMIT 10
+indexed range COUNT	SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE quantity BETWEEN 5 AND 10
+LIKE prefix COUNT	SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE product LIKE 'gi%'
+interval range COUNT	SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE ordered_at >= TIMESTAMP '2025-12-31 00:00:00' - INTERVAL '30 days'
+GROUP BY, index reduce	SELECT country, COUNT(*), SUM(quantity) FROM flightperf_12f3af966f3f_sales GROUP BY country
+GROUP BY, driver (AVG double)	SELECT country, AVG(discount) FROM flightperf_12f3af966f3f_sales GROUP BY country
+GROUP BY expression, driver	SELECT product, SUM(quantity * unit_price) FROM flightperf_12f3af966f3f_sales GROUP BY product
+GROUP BY DATE_TRUNC, driver	SELECT DATE_TRUNC('month', ordered_at) AS m, COUNT(*) FROM flightperf_12f3af966f3f_sales GROUP BY m ORDER BY m
+non-indexed filter (scan)	SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE notes LIKE '%order 1%'
+fetch 10% of rows	SELECT order_id, country, quantity FROM flightperf_12f3af966f3f_sales WHERE order_id <= 10000
+full scan, all columns	SELECT * FROM flightperf_12f3af966f3f_sales
+selective join (index lookup)	SELECT c.name, COUNT(*) FROM flightperf_12f3af966f3f_sales s JOIN flightperf_12f3af966f3f_customers c ON s.customer_id = c.customer_id WHERE c.country = 'JPN' AND s.status = 'shipped' GROUP BY c.name
+unfiltered join (hash join)	SELECT c.country, COUNT(*) FROM flightperf_12f3af966f3f_sales s JOIN flightperf_12f3af966f3f_customers c ON s.customer_id = c.customer_id GROUP BY c.country
+correlated subquery (50 rows)	SELECT c.name, (SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales s WHERE s.customer_id = c.customer_id) FROM flightperf_12f3af966f3f_customers c
+IN (SELECT …), half the rows	SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE order_id IN (SELECT order_id FROM flightperf_12f3af966f3f_sales WHERE quantity > 10)
+correlated EXISTS (semi-join)	SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales s WHERE EXISTS (SELECT 1 FROM flightperf_12f3af966f3f_sales r WHERE r.order_id = s.order_id AND r.quantity > 10)
+correlated EXISTS, no inner rows	SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales s WHERE EXISTS (SELECT 1 FROM flightperf_12f3af966f3f_sales r WHERE r.order_id = s.order_id AND r.quantity > 20)
+UNION of two filters	SELECT order_id FROM flightperf_12f3af966f3f_sales WHERE country = 'JPN' AND quantity = 20 UNION SELECT order_id FROM flightperf_12f3af966f3f_sales WHERE product = 'gizmo' AND quantity = 20
+view with pushed filter	SELECT COUNT(*) FROM flightperf_12f3af966f3f_bench_shipped WHERE country = 'JPN' AND quantity >= 15
