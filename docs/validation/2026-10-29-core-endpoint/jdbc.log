@@ -1,0 +1,37 @@
+Oct 30, 2026 4:10:38 AM org.apache.arrow.driver.jdbc.shaded.org.apache.arrow.memory.BaseAllocator <clinit>
+INFO: Debug mode disabled. Enable with the VM option -Darrow.memory.debug.allocator=true.
+Oct 30, 2026 4:10:38 AM org.apache.arrow.driver.jdbc.shaded.org.apache.arrow.memory.DefaultAllocationManagerOption getDefaultAllocationManagerFactory
+INFO: allocation manager type not specified, using netty as the default type
+Oct 30, 2026 4:10:38 AM org.apache.arrow.driver.jdbc.shaded.org.apache.arrow.memory.CheckAllocator reportResult
+INFO: Using DefaultAllocationManager at memory/netty/DefaultAllocationManagerFactory.class
+connected to Redis Arrow Flight SQL Server dev with Arrow Flight SQL JDBC Driver Core 19.0.0
+ok    JDBC 19 getTypeInfo is empty (known client limitation)
+ok    INSERT has 3 parameters
+ok    prepared INSERT of row 1
+ok    prepared INSERT of row 2
+ok    prepared INSERT of row 3
+ok    prepared SELECT returns a row
+ok    prepared SELECT name
+ok    prepared SELECT qty
+ok    prepared SELECT returns one row
+ok    prepared SELECT with a new parameter value
+ok    aggregate returns a row
+ok    COUNT(*)
+ok    SUM(qty)
+ok    UPDATE count
+ok    getCatalogs: redis
+ok    getSchemas: public
+ok    getTables finds the table
+ok    getColumns
+ok    getTableTypes: TABLE, VIEW
+ok    getPrimaryKeys: none
+ok    SqlInfo: NULLs sort at the end
+ok    COUNT(*) while a large result is read
+ok    SET while a large result is read
+ok    rows of a large result in the session
+ok    sum of its ids
+ok    its rows have the session's time zone as of the query (2024-01-01 09:00:00+09)
+ok    a temp table lasts to the next statement
+ok    SET lasts to the next statement
+ok    setCatalog("redis")
+all checks passed

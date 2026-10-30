@@ -1,0 +1,46 @@
+Collecting adbc-driver-flightsql==1.12.0 (from -r examples/python/requirements-smoke.txt (line 3))
+  Downloading adbc_driver_flightsql-1.12.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (3.4 kB)
+Collecting adbc-driver-manager==1.12.0 (from -r examples/python/requirements-smoke.txt (line 4))
+  Downloading adbc_driver_manager-1.12.0-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl.metadata (3.3 kB)
+Collecting pyarrow==26.0.0 (from -r examples/python/requirements-smoke.txt (line 5))
+  Downloading pyarrow-26.0.0-cp314-cp314-manylinux_2_28_aarch64.whl.metadata (3.0 kB)
+Collecting pandas==3.1.0 (from -r examples/python/requirements-smoke.txt (line 6))
+  Downloading pandas-3.1.0-cp314-cp314-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl.metadata (18 kB)
+Collecting redis==8.1.0 (from -r examples/python/requirements-smoke.txt (line 7))
+  Downloading redis-8.1.0-py3-none-any.whl.metadata (16 kB)
+Collecting psutil==7.2.2 (from -r examples/python/requirements-smoke.txt (line 8))
+  Downloading psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (22 kB)
+Collecting importlib-resources>=1.3 (from adbc-driver-flightsql==1.12.0->-r examples/python/requirements-smoke.txt (line 3))
+  Downloading importlib_resources-7.1.0-py3-none-any.whl.metadata (4.0 kB)
+Collecting typing-extensions (from adbc-driver-manager==1.12.0->-r examples/python/requirements-smoke.txt (line 4))
+  Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting numpy>=2.3.3 (from pandas==3.1.0->-r examples/python/requirements-smoke.txt (line 6))
+  Downloading numpy-2.5.4-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl.metadata (6.6 kB)
+Collecting python-dateutil>=2.9.0 (from pandas==3.1.0->-r examples/python/requirements-smoke.txt (line 6))
+  Downloading python_dateutil-3.0.0-py2.py3-none-any.whl.metadata (8.2 kB)
+Collecting six>=1.6 (from python-dateutil>=2.9.0->pandas==3.1.0->-r examples/python/requirements-smoke.txt (line 6))
+  Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting tzdata (from python-dateutil>=2.9.0->pandas==3.1.0->-r examples/python/requirements-smoke.txt (line 6))
+  Downloading tzdata-2026.6-py2.py3-none-any.whl.metadata (1.4 kB)
+Downloading adbc_driver_flightsql-1.12.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (13.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.7/13.7 MB 10.2 MB/s  0:00:01
+Downloading adbc_driver_manager-1.12.0-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl (4.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 19.8 MB/s  0:00:00
+Downloading pyarrow-26.0.0-cp314-cp314-manylinux_2_28_aarch64.whl (50.9 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 50.9/50.9 MB 44.3 MB/s  0:00:01
+Downloading pandas-3.1.0-cp314-cp314-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl (11.5 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.5/11.5 MB 43.9 MB/s  0:00:00
+Downloading redis-8.1.0-py3-none-any.whl (560 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 560.6/560.6 kB 24.2 MB/s  0:00:00
+Downloading psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (156 kB)
+Downloading importlib_resources-7.1.0-py3-none-any.whl (37 kB)
+Downloading numpy-2.5.4-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl (15.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15.7/15.7 MB 45.9 MB/s  0:00:00
+Downloading python_dateutil-3.0.0-py2.py3-none-any.whl (94 kB)
+Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Downloading tzdata-2026.6-py2.py3-none-any.whl (348 kB)
+Installing collected packages: tzdata, typing-extensions, six, redis, pyarrow, psutil, numpy, importlib-resources, python-dateutil, adbc-driver-manager, pandas, adbc-driver-flightsql
+
+Successfully installed adbc-driver-flightsql-1.12.0 adbc-driver-manager-1.12.0 importlib-resources-7.1.0 numpy-2.5.4 pandas-3.1.0 psutil-7.2.2 pyarrow-26.0.0 python-dateutil-3.0.0 redis-8.1.0 six-1.17.0 typing-extensions-4.16.0 tzdata-2026.6
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.

@@ -1,0 +1,19 @@
+ingested 1000 rows into flight_demo_orders
+  country  orders  units
+0     BRA     250   3000
+1     DEU     250   2750
+2     USA     250   2500
+3     JPN     250   2250
+big JPN orders: [(17, 'JPN', 17), (37, 'JPN', 17), (57, 'JPN', 17)]
+order 1 quantity after UPDATE: 0
+table schema: order_id: int64
+country: string
+quantity: int32
+price: double
+tables: ['flight_demo_orders']
+stored: {'dataset': 'demo/features', 'generation': 1, 'rows': 10000, 'batches': 4, 'bytes': 284704, 'updated': '2026-10-30T04:10:17.675168Z'}
+dataset demo/features: 10000 rows, 284704 bytes
+read back 10000 rows from 1 endpoint(s); equal to what was stored
+read columns ['label', 'id'] of batches [1, 3): 5000 rows
+datasets: ['demo/features']
+drop: {'dataset': 'demo/features', 'dropped': True}
