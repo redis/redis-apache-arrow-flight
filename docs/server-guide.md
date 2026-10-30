@@ -62,7 +62,7 @@ request.
 - **Ownership.** A session belongs to the Redis user that made it. With
   `--auth=redis-acl`, another user's request with the same cookie gets a
   session of its own.
-- **Plain scans stream.** A query that [streams](../README.md#flight-sql-support) from
+- **Plain scans stream.** A query that [streams](sql-reference.md#flight-sql-support) from
   Redis outside a session does in a session too, on a pooled connection, so
   the session's own stays free for its other statements (clients such as
   JDBC run some while they read a result):
@@ -150,11 +150,11 @@ Every flag can also be set with the environment variable shown.
 | `-tls-cert`, `-tls-key` | `FLIGHT_TLS_CERT`, `FLIGHT_TLS_KEY` | | PEM files; enable TLS |
 | `-key-prefix` | `FLIGHT_KEY_PREFIX` | `arrowflight:` | Prefix of the server's own keys |
 | `-dataset-ttl` | `FLIGHT_DATASET_TTL` | `0` (keep) | Expire uploaded datasets |
-| `-dataset-endpoint-batches` | `FLIGHT_DATASET_ENDPOINT_BATCHES` | `0` (one endpoint) | Give a dataset's FlightInfo one endpoint per this many batches, for [parallel reads](../README.md#datasets) |
+| `-dataset-endpoint-batches` | `FLIGHT_DATASET_ENDPOINT_BATCHES` | `0` (one endpoint) | Give a dataset's FlightInfo one endpoint per this many batches, for [parallel reads](data-access.md#datasets) |
 | `-pool-max-idle` | `FLIGHT_POOL_MAX_IDLE` | `8` | Idle ADBC connections kept per Redis user |
 | `-pool-max-open` | `FLIGHT_POOL_MAX_OPEN` | `32` | ADBC connections in use at once per Redis user |
 | `-stream-overflow` | `FLIGHT_STREAM_OVERFLOW` | `buffer` | When an eligible scan has no stream capacity: `buffer` within the result budget, or `reject` before execution with `RESOURCE_EXHAUSTED` |
-| `-max-streams` | `FLIGHT_MAX_STREAMS` | `8` | Query results a Redis user can have [streaming](../README.md#flight-sql-support) from Redis at once, at most `-pool-max-open` minus 1. Each keeps a connection; further queries are read whole first, within `-result-memory` |
+| `-max-streams` | `FLIGHT_MAX_STREAMS` | `8` | Query results a Redis user can have [streaming](sql-reference.md#flight-sql-support) from Redis at once, at most `-pool-max-open` minus 1. Each keeps a connection; further queries are read whole first, within `-result-memory` |
 | `-max-table-streams` | `FLIGHT_MAX_TABLE_STREAMS` | `32` | Query results that can stream from one table at once, across all users. Each keeps a cursor on the table's index, which allows 128 across every client (on standalone Redis, streams also stop at three quarters of them open); further queries are read whole first, within `-result-memory` |
 | `-result-memory` | `FLIGHT_RESULT_MEMORY` | 1 GiB | Bytes of memory that query results read whole for want of a stream may take at once, across the server. A result that doesn't fit fails with `RESOURCE_EXHAUSTED` |
 | `-stream-stall-timeout` | `FLIGHT_STREAM_STALL_TIMEOUT` | `2m` | End a streaming result whose client takes longer than this to read a batch |
@@ -259,7 +259,7 @@ curl -s localhost:9815/metrics | grep '^redis_flight_'
 |-|-|-|
 | `redis_flight_calls_total{method, code}` | counter | Calls finished, by method (`DoGet`, `GetFlightInfo`, …) and gRPC code. Health checks aren't counted |
 | `redis_flight_call_duration_seconds{method}` | histogram | How long calls took. A `DoGet` or `DoPut` lasts until its stream ends, so it mostly measures the client |
-| `redis_flight_queries_streamed_total` | counter | Query results [streamed](../README.md#flight-sql-support) from Redis |
+| `redis_flight_queries_streamed_total` | counter | Query results [streamed](sql-reference.md#flight-sql-support) from Redis |
 | `redis_flight_queries_read_whole_total{reason}` | counter | Query results read whole into memory first, by why (below) |
 | `redis_flight_query_streams_open` | gauge | Results streaming now, each holding a pooled connection and a cursor |
 | `redis_flight_query_results_stalled_total` | counter | Results ended by `--stream-stall-timeout` |
@@ -272,7 +272,7 @@ curl -s localhost:9815/metrics | grep '^redis_flight_'
 | `redis_flight_sessions_open` | gauge | Sessions the server keeps (with sessions on) |
 | `redis_flight_sessions_full_total` | counter | Requests that used the pool because the server had 10,000 sessions |
 | `redis_flight_tenants_open` | gauge | Redis users with an ADBC database, a connection pool and a Redis client open |
-| `redis_flight_dataset_rows_written_total`, `redis_flight_dataset_bytes_written_total` | counter | Rows and Arrow IPC bytes of [dataset](../README.md#datasets) uploads committed |
+| `redis_flight_dataset_rows_written_total`, `redis_flight_dataset_bytes_written_total` | counter | Rows and Arrow IPC bytes of [dataset](data-access.md#datasets) uploads committed |
 | `redis_flight_dataset_rows_read_total`, `redis_flight_dataset_bytes_read_total` | counter | Rows of datasets sent, and their bytes read from Redis (only the ticket's columns) |
 | `redis_flight_redis_up` | gauge | 1 while Redis answers the [health check](#health-checks)'s PING |
 | `redis_flight_build_info{version}` | gauge | Always 1; the label is the server's version |
