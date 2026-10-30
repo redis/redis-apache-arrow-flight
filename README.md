@@ -275,6 +275,7 @@ capabilities depend on the [build profile](docs/build-profiles.md).
 | ADBC, native Flight and JDBC examples | [Client guide](docs/client-guide.md) |
 | DBeaver driver setup and manual tests | [DBeaver guide](docs/dbeaver.md) |
 | Client versions and validation evidence | [Client compatibility](docs/client-compatibility.md) |
+| ADBC, JDBC, native Flight and redis-py performance | [Performance measurements](docs/performance.md) |
 | SQL capabilities and execution behavior | [Flight SQL reference](docs/sql-reference.md) |
 | Cancellation and named Arrow datasets | [Data access reference](docs/data-access.md) |
 | Combining datasets and SQL | [Dataset-to-SQL workflow](docs/dataset-sql-workflow.md) |

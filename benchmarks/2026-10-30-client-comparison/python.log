@@ -1,0 +1,25 @@
+/work/benchmarks/2026-10-30-client-comparison/run.py:147: UserWarning: Arrow output on a DB-API result makes an extra copy of the rows, use con.sql(query).to_arrow_table() instead.
+  expected = oracle.execute(sql).to_arrow_table()
+adbc point lookup by __rowid 0.010580875001323875
+adbc indexed filter + top 10 0.06206725000083679
+adbc indexed range COUNT 0.014146249999612337
+adbc LIKE prefix COUNT 0.04591112499838346
+adbc interval range COUNT 0.012523083998530637
+adbc GROUP BY, index reduce 0.2580540420021862
+adbc GROUP BY, driver (AVG double) 0.5431492919997254
+adbc GROUP BY expression, driver 0.6177455840006587
+adbc GROUP BY DATE_TRUNC, driver 0.5949979170000006
+adbc non-indexed filter (scan) 0.09602662500037695
+adbc fetch 10% of rows 0.08348979199945461
+adbc full scan, all columns 0.8963198339988594
+adbc selective join (index lookup) 0.03922091699860175
+adbc unfiltered join (hash join) 0.4413089579975349
+adbc correlated subquery (50 rows) 0.046771833000093466
+adbc IN (SELECT …), half the rows 0.8410712080003577
+adbc correlated EXISTS (semi-join) 1.0836928749995423
+adbc correlated EXISTS, no inner rows 0.015678084000683157
+adbc UNION of two filters 0.09259258300153306
+adbc view with pushed filter 0.027028249998693354
+native_flight_dataset full scan, all columns 0.03780912499860278
+metadata {'oid': 32508, 'index_oid': 32509, 'schema': 'public', 'name': 'flightperf_12f3af966f3f_sales', 'columns': [{'name': 'order_id', 'type': {'kind': 'int64'}, 'nullable': True, 'indexed': True}, {'name': 'customer_id', 'type': {'kind': 'int32'}, 'nullable': True, 'indexed': True}, {'name': 'country', 'type': {'kind': 'string'}, 'nullable': True, 'indexed': True, 'tags_checked': True}, {'name': 'product', 'type': {'kind': 'string'}, 'nullable': True, 'indexed': True, 'tags_checked': True}, {'name': 'quantity', 'type': {'kind': 'int32'}, 'nullable': True, 'indexed': True}, {'name': 'unit_price', 'type': {'kind': 'decimal', 'precision': 10, 'scale': 2}, 'nullable': True, 'indexed': True}, {'name': 'discount', 'type': {'kind': 'float64'}, 'nullable': True, 'indexed': True}, {'name': 'ordered_at', 'type': {'kind': 'timestamp', 'unit': 'us'}, 'nullable': True, 'indexed': True}, {'name': 'status', 'type': {'kind': 'string'}, 'nullable': True, 'indexed': True, 'tags_checked': True}, {'name': 'notes', 'type': {'kind': 'string'}, 'nullable': True, 'indexed': False}], 'folded_identifiers': True, 'key_prefix': 'public:flightperf_12f3af966f3f_sales:', 'index_name': 'idx:public:flightperf_12f3af966f3f_sales'} sample {b'__rowid': b'74076', b'order_id': b'74076', b'customer_id': b'38', b'country': b'USA', b'product': b'sprocket', b'quantity': b'8', b'unit_price': b'43.47', b'ordered_at': b'1748834580000000', b'status': b'shipped'}
+redis_py_scan_hmget_arrow full scan, all columns 3.611289209999086

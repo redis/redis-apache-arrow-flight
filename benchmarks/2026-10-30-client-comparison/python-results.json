@@ -1,0 +1,1447 @@
+{
+  "fixture": {
+    "names": {
+      "sales": "flightperf_12f3af966f3f_sales",
+      "customers": "flightperf_12f3af966f3f_customers",
+      "bench_shipped": "flightperf_12f3af966f3f_bench_shipped"
+    },
+    "dataset": "flightperf_12f3af966f3f",
+    "rows": 100000,
+    "repeat": 5,
+    "versions": {
+      "pyarrow": "26.0.0",
+      "adbc-driver-flightsql": "1.12.0",
+      "adbc-driver-manager": "1.12.0",
+      "redis": "8.1.0",
+      "duckdb": "2.0.0"
+    },
+    "redis_version": "8.6.2",
+    "adbc_ingest_seconds": 1.26384333399983,
+    "queries": [
+      {
+        "label": "point lookup by __rowid",
+        "sql": "SELECT * FROM flightperf_12f3af966f3f_sales WHERE __rowid = 4242"
+      },
+      {
+        "label": "indexed filter + top 10",
+        "sql": "SELECT order_id, product, quantity FROM flightperf_12f3af966f3f_sales WHERE country = 'JPN' AND status = 'shipped' ORDER BY quantity DESC LIMIT 10"
+      },
+      {
+        "label": "indexed range COUNT",
+        "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE quantity BETWEEN 5 AND 10"
+      },
+      {
+        "label": "LIKE prefix COUNT",
+        "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE product LIKE 'gi%'"
+      },
+      {
+        "label": "interval range COUNT",
+        "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE ordered_at >= TIMESTAMP '2025-12-31 00:00:00' - INTERVAL '30 days'"
+      },
+      {
+        "label": "GROUP BY, index reduce",
+        "sql": "SELECT country, COUNT(*), SUM(quantity) FROM flightperf_12f3af966f3f_sales GROUP BY country"
+      },
+      {
+        "label": "GROUP BY, driver (AVG double)",
+        "sql": "SELECT country, AVG(discount) FROM flightperf_12f3af966f3f_sales GROUP BY country"
+      },
+      {
+        "label": "GROUP BY expression, driver",
+        "sql": "SELECT product, SUM(quantity * unit_price) FROM flightperf_12f3af966f3f_sales GROUP BY product"
+      },
+      {
+        "label": "GROUP BY DATE_TRUNC, driver",
+        "sql": "SELECT DATE_TRUNC('month', ordered_at) AS m, COUNT(*) FROM flightperf_12f3af966f3f_sales GROUP BY m ORDER BY m"
+      },
+      {
+        "label": "non-indexed filter (scan)",
+        "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE notes LIKE '%order 1%'"
+      },
+      {
+        "label": "fetch 10% of rows",
+        "sql": "SELECT order_id, country, quantity FROM flightperf_12f3af966f3f_sales WHERE order_id <= 10000"
+      },
+      {
+        "label": "full scan, all columns",
+        "sql": "SELECT * FROM flightperf_12f3af966f3f_sales"
+      },
+      {
+        "label": "selective join (index lookup)",
+        "sql": "SELECT c.name, COUNT(*) FROM flightperf_12f3af966f3f_sales s JOIN flightperf_12f3af966f3f_customers c ON s.customer_id = c.customer_id WHERE c.country = 'JPN' AND s.status = 'shipped' GROUP BY c.name"
+      },
+      {
+        "label": "unfiltered join (hash join)",
+        "sql": "SELECT c.country, COUNT(*) FROM flightperf_12f3af966f3f_sales s JOIN flightperf_12f3af966f3f_customers c ON s.customer_id = c.customer_id GROUP BY c.country"
+      },
+      {
+        "label": "correlated subquery (50 rows)",
+        "sql": "SELECT c.name, (SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales s WHERE s.customer_id = c.customer_id) FROM flightperf_12f3af966f3f_customers c"
+      },
+      {
+        "label": "IN (SELECT \u2026), half the rows",
+        "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales WHERE order_id IN (SELECT order_id FROM flightperf_12f3af966f3f_sales WHERE quantity > 10)"
+      },
+      {
+        "label": "correlated EXISTS (semi-join)",
+        "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales s WHERE EXISTS (SELECT 1 FROM flightperf_12f3af966f3f_sales r WHERE r.order_id = s.order_id AND r.quantity > 10)"
+      },
+      {
+        "label": "correlated EXISTS, no inner rows",
+        "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_sales s WHERE EXISTS (SELECT 1 FROM flightperf_12f3af966f3f_sales r WHERE r.order_id = s.order_id AND r.quantity > 20)"
+      },
+      {
+        "label": "UNION of two filters",
+        "sql": "SELECT order_id FROM flightperf_12f3af966f3f_sales WHERE country = 'JPN' AND quantity = 20 UNION SELECT order_id FROM flightperf_12f3af966f3f_sales WHERE product = 'gizmo' AND quantity = 20"
+      },
+      {
+        "label": "view with pushed filter",
+        "sql": "SELECT COUNT(*) FROM flightperf_12f3af966f3f_bench_shipped WHERE country = 'JPN' AND quantity >= 15"
+      }
+    ]
+  },
+  "results": [
+    {
+      "label": "point lookup by __rowid",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.012023250001220731,
+      "rows": 1,
+      "arrow_bytes": 82,
+      "commands": {}
+    },
+    {
+      "label": "point lookup by __rowid",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.01126562500212458,
+      "rows": 1,
+      "arrow_bytes": 82,
+      "commands": {}
+    },
+    {
+      "label": "point lookup by __rowid",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.010327166997740278,
+      "rows": 1,
+      "arrow_bytes": 82,
+      "commands": {}
+    },
+    {
+      "label": "point lookup by __rowid",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.010580875001323875,
+      "rows": 1,
+      "arrow_bytes": 82,
+      "commands": {}
+    },
+    {
+      "label": "point lookup by __rowid",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.009666792000643909,
+      "rows": 1,
+      "arrow_bytes": 82,
+      "commands": {}
+    },
+    {
+      "label": "indexed filter + top 10",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.0771589159994619,
+      "rows": 10,
+      "arrow_bytes": 226,
+      "commands": {}
+    },
+    {
+      "label": "indexed filter + top 10",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.053231999998388346,
+      "rows": 10,
+      "arrow_bytes": 226,
+      "commands": {}
+    },
+    {
+      "label": "indexed filter + top 10",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.06206725000083679,
+      "rows": 10,
+      "arrow_bytes": 226,
+      "commands": {}
+    },
+    {
+      "label": "indexed filter + top 10",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.07167837499946472,
+      "rows": 10,
+      "arrow_bytes": 226,
+      "commands": {}
+    },
+    {
+      "label": "indexed filter + top 10",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.053317000001698034,
+      "rows": 10,
+      "arrow_bytes": 226,
+      "commands": {}
+    },
+    {
+      "label": "indexed range COUNT",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.013071500001387903,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "indexed range COUNT",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.014146249999612337,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "indexed range COUNT",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.013807875002385117,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "indexed range COUNT",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.017030916998919565,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "indexed range COUNT",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.01952499999970314,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "LIKE prefix COUNT",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.06234575000053155,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "LIKE prefix COUNT",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.040665667002031114,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "LIKE prefix COUNT",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.04591112499838346,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "LIKE prefix COUNT",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.048620208999636816,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "LIKE prefix COUNT",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.04122304200063809,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "interval range COUNT",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.01236816600066959,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "interval range COUNT",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.012590708000061568,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "interval range COUNT",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.012523083998530637,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "interval range COUNT",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.01359249999950407,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "interval range COUNT",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.012520459000370465,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY, index reduce",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.25548237500333926,
+      "rows": 6,
+      "arrow_bytes": 138,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY, index reduce",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.2579092080013652,
+      "rows": 6,
+      "arrow_bytes": 138,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY, index reduce",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.262834250999731,
+      "rows": 6,
+      "arrow_bytes": 138,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY, index reduce",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.2669400839986338,
+      "rows": 6,
+      "arrow_bytes": 138,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY, index reduce",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.2580540420021862,
+      "rows": 6,
+      "arrow_bytes": 138,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY, driver (AVG double)",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.5431492919997254,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY, driver (AVG double)",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.5186963749983988,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {
+        "cmdstat_hgetall": 10,
+        "cmdstat_eval": 16,
+        "cmdstat_set": 16,
+        "cmdstat_sismember": 4,
+        "cmdstat_hmget": 10000,
+        "cmdstat_FT.AGGREGATE": 17,
+        "cmdstat_exists": 20,
+        "cmdstat_FT._LIST": 10,
+        "cmdstat_smembers": 20,
+        "cmdstat_hget": 8,
+        "cmdstat_get": 28
+      }
+    },
+    {
+      "label": "GROUP BY, driver (AVG double)",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.5380897079994611,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY, driver (AVG double)",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.5509127910008829,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {
+        "cmdstat_hgetall": 4,
+        "cmdstat_eval": 10,
+        "cmdstat_set": 10,
+        "cmdstat_sismember": 2,
+        "cmdstat_hmget": 192200,
+        "cmdstat_FT.AGGREGATE": 6,
+        "cmdstat_exists": 8,
+        "cmdstat_FT._LIST": 4,
+        "cmdstat_smembers": 8,
+        "cmdstat_hget": 4,
+        "cmdstat_get": 14
+      }
+    },
+    {
+      "label": "GROUP BY, driver (AVG double)",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.5606375420029508,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY expression, driver",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.5958968750019267,
+      "rows": 5,
+      "arrow_bytes": 134,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY expression, driver",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.6584598750014266,
+      "rows": 5,
+      "arrow_bytes": 134,
+      "commands": {
+        "cmdstat_hgetall": 10,
+        "cmdstat_eval": 18,
+        "cmdstat_set": 18,
+        "cmdstat_sismember": 4,
+        "cmdstat_hmget": 334000,
+        "cmdstat_FT.AGGREGATE": 14,
+        "cmdstat_exists": 20,
+        "cmdstat_FT._LIST": 10,
+        "cmdstat_smembers": 20,
+        "cmdstat_hget": 8,
+        "cmdstat_get": 27
+      }
+    },
+    {
+      "label": "GROUP BY expression, driver",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.631165583999973,
+      "rows": 5,
+      "arrow_bytes": 134,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY expression, driver",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.6177455840006587,
+      "rows": 5,
+      "arrow_bytes": 134,
+      "commands": {
+        "cmdstat_hgetall": 2,
+        "cmdstat_eval": 7,
+        "cmdstat_set": 7,
+        "cmdstat_sismember": 1,
+        "cmdstat_hmget": 158000,
+        "cmdstat_FT.AGGREGATE": 3,
+        "cmdstat_exists": 4,
+        "cmdstat_FT._LIST": 2,
+        "cmdstat_smembers": 4,
+        "cmdstat_hget": 2,
+        "cmdstat_get": 9
+      }
+    },
+    {
+      "label": "GROUP BY expression, driver",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.6012327919997915,
+      "rows": 5,
+      "arrow_bytes": 134,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY DATE_TRUNC, driver",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.5469318329996895,
+      "rows": 12,
+      "arrow_bytes": 192,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY DATE_TRUNC, driver",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.553415499998664,
+      "rows": 12,
+      "arrow_bytes": 192,
+      "commands": {
+        "cmdstat_hgetall": 6,
+        "cmdstat_eval": 9,
+        "cmdstat_set": 9,
+        "cmdstat_sismember": 2,
+        "cmdstat_hmget": 160000,
+        "cmdstat_FT.AGGREGATE": 8,
+        "cmdstat_exists": 12,
+        "cmdstat_FT._LIST": 6,
+        "cmdstat_smembers": 12,
+        "cmdstat_hget": 4,
+        "cmdstat_get": 14
+      }
+    },
+    {
+      "label": "GROUP BY DATE_TRUNC, driver",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.5977656249997381,
+      "rows": 12,
+      "arrow_bytes": 192,
+      "commands": {}
+    },
+    {
+      "label": "GROUP BY DATE_TRUNC, driver",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.5949979170000006,
+      "rows": 12,
+      "arrow_bytes": 192,
+      "commands": {
+        "cmdstat_hgetall": 2,
+        "cmdstat_eval": 7,
+        "cmdstat_set": 7,
+        "cmdstat_sismember": 1,
+        "cmdstat_hmget": 180000,
+        "cmdstat_FT.AGGREGATE": 3,
+        "cmdstat_exists": 4,
+        "cmdstat_FT._LIST": 2,
+        "cmdstat_smembers": 4,
+        "cmdstat_hget": 2,
+        "cmdstat_get": 9
+      }
+    },
+    {
+      "label": "GROUP BY DATE_TRUNC, driver",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.6487813749990892,
+      "rows": 12,
+      "arrow_bytes": 192,
+      "commands": {}
+    },
+    {
+      "label": "non-indexed filter (scan)",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.09530729199832422,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "non-indexed filter (scan)",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.1078477910014044,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "non-indexed filter (scan)",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.10430529199948069,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {
+        "cmdstat_hgetall": 8,
+        "cmdstat_eval": 18,
+        "cmdstat_set": 18,
+        "cmdstat_sismember": 4,
+        "cmdstat_hmget": 340000,
+        "cmdstat_FT.AGGREGATE": 12,
+        "cmdstat_exists": 16,
+        "cmdstat_FT._LIST": 8,
+        "cmdstat_smembers": 16,
+        "cmdstat_hget": 8,
+        "cmdstat_get": 26
+      }
+    },
+    {
+      "label": "non-indexed filter (scan)",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.08903808299874072,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "non-indexed filter (scan)",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.09602662500037695,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "fetch 10% of rows",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.08204874999864842,
+      "rows": 10000,
+      "arrow_bytes": 190000,
+      "commands": {}
+    },
+    {
+      "label": "fetch 10% of rows",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.10791108299963525,
+      "rows": 10000,
+      "arrow_bytes": 190000,
+      "commands": {}
+    },
+    {
+      "label": "fetch 10% of rows",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.09218170899839606,
+      "rows": 10000,
+      "arrow_bytes": 190000,
+      "commands": {}
+    },
+    {
+      "label": "fetch 10% of rows",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.07913449999978184,
+      "rows": 10000,
+      "arrow_bytes": 190000,
+      "commands": {}
+    },
+    {
+      "label": "fetch 10% of rows",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.08348979199945461,
+      "rows": 10000,
+      "arrow_bytes": 190000,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.8860993749985937,
+      "rows": 100000,
+      "arrow_bytes": 8553917,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.9038416250004957,
+      "rows": 100000,
+      "arrow_bytes": 8553917,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.8943136259986204,
+      "rows": 100000,
+      "arrow_bytes": 8553917,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.8963198339988594,
+      "rows": 100000,
+      "arrow_bytes": 8553917,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.9185807089997979,
+      "rows": 100000,
+      "arrow_bytes": 8553917,
+      "commands": {}
+    },
+    {
+      "label": "selective join (index lookup)",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.04730716600170126,
+      "rows": 8,
+      "arrow_bytes": 183,
+      "commands": {}
+    },
+    {
+      "label": "selective join (index lookup)",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.03986625000106869,
+      "rows": 8,
+      "arrow_bytes": 183,
+      "commands": {}
+    },
+    {
+      "label": "selective join (index lookup)",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.03742254199823947,
+      "rows": 8,
+      "arrow_bytes": 183,
+      "commands": {}
+    },
+    {
+      "label": "selective join (index lookup)",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.03922091699860175,
+      "rows": 8,
+      "arrow_bytes": 183,
+      "commands": {}
+    },
+    {
+      "label": "selective join (index lookup)",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.03869999999733409,
+      "rows": 8,
+      "arrow_bytes": 183,
+      "commands": {}
+    },
+    {
+      "label": "unfiltered join (hash join)",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.4362188339982822,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {
+        "cmdstat_eval": 3,
+        "cmdstat_set": 3,
+        "cmdstat_sismember": 2,
+        "cmdstat_FT.INFO": 21,
+        "cmdstat_FT.AGGREGATE": 1,
+        "cmdstat_FT.SEARCH": 1,
+        "cmdstat_hget": 4,
+        "cmdstat_get": 3
+      }
+    },
+    {
+      "label": "unfiltered join (hash join)",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.4474092920027033,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {}
+    },
+    {
+      "label": "unfiltered join (hash join)",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.4413089579975349,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {}
+    },
+    {
+      "label": "unfiltered join (hash join)",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.4386198339998373,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {
+        "cmdstat_hgetall": 20,
+        "cmdstat_eval": 24,
+        "cmdstat_set": 24,
+        "cmdstat_sismember": 2,
+        "cmdstat_FT.AGGREGATE": 36,
+        "cmdstat_exists": 40,
+        "cmdstat_FT._LIST": 20,
+        "cmdstat_smembers": 40,
+        "cmdstat_FT.SEARCH": 16,
+        "cmdstat_hget": 4,
+        "cmdstat_get": 60
+      }
+    },
+    {
+      "label": "unfiltered join (hash join)",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.4457840009999927,
+      "rows": 6,
+      "arrow_bytes": 90,
+      "commands": {}
+    },
+    {
+      "label": "correlated subquery (50 rows)",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.046771833000093466,
+      "rows": 50,
+      "arrow_bytes": 1141,
+      "commands": {}
+    },
+    {
+      "label": "correlated subquery (50 rows)",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.0460430000021006,
+      "rows": 50,
+      "arrow_bytes": 1141,
+      "commands": {}
+    },
+    {
+      "label": "correlated subquery (50 rows)",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.05210754099971382,
+      "rows": 50,
+      "arrow_bytes": 1141,
+      "commands": {}
+    },
+    {
+      "label": "correlated subquery (50 rows)",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.049935125000047265,
+      "rows": 50,
+      "arrow_bytes": 1141,
+      "commands": {}
+    },
+    {
+      "label": "correlated subquery (50 rows)",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.04092999999920721,
+      "rows": 50,
+      "arrow_bytes": 1141,
+      "commands": {}
+    },
+    {
+      "label": "IN (SELECT \u2026), half the rows",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.8410712080003577,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "IN (SELECT \u2026), half the rows",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.8710798749998503,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {
+        "cmdstat_hgetall": 16,
+        "cmdstat_eval": 28,
+        "cmdstat_set": 28,
+        "cmdstat_sismember": 6,
+        "cmdstat_FT.INFO": 42,
+        "cmdstat_hmget": 300034,
+        "cmdstat_FT.AGGREGATE": 322,
+        "cmdstat_exists": 32,
+        "cmdstat_FT._LIST": 17,
+        "cmdstat_smembers": 32,
+        "cmdstat_FT.SEARCH": 9,
+        "cmdstat_hget": 12,
+        "cmdstat_get": 60
+      }
+    },
+    {
+      "label": "IN (SELECT \u2026), half the rows",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.8468140840013803,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "IN (SELECT \u2026), half the rows",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.8009803329987335,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {
+        "cmdstat_hgetall": 4,
+        "cmdstat_eval": 8,
+        "cmdstat_set": 8,
+        "cmdstat_sismember": 3,
+        "cmdstat_FT.INFO": 28,
+        "cmdstat_hmget": 161217,
+        "cmdstat_FT.AGGREGATE": 8,
+        "cmdstat_exists": 8,
+        "cmdstat_FT._LIST": 3,
+        "cmdstat_smembers": 8,
+        "cmdstat_FT.SEARCH": 3,
+        "cmdstat_hget": 6,
+        "cmdstat_get": 18
+      }
+    },
+    {
+      "label": "IN (SELECT \u2026), half the rows",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.8261817089987744,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "correlated EXISTS (semi-join)",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 1.1854018339981849,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {
+        "cmdstat_hgetall": 4,
+        "cmdstat_eval": 7,
+        "cmdstat_set": 7,
+        "cmdstat_sismember": 3,
+        "cmdstat_FT.INFO": 21,
+        "cmdstat_hmget": 140017,
+        "cmdstat_FT.AGGREGATE": 507,
+        "cmdstat_exists": 8,
+        "cmdstat_FT._LIST": 4,
+        "cmdstat_smembers": 8,
+        "cmdstat_FT.SEARCH": 3,
+        "cmdstat_hget": 6,
+        "cmdstat_get": 17
+      }
+    },
+    {
+      "label": "correlated EXISTS (semi-join)",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 1.0368489590000536,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {
+        "cmdstat_hgetall": 2,
+        "cmdstat_eval": 7,
+        "cmdstat_set": 7,
+        "cmdstat_sismember": 4,
+        "cmdstat_FT.INFO": 18,
+        "cmdstat_hmget": 132786,
+        "cmdstat_FT.AGGREGATE": 505,
+        "cmdstat_exists": 4,
+        "cmdstat_FT._LIST": 2,
+        "cmdstat_smembers": 4,
+        "cmdstat_FT.SEARCH": 3,
+        "cmdstat_hget": 8,
+        "cmdstat_get": 14
+      }
+    },
+    {
+      "label": "correlated EXISTS (semi-join)",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 1.1272024589998182,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {
+        "cmdstat_hgetall": 4,
+        "cmdstat_eval": 13,
+        "cmdstat_set": 13,
+        "cmdstat_sismember": 7,
+        "cmdstat_FT.INFO": 30,
+        "cmdstat_hmget": 267248,
+        "cmdstat_FT.AGGREGATE": 1009,
+        "cmdstat_exists": 8,
+        "cmdstat_FT._LIST": 4,
+        "cmdstat_smembers": 8,
+        "cmdstat_FT.SEARCH": 5,
+        "cmdstat_hget": 14,
+        "cmdstat_get": 27
+      }
+    },
+    {
+      "label": "correlated EXISTS (semi-join)",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 1.0836928749995423,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {
+        "cmdstat_hgetall": 2,
+        "cmdstat_eval": 7,
+        "cmdstat_set": 7,
+        "cmdstat_sismember": 4,
+        "cmdstat_FT.INFO": 15,
+        "cmdstat_hmget": 140017,
+        "cmdstat_hello": 2,
+        "cmdstat_FT.AGGREGATE": 483,
+        "cmdstat_ping": 1,
+        "cmdstat_exists": 4,
+        "cmdstat_FT._LIST": 2,
+        "cmdstat_smembers": 4,
+        "cmdstat_FT.SEARCH": 2,
+        "cmdstat_hget": 8,
+        "cmdstat_get": 13
+      }
+    },
+    {
+      "label": "correlated EXISTS (semi-join)",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 1.05637491699963,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {
+        "cmdstat_hgetall": 2,
+        "cmdstat_eval": 6,
+        "cmdstat_set": 6,
+        "cmdstat_sismember": 4,
+        "cmdstat_FT.INFO": 21,
+        "cmdstat_hmget": 150017,
+        "cmdstat_FT.AGGREGATE": 270,
+        "cmdstat_exists": 4,
+        "cmdstat_FT._LIST": 2,
+        "cmdstat_smembers": 4,
+        "cmdstat_FT.SEARCH": 3,
+        "cmdstat_hget": 8,
+        "cmdstat_get": 13
+      }
+    },
+    {
+      "label": "correlated EXISTS, no inner rows",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.015374042002804345,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "correlated EXISTS, no inner rows",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.01963620899914531,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "correlated EXISTS, no inner rows",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.015678084000683157,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "correlated EXISTS, no inner rows",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.015404124998894986,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "correlated EXISTS, no inner rows",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.016397375002270564,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "UNION of two filters",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.0826381670012779,
+      "rows": 1750,
+      "arrow_bytes": 14000,
+      "commands": {}
+    },
+    {
+      "label": "UNION of two filters",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.0946120839980722,
+      "rows": 1750,
+      "arrow_bytes": 14000,
+      "commands": {}
+    },
+    {
+      "label": "UNION of two filters",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.09393795800133375,
+      "rows": 1750,
+      "arrow_bytes": 14000,
+      "commands": {}
+    },
+    {
+      "label": "UNION of two filters",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.09180595799989533,
+      "rows": 1750,
+      "arrow_bytes": 14000,
+      "commands": {}
+    },
+    {
+      "label": "UNION of two filters",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.09259258300153306,
+      "rows": 1750,
+      "arrow_bytes": 14000,
+      "commands": {}
+    },
+    {
+      "label": "view with pushed filter",
+      "client": "adbc",
+      "repeat": 0,
+      "seconds": 0.027028249998693354,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "view with pushed filter",
+      "client": "adbc",
+      "repeat": 1,
+      "seconds": 0.027671625000948552,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "view with pushed filter",
+      "client": "adbc",
+      "repeat": 2,
+      "seconds": 0.02723850000256789,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "view with pushed filter",
+      "client": "adbc",
+      "repeat": 3,
+      "seconds": 0.01738495899917325,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "view with pushed filter",
+      "client": "adbc",
+      "repeat": 4,
+      "seconds": 0.024949624999862863,
+      "rows": 1,
+      "arrow_bytes": 8,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "native_flight_dataset",
+      "repeat": 0,
+      "seconds": 0.03692204099934315,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "native_flight_dataset",
+      "repeat": 1,
+      "seconds": 0.03780912499860278,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "native_flight_dataset",
+      "repeat": 2,
+      "seconds": 0.04656270799750928,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "native_flight_dataset",
+      "repeat": 3,
+      "seconds": 0.04610520799906226,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "native_flight_dataset",
+      "repeat": 4,
+      "seconds": 0.02890408299936098,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {}
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "redis_py_scan_hmget_arrow",
+      "repeat": 0,
+      "seconds": 3.611289209999086,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {
+        "cmdstat_hmget": 98284,
+        "cmdstat_hello": 3,
+        "cmdstat_ping": 3,
+        "cmdstat_scan": 114
+      }
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "redis_py_scan_hmget_arrow",
+      "repeat": 1,
+      "seconds": 3.619431044000521,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {
+        "cmdstat_hmget": 98266,
+        "cmdstat_hello": 5,
+        "cmdstat_ping": 5,
+        "cmdstat_scan": 113
+      }
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "redis_py_scan_hmget_arrow",
+      "repeat": 2,
+      "seconds": 3.581075876001705,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {
+        "cmdstat_hmget": 98262,
+        "cmdstat_hello": 2,
+        "cmdstat_ping": 2,
+        "cmdstat_scan": 114
+      }
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "redis_py_scan_hmget_arrow",
+      "repeat": 3,
+      "seconds": 3.556561500998214,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {
+        "cmdstat_hmget": 99120,
+        "cmdstat_hello": 4,
+        "cmdstat_ping": 4,
+        "cmdstat_scan": 116
+      }
+    },
+    {
+      "label": "full scan, all columns",
+      "client": "redis_py_scan_hmget_arrow",
+      "repeat": 4,
+      "seconds": 3.657226877003268,
+      "rows": 100000,
+      "arrow_bytes": 8553913,
+      "commands": {
+        "cmdstat_hmget": 97394,
+        "cmdstat_hello": 3,
+        "cmdstat_ping": 3,
+        "cmdstat_scan": 113
+      }
+    }
+  ],
+  "validation": [
+    {
+      "label": "point lookup by __rowid",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1
+    },
+    {
+      "label": "indexed filter + top 10",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 10
+    },
+    {
+      "label": "indexed range COUNT",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1
+    },
+    {
+      "label": "LIKE prefix COUNT",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1
+    },
+    {
+      "label": "interval range COUNT",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1
+    },
+    {
+      "label": "GROUP BY, index reduce",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 6
+    },
+    {
+      "label": "GROUP BY, driver (AVG double)",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 6
+    },
+    {
+      "label": "GROUP BY expression, driver",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 5
+    },
+    {
+      "label": "GROUP BY DATE_TRUNC, driver",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 12
+    },
+    {
+      "label": "non-indexed filter (scan)",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1
+    },
+    {
+      "label": "fetch 10% of rows",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 10000
+    },
+    {
+      "label": "full scan, all columns",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 100000
+    },
+    {
+      "label": "selective join (index lookup)",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 8
+    },
+    {
+      "label": "unfiltered join (hash join)",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 6
+    },
+    {
+      "label": "correlated subquery (50 rows)",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 50
+    },
+    {
+      "label": "IN (SELECT \u2026), half the rows",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1
+    },
+    {
+      "label": "correlated EXISTS (semi-join)",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1
+    },
+    {
+      "label": "correlated EXISTS, no inner rows",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1
+    },
+    {
+      "label": "UNION of two filters",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1750
+    },
+    {
+      "label": "view with pushed filter",
+      "status": "passed",
+      "oracle": "DuckDB source fixture",
+      "rows": 1
+    }
+  ]
+}

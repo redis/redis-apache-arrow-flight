@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-30",
+  "server_commit": "4c0eba6e73777ebf3fb25f33512207a2460f09cc",
+  "server_build_clean": true,
+  "server_profile": "community",
+  "server_binary_sha256": "184b050b14711c9e1c3eb8b10b62aad49d00f0e680fc9ac9b732fb78ef9baef4",
+  "redis_adbc_module_revision": "2f053d3affad",
+  "upstream_benchmark_checkout": "a08573bdc40c07bca5bc3ccf9cee1e59cbc6490c",
+  "upstream_files": [
+    "go/examples/bench.py",
+    "go/examples/load_sample.py"
+  ],
+  "server_go": "go1.27.2 darwin/arm64",
+  "host_os": "macOS 26.7.2 (25G332), arm64",
+  "docker_cpus": 18,
+  "docker_memory_bytes": 25421033472,
+  "redis_image": "redislabs/redis:8.2.0-78.18",
+  "redis_version": "8.6.2",
+  "redis_database": "adbc-test",
+  "redis_shards": 1,
+  "redis_database_memory_bytes": 1073741824,
+  "redis_replication": false,
+  "redis_persistence": "disabled",
+  "query_performance_factor": {
+    "active": true,
+    "scaling_factor": 4
+  },
+  "qpf_evidence": "Local Redis Software REST API GET /v1/bdbs/1 readback before timing",
+  "python": "3.14.10, Linux arm64, python:3.14-slim-bookworm",
+  "jdbc_driver": "org.apache.arrow:flight-sql-jdbc-driver:19.0.0",
+  "jdbc_jar_sha256": "d3beee43c613c457789825343368f652d570d76c08799dad38a43a10e569b57f",
+  "java_image": "eclipse-temurin:25-jdk",
+  "network": "Python and JDBC Linux containers -> host.docker.internal:18825 -> native macOS Flight server -> localhost:6379 -> Redis Software container; redis-py uses host.docker.internal:6379",
+  "server_arguments": [
+    "-listen",
+    "0.0.0.0:18825",
+    "-redis-uri",
+    "redis://localhost:6379/0",
+    "-key-prefix",
+    "arrowflight:perf20261030:"
+  ],
+  "concurrency": 1,
+  "warmups_per_case": 1,
+  "timed_repetitions_per_case": 5,
+  "redis_py_protocol": 2,
+  "java": "Temurin 25.0.4.1+1-LTS, Linux arm64",
+  "source_hashes": {
+    "upstream/bench.py": "3465805a20c9da2e7a82f12042a11489bce9d0523d46a233dcf3a165605e074e",
+    "upstream/load_sample.py": "7a3ec639b906aa0f19972dc2cfeb1c1f46fab68d0bb0c434528ac86dceb00825"
+  },
+  "server_build_info": "/private/tmp/flight-perf-server: go1.27.2\n\tpath\tgithub.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server\n\tmod\tgithub.com/redis/redis-apache-arrow-flight\tv0.0.0-20261030143923-4c0eba6e7377\t\n\tdep\tgithub.com/adbc-drivers/driverbase-go/driverbase\tv0.0.0-20261015034256-4c82882827b5\th1:rUZIUCBqgCHMhU+Yk3KWgtHanU9KHyqJpC1vhxhoMe0=\n\tdep\tgithub.com/adbc-drivers/redis/go\tv0.0.0-20261022161448-9cc8e25c0f01\n\t=>\tgithub.com/redis/redis-adbc-driver/go\tv0.0.0-20261026173111-2f053d3affad\th1:GMbckfNsdQQjasNtFWvAKvTIP6CwDX6ee3HUYyE6B1I=\n\t\n\tdep\tgithub.com/andybalholm/brotli\tv1.2.6\th1:ftYnfj6usCp+UGV5kSJ3+chpMQgU+gJf/AxsUQ52REI=\n\tdep\tgithub.com/apache/arrow-adbc/go/adbc\tv1.12.0\th1:1S7h8M12a+JZPuduuBo0kIQIRq+4heUikMnHBQ9seXE=\n\tdep\tgithub.com/apache/arrow-go/v18\tv18.8.0\th1:BLOzbPv7bxMPgXPacAg6HQjnxupYsZzC4tf+FkqPU/M=\n\tdep\tgithub.com/apache/thrift\tv0.25.0\th1:6LLlvoPjy8Cc/0b5TYRcTR3RZa2W0at3WQRcOkDwVGs=\n\tdep\tgithub.com/beorn7/perks\tv1.0.1\th1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=\n\tdep\tgithub.com/cenkalti/backoff/v5\tv5.0.3\th1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=\n\tdep\tgithub.com/cespare/xxhash/v2\tv2.3.0\th1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=\n\tdep\tgithub.com/dlclark/regexp2/v2\tv2.9.1\th1:q6bZW/NN9VodqMjYXpuic2lZxdHPfFTzGS+MJxIJmKQ=\n\tdep\tgithub.com/go-logr/logr\tv1.4.4\th1:tG4xh9yMsRCAiodLVTxyrkzSZ9+o0L1Kg/+cPVcbP/8=\n\tdep\tgithub.com/go-logr/stdr\tv1.2.2\th1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=\n\tdep\tgithub.com/goccy/go-json\tv0.11.2\th1:jdZv93Tt4ioR8yW1CoNsvSxrcZlCXAUU1aZXN7gpXUA=\n\tdep\tgithub.com/google/flatbuffers\tv25.12.19+incompatible\th1:haMV2JRRJCe1998HeW/p0X9UaMTK6SDo0ffLn2+DbLs=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/grpc-ecosystem/grpc-gateway/v2\tv2.32.0\th1:QMILzF8BA7xftE4zVORkRrlv08m12St3csK4RsyRgRs=\n\tdep\tgithub.com/klauspost/compress\tv1.20.3\th1:zWNoFqq/lSuYQRim3dUXlXeA0IqwuZGicdG5ZTfY5j4=\n\tdep\tgithub.com/klauspost/cpuid/v2\tv2.4.1\th1:I9KxadAkvo+QjtcEE2f2tyfEvmIla/T0m+14PrZNl0U=\n\tdep\tgithub.com/munnerz/goautoneg\tv0.0.0-20191010083416-a7dc8b61c822\th1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=\n\tdep\tgithub.com/pierrec/lz4/v4\tv4.1.33\th1:GjG1TJ1V4IzKP8L96muuuDNpTwd7D+l2ccXrjAbe014=\n\tdep\tgithub.com/prometheus/client_golang\tv1.25.0\th1:cDtW1TcFsMi1RJc8khwCKB4VhzwV04aKqbYtNOXuiK0=\n\tdep\tgithub.com/prometheus/client_model\tv0.6.3\th1:O0jaTVAYNxTHYInEPFJt5I3+sN8zqBtVMPTB1qyxiEo=\n\tdep\tgithub.com/prometheus/common\tv0.72.1\th1:ZAiQed/nk8IIcsdzb2TlJu23NEUDyDLQ9TXTN2WRK6Y=\n\tdep\tgithub.com/redis/go-redis/v9\tv9.23.0\th1:/TTVdJa8BRNsybwwGGnmiYktHNlUXtbOQxlWpHBPL3s=\n\tdep\tgithub.com/zeebo/xxh3\tv1.1.0\th1:s7DLGDK45Dyfg7++yxI0khrfwq9661w9EN78eP/UZVs=\n\tdep\tgo.opentelemetry.io/auto/sdk\tv1.2.1\th1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=\n\tdep\tgo.opentelemetry.io/otel\tv1.47.0\th1:j7ALJ/zgkS7Z6aeJW09p8VC9804bC+PpeTfCD4XPnOM=\n\tdep\tgo.opentelemetry.io/otel/exporters/otlp/otlptrace\tv1.47.0\th1:julhjPeUH/q/7hinbSdDdqt5h7Zw9YWmRlWRhI0jd54=\n\tdep\tgo.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc\tv1.47.0\th1:UFpxOpYPmMNUtOWhdb+nC1WELIgVf8z9higURrbzYU4=\n\tdep\tgo.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp\tv1.47.0\th1:aXZXsZ012wOgVkqaiQv+Z/d8V0xKjmg70F6m4CE94lc=\n\tdep\tgo.opentelemetry.io/otel/exporters/stdout/stdouttrace\tv1.47.0\th1:N3YQCxjxQ/bMjyc3heladfRm9t9RTksGQH8z4w6yU/0=\n\tdep\tgo.opentelemetry.io/otel/log\tv1.47.0\th1:cOTS1CcLbSQeZKanGJ+0JpF/+t4PELi3O3bbl2lqCcI=\n\tdep\tgo.opentelemetry.io/otel/metric\tv1.47.0\th1:4PptaldXx3Eat1XjMZ68pPJEs5wrhlemctZE9a3UdWY=\n\tdep\tgo.opentelemetry.io/otel/sdk\tv1.47.0\th1:zWXEr4j2lFefG87TU6Yg8a7ngfohIKFZHKp0Hf5hC6I=\n\tdep\tgo.opentelemetry.io/otel/trace\tv1.47.0\th1:JOjX/Oci8K94QHddo+bbfya/Ai/nf6/dt9ZfrFNWSrM=\n\tdep\tgo.opentelemetry.io/proto/otlp\tv1.11.1\th1:SCrPqH9NE5CmBrOqpjNCiT0X5mGwMyGERXdogfR7Yjw=\n\tdep\tgo.uber.org/atomic\tv1.12.0\th1:BvcXdFKuviU4fTL/f+SxdQ5qJX/Jix8pAkgdUcb3XOE=\n\tdep\tgolang.org/x/exp\tv0.0.0-20261014143641-f0251eb4aa3e\th1:HgI6W1OolKK6tcV74is+rl9SMT0njsHlp0TbQiGXI/A=\n\tdep\tgolang.org/x/net\tv0.61.0\th1:RR+6j/BTBCrggOLugxa+66R8FvoN6MHlzDlZIbN9YFw=\n\tdep\tgolang.org/x/sync\tv0.24.0\th1:iqiDrGoDgyuvAKrhLQthUEzU/R378N78gXbBjxed7oA=\n\tdep\tgolang.org/x/sys\tv0.49.0\th1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA=\n\tdep\tgolang.org/x/text\tv0.43.0\th1:1QivrlhwAsnMOcqgOdl9my7s9OyZl8O5/UGUTJVXoWc=\n\tdep\tgoogle.golang.org/genproto/googleapis/api\tv0.0.0-20261019180522-ce908d29299b\th1:nB3spRIaSPtxJpxb0k41yljROvm2Jrwfs2pSNdKS5y8=\n\tdep\tgoogle.golang.org/genproto/googleapis/rpc\tv0.0.0-20261019180522-ce908d29299b\th1:6WNWHZk91dp4gZ25642OALkuG1UVNZbwENJD19DnB8k=\n\tdep\tgoogle.golang.org/grpc\tv1.84.0\th1:soMyaPJ8pAak5PIQ0DGBUir0XRo2fRoMqhNWMLlLxO0=\n\tdep\tgoogle.golang.org/protobuf\tv1.36.12\th1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\tDefaultGODEBUG=tracebacklabels=0,x509sslcertoverrideplatform=0\n\tbuild\tCGO_ENABLED=1\n\tbuild\tCGO_CFLAGS=\n\tbuild\tCGO_CPPFLAGS=\n\tbuild\tCGO_CXXFLAGS=\n\tbuild\tCGO_LDFLAGS=\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=darwin\n\tbuild\tGOARM64=v8.0\n\tbuild\tvcs=git\n\tbuild\tvcs.revision=4c0eba6e73777ebf3fb25f33512207a2460f09cc\n\tbuild\tvcs.time=2026-10-30T14:39:23Z\n\tbuild\tvcs.modified=false\n",
+  "direct_redis_adbc": {
+    "revision": "2f053d3affad",
+    "version": "v0.0.18",
+    "driver_sha256": "a0d1192458c31829bb89967706fe8a26bbdc45918bcf30bc831e619fc0bdc49d",
+    "go": "1.26.10 linux/arm64",
+    "build_image": "golang:1.26.10-bookworm",
+    "source": "Go module cache github.com/redis/redis-adbc-driver/go@v0.0.0-20261026173111-2f053d3affad, same source revision as Flight server",
+    "qpf_reverified": {
+      "active": true,
+      "scaling_factor": 4
+    },
+    "network": "Python Linux arm64 container -> host.docker.internal:6379 -> Redis Software; Flight server bypassed",
+    "build_info": "/private/tmp/libadbc_driver_redis-flight-perf-v0018.so: go1.26.10\n\tpath\tgithub.com/adbc-drivers/redis/go/pkg\n\tmod\tgithub.com/adbc-drivers/redis/go\t(devel)\t\n\tdep\tgithub.com/adbc-drivers/driverbase-go/driverbase\tv0.0.0-20261015034256-4c82882827b5\th1:rUZIUCBqgCHMhU+Yk3KWgtHanU9KHyqJpC1vhxhoMe0=\n\tdep\tgithub.com/andybalholm/brotli\tv1.2.6\th1:ftYnfj6usCp+UGV5kSJ3+chpMQgU+gJf/AxsUQ52REI=\n\tdep\tgithub.com/apache/arrow-adbc/go/adbc\tv1.12.0\th1:1S7h8M12a+JZPuduuBo0kIQIRq+4heUikMnHBQ9seXE=\n\tdep\tgithub.com/apache/arrow-go/v18\tv18.8.0\th1:BLOzbPv7bxMPgXPacAg6HQjnxupYsZzC4tf+FkqPU/M=\n\tdep\tgithub.com/apache/thrift\tv0.25.0\th1:6LLlvoPjy8Cc/0b5TYRcTR3RZa2W0at3WQRcOkDwVGs=\n\tdep\tgithub.com/cenkalti/backoff/v5\tv5.0.3\th1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=\n\tdep\tgithub.com/cespare/xxhash/v2\tv2.3.0\th1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=\n\tdep\tgithub.com/dlclark/regexp2/v2\tv2.9.1\th1:q6bZW/NN9VodqMjYXpuic2lZxdHPfFTzGS+MJxIJmKQ=\n\tdep\tgithub.com/go-logr/logr\tv1.4.4\th1:tG4xh9yMsRCAiodLVTxyrkzSZ9+o0L1Kg/+cPVcbP/8=\n\tdep\tgithub.com/go-logr/stdr\tv1.2.2\th1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=\n\tdep\tgithub.com/goccy/go-json\tv0.11.2\th1:jdZv93Tt4ioR8yW1CoNsvSxrcZlCXAUU1aZXN7gpXUA=\n\tdep\tgithub.com/google/flatbuffers\tv25.12.19+incompatible\th1:haMV2JRRJCe1998HeW/p0X9UaMTK6SDo0ffLn2+DbLs=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/grpc-ecosystem/grpc-gateway/v2\tv2.32.0\th1:QMILzF8BA7xftE4zVORkRrlv08m12St3csK4RsyRgRs=\n\tdep\tgithub.com/klauspost/compress\tv1.20.3\th1:zWNoFqq/lSuYQRim3dUXlXeA0IqwuZGicdG5ZTfY5j4=\n\tdep\tgithub.com/klauspost/cpuid/v2\tv2.4.1\th1:I9KxadAkvo+QjtcEE2f2tyfEvmIla/T0m+14PrZNl0U=\n\tdep\tgithub.com/pierrec/lz4/v4\tv4.1.33\th1:GjG1TJ1V4IzKP8L96muuuDNpTwd7D+l2ccXrjAbe014=\n\tdep\tgithub.com/redis/go-redis/v9\tv9.23.0\th1:/TTVdJa8BRNsybwwGGnmiYktHNlUXtbOQxlWpHBPL3s=\n\tdep\tgithub.com/zeebo/xxh3\tv1.1.0\th1:s7DLGDK45Dyfg7++yxI0khrfwq9661w9EN78eP/UZVs=\n\tdep\tgo.opentelemetry.io/auto/sdk\tv1.2.1\th1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=\n\tdep\tgo.opentelemetry.io/otel\tv1.47.0\th1:j7ALJ/zgkS7Z6aeJW09p8VC9804bC+PpeTfCD4XPnOM=\n\tdep\tgo.opentelemetry.io/otel/exporters/otlp/otlptrace\tv1.47.0\th1:julhjPeUH/q/7hinbSdDdqt5h7Zw9YWmRlWRhI0jd54=\n\tdep\tgo.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc\tv1.47.0\th1:UFpxOpYPmMNUtOWhdb+nC1WELIgVf8z9higURrbzYU4=\n\tdep\tgo.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp\tv1.47.0\th1:aXZXsZ012wOgVkqaiQv+Z/d8V0xKjmg70F6m4CE94lc=\n\tdep\tgo.opentelemetry.io/otel/exporters/stdout/stdouttrace\tv1.47.0\th1:N3YQCxjxQ/bMjyc3heladfRm9t9RTksGQH8z4w6yU/0=\n\tdep\tgo.opentelemetry.io/otel/log\tv1.47.0\th1:cOTS1CcLbSQeZKanGJ+0JpF/+t4PELi3O3bbl2lqCcI=\n\tdep\tgo.opentelemetry.io/otel/metric\tv1.47.0\th1:4PptaldXx3Eat1XjMZ68pPJEs5wrhlemctZE9a3UdWY=\n\tdep\tgo.opentelemetry.io/otel/sdk\tv1.47.0\th1:zWXEr4j2lFefG87TU6Yg8a7ngfohIKFZHKp0Hf5hC6I=\n\tdep\tgo.opentelemetry.io/otel/trace\tv1.47.0\th1:JOjX/Oci8K94QHddo+bbfya/Ai/nf6/dt9ZfrFNWSrM=\n\tdep\tgo.opentelemetry.io/proto/otlp\tv1.11.1\th1:SCrPqH9NE5CmBrOqpjNCiT0X5mGwMyGERXdogfR7Yjw=\n\tdep\tgo.uber.org/atomic\tv1.12.0\th1:BvcXdFKuviU4fTL/f+SxdQ5qJX/Jix8pAkgdUcb3XOE=\n\tdep\tgolang.org/x/exp\tv0.0.0-20261014143641-f0251eb4aa3e\th1:HgI6W1OolKK6tcV74is+rl9SMT0njsHlp0TbQiGXI/A=\n\tdep\tgolang.org/x/net\tv0.61.0\th1:RR+6j/BTBCrggOLugxa+66R8FvoN6MHlzDlZIbN9YFw=\n\tdep\tgolang.org/x/sync\tv0.24.0\th1:iqiDrGoDgyuvAKrhLQthUEzU/R378N78gXbBjxed7oA=\n\tdep\tgolang.org/x/sys\tv0.49.0\th1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA=\n\tdep\tgolang.org/x/text\tv0.43.0\th1:1QivrlhwAsnMOcqgOdl9my7s9OyZl8O5/UGUTJVXoWc=\n\tdep\tgoogle.golang.org/genproto/googleapis/api\tv0.0.0-20261019180522-ce908d29299b\th1:nB3spRIaSPtxJpxb0k41yljROvm2Jrwfs2pSNdKS5y8=\n\tdep\tgoogle.golang.org/genproto/googleapis/rpc\tv0.0.0-20261019180522-ce908d29299b\th1:6WNWHZk91dp4gZ25642OALkuG1UVNZbwENJD19DnB8k=\n\tdep\tgoogle.golang.org/grpc\tv1.84.0\th1:soMyaPJ8pAak5PIQ0DGBUir0XRo2fRoMqhNWMLlLxO0=\n\tdep\tgoogle.golang.org/protobuf\tv1.36.12\th1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc=\n\tbuild\t-buildmode=c-shared\n\tbuild\t-compiler=gc\n\tbuild\t-ldflags=\"-s -w -X github.com/adbc-drivers/driverbase-go/driverbase.infoDriverVersion=v0.0.18\"\n\tbuild\t-tags=driverlib\n\tbuild\tCGO_ENABLED=1\n\tbuild\tCGO_CFLAGS=\n\tbuild\tCGO_CPPFLAGS=\n\tbuild\tCGO_CXXFLAGS=\n\tbuild\tCGO_LDFLAGS=\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=linux\n\tbuild\tGOARM64=v8.0\n"
+  }
+}
