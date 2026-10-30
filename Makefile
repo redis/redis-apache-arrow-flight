@@ -2,6 +2,9 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X github.com/redis/redis-apache-arrow-flight/server.Version=$(VERSION)
 REDIS_PORT ?= 6379
 REDIS_URI ?= redis://localhost:$(REDIS_PORT)/0
+FLIGHT_URI ?= grpc://localhost:8815
+RSCRIPT ?= Rscript
+FLIGHT_SQL_DRIVER ?=
 
 JDBC_VERSION ?= 19.0.0
 JDBC_JAR := bin/flight-sql-jdbc-driver-$(JDBC_VERSION).jar
@@ -17,7 +20,7 @@ JAVA_OPTS = --add-opens=java.base/java.nio=ALL-UNNAMED $(if $(shell [ "$(JAVA_MA
 # Platforms of the release archives (GOOS/GOARCH).
 PLATFORMS ?= linux/amd64 linux/arm64 darwin/arm64
 
-.PHONY: build dist test test-integration test-cluster run redis-up redis-cluster-up redis-down docker example jdbc-smoke clean
+.PHONY: build dist test test-integration test-cluster run redis-up redis-cluster-up redis-down docker example clients-smoke r-smoke jdbc-smoke clean
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/redis-flight-server ./cmd/redis-flight-server
@@ -69,6 +72,13 @@ docker:
 example:
 	uv run --with-requirements examples/python/requirements-smoke.txt examples/python/quickstart.py
 	uv run examples/python/dataset_to_sql.py
+
+clients-smoke:
+	uv run --with-requirements examples/python/requirements-clients.txt python examples/python/client_compatibility.py --uri "$(FLIGHT_URI)"
+
+r-smoke:
+	@test -n "$(FLIGHT_SQL_DRIVER)" || (echo 'Set FLIGHT_SQL_DRIVER to the Flight SQL shared library path'; exit 1)
+	$(RSCRIPT) examples/r/flight_sql.R "$(FLIGHT_URI)" "$(FLIGHT_SQL_DRIVER)"
 
 # The Arrow Flight SQL JDBC driver, checked against Maven Central's SHA-1.
 $(JDBC_JAR):

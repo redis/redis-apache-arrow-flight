@@ -18,11 +18,13 @@ Use Go as pinned by [go.mod](../../go.mod). Integration tests create and delete 
 | Existing disposable backend | `REDIS_URI=redis://localhost:6379/0 go test -count=1 -race ./...` | Search-enabled Redis already running; integration tests must not skip |
 | Python client | `make example` | Redis and server running; uv installs script dependencies; exit 0 |
 | JDBC client | `make jdbc-smoke` | Redis and server running; Java and network for initial driver download; exit 0 |
+| Dataframe / DuckDB clients | `make clients-smoke` | Disposable server and uv; pinned pandas, Polars, DuckDB and Flight dependencies; asserts results and reports pandas's ADBC `params` limitation |
+| R Flight SQL client | `make r-smoke FLIGHT_SQL_DRIVER=/path/to/library` | R, adbcdrivermanager, nanoarrow and an OS/architecture-matched Flight SQL shared library; exit 0 |
 | Dataset benchmarks | `REDIS_URI=redis://localhost:6379/0 go test ./server -run '^$' -bench Dataset -benchtime 10x` | Disposable Redis; inspect reported timings/allocations, no pass/fail performance threshold exists |
 
 `make test-integration` starts local Compose Redis even when overriding `REDIS_URI`; the direct Go command avoids that when using another disposable backend. Do not count the unit-only invocation as evidence for backend behavior.
 
-For client checks, first start `docker compose up --detach --build --wait flight`; it starts its Redis dependency too. `make jdbc-smoke` defaults to JDBC driver 19.0.0 and adds the JVM memory options for the Java version. CI runs it separately on Java 17, 21, and 25. No `make lint` target exists.
+For client checks, first start `docker compose up --detach --build flight`; it starts its Redis dependency too. Wait for a real SQL round trip with `scripts/wait-flight.py`; community has no backend health probe. `make jdbc-smoke` defaults to JDBC driver 19.0.0 and adds the JVM memory options for the Java version. CI runs it separately on Java 17, 21, and 25. No `make lint` target exists.
 
 ## Behavior-to-test map
 
