@@ -61,35 +61,58 @@ using a deployment health check.
 
 ### Install a release
 
-The [release workflow](.github/workflows/release.yml) is configured to publish
-static binaries for Linux (amd64, arm64) and macOS (arm64), with SHA-256
-checksums, and a multi-arch image on the GitHub Container Registry. To use a
-published [release](https://github.com/redis/redis-apache-arrow-flight/releases),
-set `VERSION` to its tag. If the release list is empty,
-build from source with [Run locally from source](docs/local-development.md).
+You need a running Redis instance. SQL requires Redis with the Query Engine;
+see [Redis requirements](#choose-an-interface). These commands start the Flight
+server only.
 
-Download and verify a Linux amd64 binary:
-
-```bash
-curl -fsSL --remote-name-all https://github.com/redis/redis-apache-arrow-flight/releases/download/$VERSION/redis-flight-server-$VERSION-linux-amd64.tar.gz{,.sha256}
-```
+Choose a published tag from [Releases](https://github.com/redis/redis-apache-arrow-flight/releases).
+Replace `vX.Y.Z` below with that tag. If no release is available for your
+platform, [build from source](docs/local-development.md).
 
 ```bash
-shasum -a 256 -c redis-flight-server-$VERSION-linux-amd64.tar.gz.sha256 && tar -xzf redis-flight-server-$VERSION-linux-amd64.tar.gz
+VERSION=vX.Y.Z
 ```
 
-Or run the published container image:
+Choose **one** of the following options.
+
+#### Option 1: Download and run a binary
+
+Set `PLATFORM` to `linux-amd64`, `linux-arm64` or `darwin-arm64` (Apple Silicon
+macOS), matching your machine. For example:
 
 ```bash
-docker run --rm -p 8815:8815 -e REDIS_URI=redis://host.docker.internal:6379/0 ghcr.io/redis/redis-apache-arrow-flight:${VERSION#v}
+PLATFORM=linux-amd64
+ARCHIVE="redis-flight-server-${VERSION}-${PLATFORM}"
+curl -fLO "https://github.com/redis/redis-apache-arrow-flight/releases/download/${VERSION}/${ARCHIVE}.tar.gz"
+curl -fLO "https://github.com/redis/redis-apache-arrow-flight/releases/download/${VERSION}/${ARCHIVE}.tar.gz.sha256"
+shasum -a 256 -c "${ARCHIVE}.tar.gz.sha256"
 ```
 
-This container example uses Docker Desktop's `host.docker.internal` to reach
-Redis on the host. With Docker Engine on Linux, put the image and Redis on a
-shared Docker network and set `REDIS_URI` to Redis's name on that network.
+After the checksum passes, extract the archive and start the server. This
+example connects to Redis running locally on port 6379:
 
-Image tags are the version without the `v` (`1.2.3`), its minor version
-(`1.2`) and `latest`; a prerelease (`1.2.3-rc1`) gets only its own.
+```bash
+tar -xzf "${ARCHIVE}.tar.gz"
+"./${ARCHIVE}/redis-flight-server" -redis-uri redis://localhost:6379/0
+```
+
+#### Option 2: Run a container
+
+The image tag is the release version without its leading `v`; `${VERSION#v}`
+performs that conversion. With Docker Desktop and Redis running on your host:
+
+```bash
+docker run --rm -p 8815:8815 \
+  -e REDIS_URI=redis://host.docker.internal:6379/0 \
+  "ghcr.io/redis/redis-apache-arrow-flight:${VERSION#v}"
+```
+
+With Docker Engine on Linux, put Redis and Flight on the same Docker network
+and use the Redis container's name in `REDIS_URI` instead of
+`host.docker.internal`.
+
+Both options expose Flight on port **8815**. Keep the server running while
+trying the [client examples](#client-examples).
 
 ## Client examples
 
