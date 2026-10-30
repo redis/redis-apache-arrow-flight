@@ -25,7 +25,7 @@ Before a deployment, record the exact source SHA, binary/image version or digest
 - Aggregate cursor usage across replicas and other Redis clients remains within index limits. Per-server limits are insufficient by themselves on cluster.
 - Dataset storage compatibility has been checked before mixed-version traffic or rollback.
 
-See [README operations](../../README.md#deployment-and-operations), [healthcheck command](../../cmd/redis-flight-server/healthcheck.go), [server lifecycle](../../server/server.go), and [dataset storage](../../server/datasets.go).
+See [Server operations](../server-guide.md#deployment-and-operations), [healthcheck command](../../cmd/redis-flight-server/healthcheck.go), [server lifecycle](../../server/server.go), and [dataset storage](../../server/datasets.go).
 
 ## Available signals
 
