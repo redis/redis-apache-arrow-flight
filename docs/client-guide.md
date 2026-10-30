@@ -65,6 +65,11 @@ Use the [Arrow Flight SQL JDBC driver](https://arrow.apache.org/java/current/fli
 jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
 ```
 
+For DBeaver, follow [setup and manual testing](dbeaver.md): download the JDBC
+19.0.0 JAR directly, choose **Generic** driver type, connect and create a sample
+table. The guide also links a screenshot walkthrough. SQL tables use Flight SQL;
+named Arrow datasets use the native Flight API.
+
 - **Logging in:** with `--auth=redis-acl`, add `&user=<redis user>&password=<…>`
   to the URL. The driver logs in with the Flight handshake and keeps the bearer
   token.
@@ -72,7 +77,7 @@ jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
   `disableCertificateVerification` as needed.
 - **Sessions:** the driver keeps cookies, so each JDBC connection is a
   [session](../docs/server-guide.md#sessions): `SET`, `search_path` and temporary tables last from one
-  statement to the next. Plain scans [stream](../README.md#flight-sql-support) from Redis
+  statement to the next. Plain scans [stream](sql-reference.md#flight-sql-support) from Redis
   in a session too, so a `SELECT *` of a large table (DBeaver's data tab)
   isn't held in the server's memory, and the connection runs other
   statements while a `ResultSet` is read. A connection that has made a
@@ -87,8 +92,9 @@ jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
   Without it the driver fails before it connects, with an
   `ExceptionInInitializerError` in `DefaultAllocationManagerFactory`. Java 17
   to 22 don't know the option and refuse to start with it.
-- **DBeaver:** add the options to `dbeaver.ini`, one per line after `-vmargs`
-  (the second one only if DBeaver runs on Java 23 or later):
+- **DBeaver:** check `dbeaver.ini` after its existing `-vmargs` line. The tested
+  Community 26.2.3 macOS installation already included both options. Add only
+  missing options and restart; the second applies only on Java 23 or later:
 
   ```text
   -vmargs
@@ -145,7 +151,7 @@ work with the results of either interface.
 
 | Tool | How to use it with this project | Useful for | Tested |
 |-|-|-|-|
-| **DBeaver** | Configure the [Arrow Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html) with the URL below; see [JDBC setup](#jdbc-dbeaver-and-others) for JVM options, authentication and sessions | Interactive SQL, browsing schemas and tables, viewing query results | Blocked — DBeaver 26.2.3 crashed in macOS accessibility handling before connecting; underlying [JDBC smoke test](../examples/jdbc/JdbcSmoke.java) passed ([record](../docs/client-compatibility.md#dbeaver-application-attempt-superset-excluded)). |
+| **DBeaver** | Use the [Generic driver setup and manual tests](dbeaver.md) with Flight SQL JDBC 19.0.0 | Interactive SQL, browsing schemas and tables, viewing query results | PASS for Community 26.2.3 manual connection, table navigation and a three-row SELECT on 2026-10-30; [coverage limits](client-compatibility.md#dbeaver-rerun-and-manual-validation-on-2026-10-30) |
 | **Apache Superset** | Superset [requires a DB-API driver and SQLAlchemy dialect](https://superset.apache.org/user-docs/6.0.0/configuration/databases/). A candidate adapter is the third-party, beta [`sqlalchemy-adbc[flightsql]`](https://pypi.org/project/sqlalchemy-adbc/), using `adbc+flightsql://localhost:8815`; Superset 6.1.0 and adapter 0.3.0 have incompatible SQLAlchemy requirements | SQL exploration, charts and dashboards; requires adapter setup and compatibility testing | Blocked — Superset 6.1.0 and sqlalchemy-adbc 0.1.0–0.3.0 require incompatible SQLAlchemy versions ([record](../docs/client-compatibility.md#flight-client-validation-on-2026-10-29)). |
 | **Power BI** | Build a [custom ADBC-based Power Query connector](https://learn.microsoft.com/en-us/power-query/adbc) using the Flight SQL driver and server URI below; adapt the sample's type mappings, navigation queries and SQL generation to this server. This project does not ship a Power BI connector | Reports and dashboards; requires custom connector development and compatibility testing | No — custom connector and application integration untested. |
 | **Tableau** | Try [Other Databases (JDBC)](https://help.tableau.com/current/pro/desktop/en-gb/examples_otherdatabases_jdbc.htm) with the Arrow Flight SQL JDBC driver and URL below; configure the [driver's JVM options](#jdbc-dbeaver-and-others) and validate metadata and generated SQL. Tableau's generic JDBC connector does not guarantee feature compatibility | Visual analysis and dashboards; requires driver setup and compatibility testing | No — application integration untested. |
