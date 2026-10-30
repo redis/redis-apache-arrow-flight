@@ -12,7 +12,7 @@ Hosted workflow configuration is not itself evidence of a passing run.
 | Python PyArrow Flight | 26.0.0 | Same Python scripts | Passed: nested/dictionary datasets, multiple batches, projections/ranges, discovery and drop |
 | Flight SQL JDBC | 19.0.0 | JdbcSmoke.java; workflow runs Java 17/21/25 | Local Java 25 passed metadata, parameters, update, session state and concurrent statement/read checks. Java 17/21 were not rerun locally |
 | pandas | 3.0.6 | Python tour converts a query result to a dataframe | Passed conversion; no claim of arbitrary pandas SQL API coverage |
-| DBeaver | Not manually validated here | Underlying JDBC smoke only | Follow README JDBC setup; #23 still applies. Test actual schema browsing and generated SQL in the application |
+| DBeaver | Not manually validated on 2026-10-20 | Underlying JDBC smoke only at that date | Later manual connection, navigator and SELECT passed; see [2026-10-30 evidence](#dbeaver-rerun-and-manual-validation-on-2026-10-30) |
 | Tableau | Not validated | None | Requires generic JDBC setup and actual generated-SQL/metadata validation |
 | Power BI | Not validated | None | Requires a custom ADBC Power Query connector; none is shipped |
 | Polars, DuckDB, R | Not validated | None | Arrow/ADBC consumption examples are not a compatibility guarantee |
@@ -105,7 +105,8 @@ tree inspection. Three local macOS crash reports recorded `EXC_BAD_ACCESS` /
 `cfAttributedStringSerialize`, `AXSerializeCFType` and
 `_AXXMIGCopyParameterizedAttributeValue`. This is a local application/automation
 blocker, not a demonstrated Flight SQL protocol failure. No successful Test
-Connection, schema browsing or query execution is claimed for DBeaver itself.
+Connection, schema browsing or query execution was verified in that attempt.
+See the [later manual pass](#dbeaver-rerun-and-manual-validation-on-2026-10-30).
 Reported upstream as [DBeaver issue #42640](https://github.com/dbeaver/dbeaver/issues/42640).
 
 Manual validation remains: connect with autocommit, expand `redis/public`,
@@ -114,6 +115,51 @@ the generated SQL and results separately from the successful JDBC smoke test.
 Superset follow-up is deferred under the user's instruction; it is tracked in
 [the endpoint repository](https://github.com/redis/redis-apache-arrow-flight/issues/41)
 and [the adapter repository](https://github.com/drls-io/sqlalchemy-adbc/issues/16).
+
+### DBeaver rerun and manual validation on 2026-10-30
+
+Rebuilt source `4a26c34` and reran against a fresh disposable Redis 8.6.2
+on `127.0.0.1:16389`, with Flight on `127.0.0.1:18815`. JDBC 19.0.0
+in Temurin 25 passed every `JdbcSmoke.java` check, including metadata,
+prepared statements, updates, session state and the 100,000-row concurrent
+read. The known empty JDBC `getTypeInfo()` result remains unchanged.
+
+Retried the installed macOS arm64 DBeaver Community 26.2.3 with the custom
+driver configuration above. Two application attempts crashed: opening the
+connection form, then a retry that clicked Test Connection and reached
+“Set connection defaults.” No successful connection result, schema browsing,
+data tab or generated SQL was verified. Crash reports at 08:00:22 and
+08:00:58 PDT reproduce `EXC_BAD_ACCESS` / `SIGABRT`; the inspected stack
+again includes `CFStringGetLength`, `cfAttributedStringSerialize`,
+`AXSerializeCFType` and `_AXXMIGCopyParameterizedAttributeValue`.
+These automation attempts remained blocked by the local accessibility crash.
+
+A later manual test on the same date succeeded with the installed DBeaver
+Community 26.2.3, bundled Temurin 25.0.4.1 and Flight SQL JDBC 19.0.0, using
+**Generic** driver type and the same local ports. The user confirmed connection;
+subsequent screen inspection showed `redis → public → Tables → dbeaver_sample`
+and a result grid for:
+
+```sql
+SELECT "id", "name", "qty"
+FROM "redis"."public"."dbeaver_sample";
+```
+
+The grid contained `(1, Apples, 10)`, `(2, Oranges, 20)` and `(3, Pears, 30)`.
+This establishes manual connection, catalog/schema/table navigation and a quoted
+SELECT with correct results. The fixture was created through JDBC in a separate
+connection and found through JDBC metadata before the manual test. It does not
+establish DDL or writes from DBeaver, expanded column metadata, a table Data tab,
+filtered aggregates or arbitrary generated SQL. TLS/authentication and large-result
+UI paging were not tested. The automation crash is separate from this manual pass.
+
+Reproduce the workflow with [DBeaver setup and manual tests](dbeaver.md), which
+links the screenshot guide and the exact 19.0.0 JAR. The direct Maven Central
+download was reported faster for manual setup; no download benchmark was run.
+Built-in driver support is proposed in [DBeaver PR #42645](https://github.com/dbeaver/dbeaver/pull/42645),
+linked to [feature request #15535](https://github.com/dbeaver/dbeaver/issues/15535).
+The tested application used a custom driver; the proposed packaged driver entry
+has not been validated in a rebuilt DBeaver product.
 
 ## Core endpoint validation on 2026-10-29
 

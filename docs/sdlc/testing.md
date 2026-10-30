@@ -17,6 +17,7 @@ Use Go as pinned by [go.mod](../../go.mod). Integration tests create and delete 
 | Cluster integration/race | `make test-cluster` | Docker Compose; ports 7001–7003 available; exit 0 |
 | Existing disposable backend | `REDIS_URI=redis://localhost:6379/0 go test -count=1 -race ./...` | Search-enabled Redis already running; integration tests must not skip |
 | Python client | `make example` | Redis and server running; uv installs script dependencies; exit 0 |
+| DBeaver manual checks | [Setup, fixture and expected results](../dbeaver.md) | Running disposable endpoint, Generic driver and JDBC 19.0.0; record connection, navigator, columns, Data tab and queries separately |
 | JDBC client | `make jdbc-smoke` | Redis and server running; Java and network for initial driver download; exit 0 |
 | Dataframe / DuckDB clients | `make clients-smoke` | Disposable server and uv; pinned pandas, Polars, DuckDB and Flight dependencies; asserts results and reports pandas's ADBC `params` limitation |
 | R Flight SQL client | `make r-smoke FLIGHT_SQL_DRIVER=/path/to/library` | R, adbcdrivermanager, nanoarrow and an OS/architecture-matched Flight SQL shared library; exit 0 |

@@ -153,9 +153,11 @@ requires JVM options: Java 17+ needs
 `--sun-misc-unsafe-memory-access=allow`.
 
 Follow the [JDBC setup guide](docs/client-guide.md#jdbc-dbeaver-and-others) for
-DBeaver configuration, authentication, TLS, session behavior and known driver
-limitations. The JDBC smoke test passed; the DBeaver application attempt was blocked by a
-macOS accessibility crash before connecting.
+authentication, TLS, session behavior and known driver limitations. For DBeaver,
+follow the [driver setup and manual test guide](docs/dbeaver.md), including the
+direct JDBC 19.0.0 JAR download and a screenshot walkthrough. Manual connection,
+table navigation and a three-row SELECT passed on October 30, 2026; earlier
+macOS accessibility automation crashes are recorded separately.
 
 ### Other clients
 
@@ -197,7 +199,7 @@ SQL tools access SQL tables; named datasets use the Flight dataset API.
 | Python / PyArrow | ADBC Flight SQL for SQL; `pyarrow.flight` for datasets | Both smoke scripts passed |
 | Go | Flight SQL client or native Flight client | Integration/race suites passed |
 | Java | Flight SQL JDBC or native Flight SDK | JDBC passed; native Java Flight untested |
-| DBeaver | Custom Flight SQL JDBC driver; [setup](docs/client-guide.md#jdbc-dbeaver-and-others) | Application attempt blocked by a macOS accessibility crash before connecting; JDBC smoke passed |
+| DBeaver | Generic Flight SQL JDBC 19.0.0 driver; [setup and manual tests](docs/dbeaver.md) | Community 26.2.3: manual connection, table navigation and three-row SELECT passed on 2026-10-30; [scope and limits](docs/client-compatibility.md#dbeaver-rerun-and-manual-validation-on-2026-10-30) |
 | Other JDBC applications | Custom Flight SQL JDBC driver | Driver tested; individual applications untested |
 | pandas | ADBC `pd.read_sql`, or Arrow `to_pandas()` | Reads, NULLs and empty results passed; ADBC `params=` unsupported |
 | Polars | ADBC `pl.read_database`, or `pl.from_arrow()` | Reads, NULLs, empty results and batch iteration passed |
@@ -237,6 +239,7 @@ capabilities depend on the [build profile](docs/build-profiles.md).
 |---|---|
 | Local setup and source builds | [Run locally from source](docs/local-development.md) |
 | ADBC, native Flight and JDBC examples | [Client guide](docs/client-guide.md) |
+| DBeaver driver setup and manual tests | [DBeaver guide](docs/dbeaver.md) |
 | Client versions and validation evidence | [Client compatibility](docs/client-compatibility.md) |
 | SQL capabilities and execution behavior | [Flight SQL reference](docs/sql-reference.md) |
 | Cancellation and named Arrow datasets | [Data access reference](docs/data-access.md) |

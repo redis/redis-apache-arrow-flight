@@ -37,3 +37,32 @@ tracked in endpoint issue #41 and upstream sqlalchemy-adbc issue #16.
 Remaining acceptance: manual DBeaver browsing/generated SQL. DBI/adbi and
 TLS/auth are outside this smoke test scope; Superset is excluded by request.
 Maintainer decision: pending.
+
+Rerun on 2026-10-30: rebuilt `4a26c34` against fresh disposable Redis 8.6.2.
+JDBC 19.0.0 / Temurin 25 passed all smoke checks. Installed DBeaver 26.2.3
+reproduced the accessibility crash twice; the second attempt reached Test
+Connection's “Set connection defaults” before crashing. Application connection,
+browsing and generated SQL remain unvalidated. See the dated rerun in the
+client matrix for diagnostic details. Temporary test services were stopped.
+
+
+Manual follow-up on 2026-10-30: the user connected successfully using DBeaver
+Community 26.2.3, bundled Java 25.0.4.1 and JDBC 19.0.0 with Generic driver type.
+Screen inspection confirmed navigator browsing to `redis/public/dbeaver_sample`
+and a quoted SELECT returning Apples/10, Oranges/20 and Pears/30. This supersedes
+the application connection blocker for manual use; accessibility automation
+remains affected. Column expansion, table Data tab, filtered aggregates, writes
+from the UI, TLS/auth and large-result UI paging remain unverified. Test services
+were restarted and left running for the user's manual testing.
+
+Documentation follow-up requested by the user on 2026-10-30: add the screenshot
+walkthrough and direct Maven Central JDBC 19.0.0 JAR link, use Generic rather than
+SQLite driver type, document a fresh database's lack of tables, and publish a PR.
+Based on `4c0eba6`; implementation in `docs/dbeaver.md`, client guide, README and
+client evidence. Validation: link/anchor checks, exact JAR URL verification,
+SQL fixture/query checks and whitespace checks; no server implementation change.
+All seven SQL statements extracted from the guide passed through JDBC 19.0.0 /
+Temurin 25 using a unique temporary table, including the quoted ordered SELECT
+and filtered aggregate; the temporary fixture was dropped. This is JDBC evidence,
+not a new DBeaver UI pass. Local links/anchors and `git diff --check` passed.
+Maintainer review pending.
