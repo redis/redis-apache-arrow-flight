@@ -115,6 +115,21 @@ Superset follow-up is deferred under the user's instruction; it is tracked in
 [the endpoint repository](https://github.com/redis/redis-apache-arrow-flight/issues/41)
 and [the adapter repository](https://github.com/drls-io/sqlalchemy-adbc/issues/16).
 
+## Core endpoint validation on 2026-10-29
+
+A separate run against source `b84b1e2a1693a0269dd503ae84f2a353dc724a39`
+passed both standalone and three-shard Cluster Go race suites (80 tests passed
+and one enterprise-only admission test skipped in each). Python 3.14 with the
+pinned ADBC 1.12.0, PyArrow 26.0.0 and pandas 3.1.0 passed the quickstart and
+dataset-to-SQL scripts; Flight SQL JDBC 19.0.0 on Temurin Java 25 passed its
+smoke test. Community metrics returned the expected empty HTTP 204 response.
+
+The [validation record and raw logs](validation/2026-10-29-core-endpoint/README.md)
+identify the tested revision, commands, versions and limitations. This run did
+not exercise DBeaver, Superset or production deployment behavior, and does not
+supersede the separate application attempts above. JDBC's empty type information
+and the enterprise-only skip remain explicit limitations.
+
 ## Reproducing the standard client checks
 
 Use a disposable Redis with Search and a running server. Pin Python dependencies

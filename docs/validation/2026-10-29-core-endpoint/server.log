@@ -1,0 +1,9 @@
+time=2026-10-29T21:10:00.504-07:00 level=INFO msg="serving Arrow Flight" addr=127.0.0.1:18815 redis=redis://127.0.0.1:16379/0 auth=none tls=false sessions=true
+time=2026-10-29T21:10:00.504-07:00 level=INFO msg="serving metrics" addr=127.0.0.1:19815
+time=2026-10-29T21:11:28.416-07:00 level=INFO msg="shutting down" signal=terminated timeout=25s
+redis: 2026/10/29 21:11:28 pool.go:770: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:16379: connect: connection refused
+redis: 2026/10/29 21:11:29 pool.go:770: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:16379: connect: connection refused
+redis: 2026/10/29 21:11:29 pool.go:770: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:16379: connect: connection refused
+redis: 2026/10/29 21:11:30 pool.go:770: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:16379: connect: connection refused
+redis: 2026/10/29 21:11:30 pool.go:770: redis: connection pool: failed to dial after 5 attempts: dial tcp 127.0.0.1:16379: connect: connection refused
+time=2026-10-29T21:11:30.623-07:00 level=INFO msg="shut down"
