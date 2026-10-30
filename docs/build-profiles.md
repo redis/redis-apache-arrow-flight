@@ -1,9 +1,12 @@
 # Community and enterprise build profiles
 
-The default public checkout builds the community profile. It resolves only
-public dependencies and contains community implementations at the paid-feature
-boundaries. Enterprise builds compose the complete paid implementation source
-with the same qualified core. This is compile-time composition, not a runtime
+This checkout builds **community** with paid-feature stubs. Use an enterprise
+composition for TLS/authentication, monitoring, tuning and automation. The table
+below describes exact feature availability.
+
+The community profile resolves only public dependencies and contains community
+implementations at the paid-feature boundaries. Enterprise builds compose the
+complete paid implementation source with the same qualified core. This is compile-time composition, not a runtime
 plugin, a Flight requirement for native ADBC, or a network license check.
 
 | Feature | Community | Enterprise |
@@ -49,6 +52,13 @@ intact. Core result/lifecycle tests and explicit stub/fail-closed tests remain
 public. Preserve exact Arrow values, errors, cleanup, and cancellation. Software
 integration requires verified active 4x QPF; no Active-Active or benchmark
 qualification follows from a successful build or unit pass.
+
+## Startup and readiness
+
+Compose waits for Redis health before starting Flight. It does not establish
+Flight readiness; do not use `--wait` with the community service, which has no
+backend healthcheck. Community health reports `UNKNOWN`; verify application
+readiness with a real SQL query, as `scripts/wait-flight.py` does in CI.
 
 ## Community CI
 
