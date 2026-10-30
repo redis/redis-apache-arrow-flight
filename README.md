@@ -90,6 +90,7 @@ Image tags are the version without the `v` (`1.2.3`), its minor version
 ## Contents
 
 - [Choose an interface](#choose-an-interface) compares Flight SQL and datasets.
+- [Integration paths](#integration-paths) explains ADBC, JDBC and native Flight clients, with tested coverage.
 - [Data tools](#data-tools) lists compatible query, dataframe and inspection tools.
 - [Client examples](#client-examples) covers Python, JDBC and Go.
 - [Feature reference](#feature-reference) documents SQL, sessions and datasets.
@@ -115,6 +116,47 @@ columns (and fetch only those from Redis) and a range of batches, but only SQL
 can filter rows by value. Both can be combined: for example, upload a dataset,
 then bulk-ingest the rows you want to query into a SQL table. See the
 [executable dataset-to-SQL workflow](docs/dataset-sql-workflow.md).
+
+### Integration paths
+
+The server supports three usual client integration paths through the same
+gRPC endpoint:
+
+| Integration path | Use it for | Client examples |
+|-|-|-|
+| **Flight SQL via ADBC** | SQL queries, parameters, catalog metadata and bulk ingestion with Arrow results | Python `adbc_driver_flightsql`; R through ADBC |
+| **Flight SQL via JDBC** | SQL access from Java applications and tools that accept a JDBC driver | Arrow Flight SQL JDBC driver; DBeaver setup below |
+| **Native Flight RPC** | Upload/download named Arrow datasets, discover datasets and invoke dataset actions | Python `pyarrow.flight`, Go Flight clients; other Arrow Flight SDKs |
+
+These are client paths to two server interfaces: Flight SQL and Flight RPC
+datasets. **gRPC is the underlying transport**, rather than another client
+integration path. Flight SQL adds standardized SQL commands on top of Flight
+RPC; ADBC and JDBC expose those commands through familiar database APIs.
+Native Flight SDKs can also issue Flight SQL commands when they provide a
+Flight SQL client, as the Go tests do.
+
+#### Tested integration coverage
+
+The table below summarizes recorded validation, not a guarantee that every
+application using a driver has been tested. Versions, validation dates and
+known limitations are tracked in the [client validation matrix](docs/client-compatibility.md).
+
+| Integration path | Tested client | Recorded passing coverage | Evidence |
+|-|-|-|-|
+| Flight SQL via ADBC | Python ADBC Flight SQL driver/manager 1.12.0 | Metadata, parameter binding, queries/updates, bulk ingestion and dataset-to-SQL import | [Python tour](examples/python/quickstart.py), [dataset-to-SQL example](examples/python/dataset_to_sql.py) |
+| Flight SQL via JDBC | Flight SQL JDBC 19.0.0, Java 25 | Metadata, prepared parameters, updates, session state and concurrent statement/result reads | [JDBC smoke test](examples/jdbc/JdbcSmoke.java); CI is configured for Java 17/21/25, but the recorded local run covers Java 25 |
+| Native Flight RPC | Python PyArrow 26.0.0 | Dataset upload/download, nested and dictionary types, multiple batches, column/batch selection, discovery and drop | [Python tour](examples/python/quickstart.py), [dataset-to-SQL example](examples/python/dataset_to_sql.py) |
+| Native Flight RPC / Flight SQL SDK | Go arrow-go 18.8.0 | Dataset transfers, metadata, prepared parameters, ingestion, scans, sessions, cancellation, errors and cleanup; standalone/Cluster race suites | [Go integration tests](server/integration_test.go) and related server test files |
+
+The initial client validation was recorded on October 20, 2026. Go and both
+Python examples passed again with Redis ADBC v0.0.17 on October 22; JDBC was
+not rerun for that driver update. DBeaver, Tableau, Power BI, R and other
+listed application workflows have not been individually validated. The pandas
+check covers conversion of a query result to a dataframe.
+
+SQL requires autocommit; transactions are unsupported. Native dataset access
+supports `DoPut` / `DoGet`; bidirectional `DoExchange` is unimplemented. See the
+[protocol capability matrix](docs/flight-capabilities.md) for the full scope.
 
 To measure dataset upload, full-read and one-column read performance on your
 Redis, run the [100,000-row, 10-column benchmarks](server/dataset_bench_test.go):
@@ -154,12 +196,11 @@ Flight / ADBC: grpc://localhost:8815
 JDBC:          jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
 ```
 
-The Python tour and Go integration tests exercise the Flight SQL and dataset
-clients. The JDBC smoke test exercises the driver used by DBeaver. Superset,
-Power BI and Tableau are integration options that require the setup and
-compatibility testing described above; they have not been tested with this
-project. The dataframe, DuckDB, R and Redis Insight workflows describe
-compatible interfaces but are not covered by this project's integration tests.
+See [tested integration coverage](#tested-integration-coverage) for the ADBC,
+JDBC and native Flight checks. Superset, Power BI and Tableau require the setup
+and compatibility testing described above; they have not been tested with this
+project. Polars, DuckDB, R and Redis Insight workflows are also unvalidated;
+the pandas check covers query-result conversion only.
 
 For SQL, use autocommit: transactions are not supported. A tool's PostgreSQL
 or generic Redis connector does not connect to the Flight endpoint; select
@@ -219,8 +260,9 @@ with `--dataset-endpoint-batches`.
 ### JDBC (DBeaver and others)
 
 Use the [Arrow Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html)
-(`org.apache.arrow:flight-sql-jdbc-driver`). Tested with 19.0.0 on Java 17, 21
-and 25. The URL is:
+(`org.apache.arrow:flight-sql-jdbc-driver`). The recorded local validation used
+19.0.0 on Java 25; CI is configured for Java 17, 21 and 25. See
+[tested integration coverage](#tested-integration-coverage). The URL is:
 
 ```text
 jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
