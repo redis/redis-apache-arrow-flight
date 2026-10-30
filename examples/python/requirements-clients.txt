@@ -1,0 +1,7 @@
+# Client versions exercised on 2026-10-29; separate from Superset's environment.
+adbc-driver-flightsql==1.12.0
+adbc-driver-manager==1.12.0
+pyarrow==26.0.0
+pandas==3.1.0
+polars==2.1.0
+duckdb==2.0.0

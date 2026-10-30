@@ -26,6 +26,95 @@ driver/manager 1.12.0, PyArrow 26.0.0 and pandas 3.1.0. JDBC and manual BI
 clients were not rerun. See the [validation record](../intent/driver-v0.0.17/plan.md).
 The earlier matrix retains its original versions and evidence.
 
+## Flight client validation on 2026-10-29
+
+Source: `84ea021` plus the client smoke scripts added with this validation.
+The community server was built on macOS arm64 against its pinned Redis ADBC
+revision `9cc8e25c0f01`. Tests used a new disposable Redis 8.6.2 container
+on port 16389 and a Flight endpoint on port 18815. Clients ran in Linux arm64
+containers. These results supplement the historical matrix above.
+
+| Client | Versions exercised | Result and scope |
+| --- | --- | --- |
+| pandas `pd.read_sql` | Python 3.11, pandas 3.1.0, ADBC driver/manager 1.12.0, PyArrow 26.0.0 | PASS ordered results, NULLs and empty results through Flight SQL. `params=` raises `NotImplementedError` in pandas's ADBC path; direct ADBC binding followed by Arrow-to-pandas conversion passes |
+| Polars `pl.read_database` | Polars 2.1.0, same ADBC/PyArrow versions | PASS ordered results, NULLs, empty results and batch iteration through an autocommit Flight SQL connection |
+| DuckDB | DuckDB 2.0.0, same PyArrow version | PASS local aggregates over Flight SQL Arrow results and ordered/NULL results over a Flight RPC dataset uploaded in multiple batches and downloaded from every endpoint. Uses Arrow transfer into local DuckDB; no native DuckDB Flight extension tested |
+| R | R 4.5.2, adbcdrivermanager 0.25.0.9000, nanoarrow 0.9.0.9000, Flight SQL shared driver 1.12.0 | PASS DDL, INSERT, ordered query, NULLs, empty results and SUM through the driver manager. DBI/adbi not tested |
+| DBeaver / its JDBC driver | DBeaver Community 26.2.3, bundled Temurin 25.0.4.1; Flight SQL JDBC 19.0.0 | JDBC smoke PASS: metadata, parameters, updates, sessions and 100,000-row concurrent read. Application test BLOCKED: repeated macOS accessibility serialization crashes on the custom connection form before a connection was attempted; browsing/generated SQL remain unvalidated |
+| Apache Superset | Superset 6.1.0, sqlalchemy-adbc 0.1.0, 0.2.0 and 0.3.0 | BLOCKED before application execution: Superset requires SQLAlchemy `>=1.4,<2`; all three adapter versions require `>=2.0`. pip returns `ResolutionImpossible`. No dashboard or SQL Lab pass is claimed |
+
+The R packages came from `https://apache.r-universe.dev` with CRAN as fallback.
+These are development versions, not release pins. `adbcflightsql` was unavailable
+from those repositories for this runtime. Instead, the R test loaded the official
+Linux arm64 `libadbc_driver_flightsql.so` from the Python 1.12.0 wheel through
+`adbc_driver(path, entrypoint = "AdbcDriverFlightSQLInit")`. Supply the driver
+library built for the R runtime's OS and architecture; the Python installation
+is only a source of that shared library and is not used to execute R queries.
+
+### Reproduce dataframe and R checks
+
+Against a disposable server, run:
+
+```sh
+make clients-smoke FLIGHT_URI=grpc://localhost:8815
+# Or install requirements-clients.txt into an isolated Python environment:
+python -m pip install -r examples/python/requirements-clients.txt
+python examples/python/client_compatibility.py --uri grpc://localhost:8815
+
+# Install R's adbcdrivermanager and nanoarrow first, then provide the library:
+make r-smoke FLIGHT_URI=grpc://localhost:8815 FLIGHT_SQL_DRIVER=/path/to/libadbc_driver_flightsql.so
+```
+
+Scripts create unique tables/datasets and clean up their fixtures. Their scope
+is an unauthenticated local endpoint; TLS/authentication and arbitrary generated
+BI SQL are not covered. The dataframe script reports the pandas parameter
+limitation explicitly and verifies the direct-ADBC workaround. Its remaining
+assertions must all pass. The Test workflow now invokes it; hosted CI was not
+run during this local validation. R remains an explicit local target.
+
+Reproduce the Superset installation failure in a fresh Python 3.11 environment:
+
+```sh
+python -m pip install 'apache-superset==6.1.0' 'sqlalchemy-adbc[flightsql]==0.3.0'
+```
+
+Do not force incompatible dependencies with `--no-deps` and count that as a
+supported installation. This blocks this specific adapter route, not every
+possible future Superset Flight integration.
+
+### DBeaver application attempt (Superset excluded)
+
+After the user requested continuing without Superset, DBeaver Community 26.2.3
+was downloaded from the official site into a temporary macOS arm64 installation
+with an isolated workspace. Its bundled Temurin 25.0.4.1 already included the
+README's two Arrow JVM options. The connection picker had no Arrow entry.
+Driver Manager successfully saved a custom generic driver with these settings:
+
+```text
+Name:         Redis Flight SQL
+Class:        org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver
+URL template: jdbc:arrow-flight-sql://{host}:{port}/?useEncryption=false
+Default port: 18815 (isolated test endpoint; normal project default is 8815)
+Library:      flight-sql-jdbc-driver-19.0.0.jar
+```
+
+Opening the custom connection form repeatedly crashed DBeaver during UI
+automation, including an attempt using screenshots instead of accessibility
+tree inspection. Three local macOS crash reports recorded `EXC_BAD_ACCESS` /
+`SIGABRT`; the inspected stack included `CFStringGetLength`,
+`cfAttributedStringSerialize`, `AXSerializeCFType` and
+`_AXXMIGCopyParameterizedAttributeValue`. This is a local application/automation
+blocker, not a demonstrated Flight SQL protocol failure. No successful Test
+Connection, schema browsing or query execution is claimed for DBeaver itself.
+Reported upstream as [DBeaver issue #42640](https://github.com/dbeaver/dbeaver/issues/42640).
+
+Manual validation remains: connect with autocommit, expand `redis/public`,
+inspect columns, open a table's data tab, and run a filtered aggregate. Record
+the generated SQL and results separately from the successful JDBC smoke test.
+Superset follow-up is deferred under the user's instruction; it is tracked in
+[the endpoint repository](https://github.com/redis/redis-apache-arrow-flight/issues/41)
+and [the adapter repository](https://github.com/drls-io/sqlalchemy-adbc/issues/16).
+
 ## Reproducing the standard client checks
 
 Use a disposable Redis with Search and a running server. Pin Python dependencies

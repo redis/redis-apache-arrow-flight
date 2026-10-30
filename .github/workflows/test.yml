@@ -78,6 +78,7 @@ jobs:
           uv run --with-requirements examples/python/requirements-smoke.txt python scripts/wait-flight.py
           uv run --with-requirements examples/python/requirements-smoke.txt examples/python/quickstart.py
           uv run examples/python/dataset_to_sql.py
+          uv run --with-requirements examples/python/requirements-clients.txt python examples/python/client_compatibility.py
           # Optional telemetry is explicitly empty in community builds.
           test "$(curl -fsS -o /tmp/flight-metrics -w '%{http_code}' http://127.0.0.1:9815/metrics)" = 204
           test ! -s /tmp/flight-metrics
