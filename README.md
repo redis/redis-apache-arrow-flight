@@ -10,6 +10,15 @@ with clients connecting through ADBC, JDBC or native Flight SDKs.
 Use SQL for queryable Redis tables, or upload named Arrow datasets for dataframe
 snapshots, feature tables and batch transfers.
 
+The SQL interface depends on the [Redis ADBC driver](https://github.com/redis/redis-adbc-driver),
+which provides an **opinionated data model**: SQL tables follow the driver's
+schema, Redis HASH row layout and Search index conventions. See the driver's
+[data model](https://github.com/redis/redis-adbc-driver/blob/main/docs/driver-reference.md#rows-and-indexes).
+
+For SQL workloads, we recommend **Redis with Query Engine (Search) enabled and
+Query Performance Factor (QPF) set to 4× where supported**. Search is required
+for SQL; 4× QPF is recommended for concurrent query performance.
+
 - [Choose an interface](#choose-an-interface)
 - [Integration paths](#integration-paths)
 - [Get a server running](#get-a-server-running)
@@ -61,7 +70,9 @@ using a deployment health check.
 
 ### Install a release
 
-You need a running Redis instance. SQL requires Redis with the Query Engine;
+You need a running Redis instance. For SQL, use Redis with **Query Engine
+(Search)** enabled; we recommend **4× QPF** where supported. The SQL interface
+uses the Redis ADBC driver's opinionated data model;
 see [Redis requirements](#choose-an-interface). These commands start the Flight
 server only.
 
