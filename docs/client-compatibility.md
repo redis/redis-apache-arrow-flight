@@ -219,3 +219,18 @@ endpoint failed with `Select statement did not produce a ResultSet for native qu
 No browser/dashboard rendering or implicit model actions were tested. Tableau
 was not installed: application reads and writes remain blocked, independently
 of the passing JDBC driver test. See [versions, reproduction and logs](validation/2026-11-01-bi-jdbc/README.md).
+
+## Tableau read validation on 2026-11-01
+
+After the Metabase run above, Tableau Desktop Free Edition 2026.3 (Apple silicon)
+was installed and manually tested with Arrow Flight SQL JDBC 19.0.0 against
+community source `f8a2723`, Redis ADBC `2f053d3affad` and disposable Redis 8.6.2.
+Other Databases (JDBC), with SQL92 dialect, discovered database `redis`, schema
+`public`, the fixture table and its three columns. Its generated data-preview
+SELECT displayed all three expected rows, including a NULL amount. No Tableau
+JVM options, TDC overrides or custom connector were needed for this test.
+
+Acceptance is read-only at the requester's direction. Worksheets, filters,
+aggregates, dashboards, extracts, joins and TLS/authentication were not tested.
+This supersedes the earlier installation blocker for the recorded read scope.
+See [setup, expected values and evidence limits](validation/2026-11-01-tableau/README.md).
