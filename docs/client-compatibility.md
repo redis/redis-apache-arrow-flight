@@ -26,6 +26,10 @@ driver/manager 1.12.0, PyArrow 26.0.0 and pandas 3.1.0. JDBC and manual BI
 clients were not rerun. See the [validation record](../intent/driver-v0.0.17/plan.md).
 The earlier matrix retains its original versions and evidence.
 
+For current Superset connection recommendations, see the [version-specific
+guide](superset.md): direct Redis ADBC for 6.1 and a Flight SQL candidate for 7.
+The historical results below do not establish a Superset 7 application pass.
+
 ## Flight client validation on 2026-10-29
 
 Source: `84ea021` plus the client smoke scripts added with this validation.
