@@ -27,8 +27,10 @@ must be tested independently of the larger development machine.
 
 ## Reproduce the local baseline
 
-Use a disposable Redis with Search at localhost:16379 and a server at
-localhost:18815 configured to use it. Install the pinned dependencies from
+Use a disposable Redis Enterprise cluster with Search, verified TLS and
+username/password authentication, and an enterprise Flight server at
+localhost:18815 configured through its exported authenticated `rediss://`
+`REDIS_URI`. See [integration setup](sdlc/testing.md). Install the pinned dependencies from
 `examples/python/requirements-smoke.txt`. Start a fresh server per profile to
 avoid retained heap from prior larger workloads; supply its PID to sample RSS.
 

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,21 +21,17 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/redis/redis-apache-arrow-flight/internal/integrationtest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-// The integration tests need a Redis 8 with the Query Engine, for example
-// `docker compose up -d --wait redis`, and REDIS_URI pointing at it. They
-// create tables, keys and ACL users named it_flight_* and remove them.
-
+// Integration tests use a disposable Redis Enterprise cluster with Search,
+// verified TLS and username/password authentication. They create and remove
+// tables, keys and ACL users named it_flight_*. Run with the enterprise composition.
 func redisURI(t testing.TB) string {
 	t.Helper()
-	uri := os.Getenv("REDIS_URI")
-	if uri == "" {
-		t.Skip("set REDIS_URI to run the integration tests")
-	}
-	return uri
+	return integrationtest.RedisURI(t)
 }
 
 type clients struct {

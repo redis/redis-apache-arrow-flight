@@ -193,8 +193,12 @@ make jdbc-smoke
 
 The scripts accept `--user` and `--password` for ACL-authenticated test servers.
 Use ephemeral test credentials; do not embed production credentials in commands.
-CI uses uv with the pinned requirements. Go tests require REDIS_URI; without it,
-backend tests skip. The JDBC Make target supplies the required JVM memory flags.
+Current client validation requires a qualified enterprise Flight build backed by
+a Redis Enterprise cluster with verified TLS and username/password authentication.
+See [integration setup and private CI](sdlc/testing.md). Public CI runs unit/build
+checks only. Go backend tests require an authenticated `rediss://` `REDIS_URI`;
+`make test-integration` fails if it is absent. The JDBC Make target supplies the
+required JVM memory flags.
 
 ## JDBC type information and schema caveats
 

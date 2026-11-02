@@ -60,22 +60,17 @@ Flight readiness; do not use `--wait` with the community service, which has no
 backend healthcheck. Community health reports `UNKNOWN`; verify application
 readiness with a real SQL query, as `scripts/wait-flight.py` does in CI.
 
-## Community CI
+## CI and integration qualification
 
-CI runs core integration tests against standalone Redis and a three-shard
-cluster. Dataset tests require all rows through one community endpoint and keep
-the enterprise endpoint-splitting assertions when optimization is available.
-Stream-admission rejection is enterprise-only; community separately checks that
-buffered queries preserve SQL errors, complete all rows and release cursors.
-Cancellation and shutdown tests use results large enough to keep the transport
-active even when SQL results have already been buffered.
+Public CI runs formatting, vet, community unit tests and a static binary build.
+All integration suites and client validation require a disposable Redis
+Enterprise cluster with Search, verified TLS and username/password authentication.
+The community profile cannot run them because it rejects these security features.
+Use the qualified enterprise source composition; `make test-integration` and
+its `make test-cluster` alias require an exported authenticated `rediss://`
+`REDIS_URI` and never provision plaintext local Redis.
 
-The community Compose service has no backend health probe, matching its image.
-Start Flight with `docker compose up --detach --build flight`, without `--wait`:
-Compose versions may reject `--wait` for an explicitly disabled healthcheck.
-Redis still uses its own healthcheck before Flight starts. CI then runs
-`scripts/wait-flight.py`
-through the pinned Python smoke environment to verify a real `SELECT 1` round
-trip before the examples. The metrics check requires HTTP 204 with an empty body.
-Release binary verification requires the documented health UNKNOWN response,
-while the reusable test workflow exercises actual SQL and dataset behavior.
+See [testing and recommended private CI setup](sdlc/testing.md) for provisioning,
+secret management and the outstanding external qualification gate. Public CI
+success and release artifact version/help checks are not integration evidence.
+The local Compose configuration remains available for community development.

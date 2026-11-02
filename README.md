@@ -127,6 +127,14 @@ wait for publication or [build from source](docs/local-development.md).
 For a different Redis host, change `REDIS_URI` in Docker or `-redis-uri` above.
 Keep the server running, then choose a [data tool guide](#data-tools).
 
+## Integration testing
+
+Integration validation requires a disposable Redis Enterprise cluster with Search,
+verified TLS, username/password authentication, and the qualified enterprise
+Flight composition. See [the local environment](docs/redis-enterprise-testing.md)
+and [test/CI setup](docs/sdlc/testing.md). Historical client checks below retain
+their recorded scope; public unit CI alone is not Enterprise qualification.
+
 ## Data tools
 
 Choose the Flight SQL driver or native Flight API required by your workflow.
