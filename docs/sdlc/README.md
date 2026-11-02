@@ -40,16 +40,23 @@ Candidate follow-up work is to assign owners, establish deployment/rollback evid
 
 ## Commercial feature classification
 
-Requestor policy: monitoring, optimization, automation, backup and security are
-paid-feature categories. Any matching feature/change requires a recorded
-commercial review before implementation/release. Apply the
+Requestor policy: Flight-owned monitoring, optimization, automation, backup and
+security are paid-feature categories. Any matching Flight feature/change requires
+a recorded commercial review before implementation/release. Apply the
 [commercial feature review gate](../active-active-control-plane.md#commercial-feature-review-gate)
-to both native driver and Flight work, including overlaps with existing behavior.
+to Flight-owned work, including overlaps with existing behavior. Per the
+[2026-10-23 boundary correction](../../intent/community-enterprise-split/evidence.md),
+both Flight profiles use the same full public native ADBC driver; that driver
+does not require a separate enterprise package or composition.
 No agent classification substitutes for a requestor/maintainer packaging decision.
 
 Community/enterprise build contract: public interfaces and stubs compile without
 commercial dependencies; enterprise composition supplies full implementations.
 See the feature boundary linked above for availability/error behavior. Code
-extraction and build-profile qualification remain pending.
+extraction is implemented. The [build-profile contract](../build-profiles.md)
+describes source fingerprint requirements and available capabilities; the
+[dated split evidence](../../intent/community-enterprise-split/evidence.md)
+records the checks actually run. Those checks do not establish full deployment,
+performance or Active-Active qualification.
 
 Runtime split: [intent](../../intent/community-enterprise-split/intent.md), [specification](../../intent/community-enterprise-split/spec.md), [plan](../../intent/community-enterprise-split/plan.md), [evidence](../../intent/community-enterprise-split/evidence.md).
