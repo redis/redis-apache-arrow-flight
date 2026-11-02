@@ -47,6 +47,12 @@ This map identifies coverage to inspect; it does not assert all branches are cov
 
 ## CI and completion evidence
 
+Integration validation must cover both reads and writes. Verify writes by
+reading back the resulting values, using the application's supported write
+path. Record unsupported write paths and application/environment blockers
+separately; driver-only success does not establish application compatibility.
+See the [JDBC/Metabase read-write validation](../validation/2026-11-01-bi-jdbc/README.md).
+
 The test workflow checks formatting/vet, standalone and cluster race tests, a statically linked binary, Python quickstart against the container, metrics output, and JDBC smoke tests. Workflow configuration is not historical evidence of green runs.
 
 For a code change, run the relevant local checks and retain CI links/results in its PR. For a regression, reproduce the failure before fixing it where practical; do not weaken existing assertions to manufacture a pass. Explain intentional test contract changes. For documentation-only changes, check file links, source references, and whitespace; no Redis startup is necessary.
