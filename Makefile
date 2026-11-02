@@ -1,7 +1,6 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X github.com/redis/redis-apache-arrow-flight/server.Version=$(VERSION)
 REDIS_PORT ?= 6379
-REDIS_URI ?= redis://localhost:$(REDIS_PORT)/0
 FLIGHT_URI ?= grpc://localhost:8815
 RSCRIPT ?= Rscript
 FLIGHT_SQL_DRIVER ?=
@@ -44,18 +43,20 @@ dist:
 
 # Unit tests; the integration tests skip themselves without REDIS_URI.
 test:
-	go test ./...
+	env -u REDIS_URI -u REDIS_INTEGRATION_REQUIRED go test ./...
 
-# Integration tests against the compose Redis (started if needed).
-test-integration: redis-up
-	REDIS_URI=$(REDIS_URI) go test -count=1 -race ./...
+# Supply REDIS_URI in the environment; never echo credentials in recipes.
+# Run through the qualified enterprise composition (see docs/build-profiles.md).
+export REDIS_URI
+test-integration:
+	@test -n "$$REDIS_URI" || (echo 'Set REDIS_URI to a Redis Enterprise TLS endpoint with username and password'; exit 1)
+	@REDIS_INTEGRATION_REQUIRED=1 go test -count=1 -race ./...
 
-# Integration tests against a 3-shard Redis Cluster (OSS Cluster API).
-test-cluster: redis-cluster-up
-	REDIS_URI=redis://localhost:7001/0 go test -count=1 -race ./...
+# Compatibility alias: all integration tests now use Redis Enterprise.
+test-cluster: test-integration
 
 run: build
-	REDIS_URI=$(REDIS_URI) ./bin/redis-flight-server
+	@REDIS_URI="$${REDIS_URI:-redis://localhost:$(REDIS_PORT)/0}" ./bin/redis-flight-server
 
 redis-up:
 	REDIS_PORT=$(REDIS_PORT) docker compose up --detach --wait redis
@@ -92,3 +93,14 @@ jdbc-smoke: $(JDBC_JAR)
 
 clean:
 	rm -rf bin dist
+
+# Isolated local TLS/ACL Enterprise cluster and qualified enterprise composition.
+.PHONY: enterprise-env-up enterprise-env-test enterprise-env-down
+enterprise-env-up:
+	python3 scripts/enterprise-env.py up
+
+enterprise-env-test:
+	python3 scripts/enterprise-env.py test
+
+enterprise-env-down:
+	python3 scripts/enterprise-env.py down

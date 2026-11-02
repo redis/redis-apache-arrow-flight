@@ -5,3 +5,4 @@ __pycache__/
 *.key
 .claude/settings.local.json
 .claude/worktrees/
+.local/

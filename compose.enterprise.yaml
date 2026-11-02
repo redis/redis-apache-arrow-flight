@@ -1,0 +1,54 @@
+# Isolated, disposable Redis Enterprise environment. Provision with:
+#   python3 scripts/enterprise-env.py up
+name: redis-flight-enterprise-test
+services:
+  redis-enterprise:
+    image: redislabs/redis:8.2.0-78.18
+    hostname: redis-enterprise
+    cap_add: [SYS_RESOURCE]
+    ports:
+      - '127.0.0.1:29443:9443'
+      - '127.0.0.1:16390:12000'
+    volumes:
+      - enterprise-data:/var/opt/redislabs
+
+  flight:
+    image: golang:1.26.10-bookworm
+    entrypoint: [/runtime/redis-flight-server]
+    env_file: .local/enterprise/flight.env
+    environment:
+      FLIGHT_LISTEN: 0.0.0.0:8815
+      FLIGHT_METRICS_LISTEN: 0.0.0.0:9815
+      SSL_CERT_FILE: /runtime/ca.crt
+    volumes:
+      - ./.local/enterprise/runtime:/runtime:ro
+    ports:
+      - '127.0.0.1:18816:8815'
+      - '127.0.0.1:19816:9815'
+    stop_grace_period: 30s
+
+  tests:
+    profiles: [tests]
+    image: golang:1.26.10-bookworm
+    working_dir: /source
+    env_file:
+      - .local/enterprise/flight.env
+      - .local/enterprise/management.env
+    environment:
+      SSL_CERT_FILE: /runtime/ca.crt
+      GOCACHE: /cache/go-build
+      GOTOOLCHAIN: local
+      REDIS_INTEGRATION_REQUIRED: '1'
+    volumes:
+      - ${ENTERPRISE_FLIGHT_SOURCE:?Set ENTERPRISE_FLIGHT_SOURCE}:/source:ro
+      - ${ENTERPRISE_FLIGHT_COMPOSITION:?Set ENTERPRISE_FLIGHT_COMPOSITION}:/enterprise:ro
+      - ${ENTERPRISE_GO_MODULE_CACHE:?Set ENTERPRISE_GO_MODULE_CACHE}:/go/pkg/mod:ro
+      - ./.local/enterprise/runtime:/runtime:ro
+      - ./scripts/enterprise-smoke:/checks:ro
+      - enterprise-go-cache:/cache
+    entrypoint: [python3, /enterprise/build.py, --source, /source, --]
+    command: [go, test, -count=1, -p, "1", -race, ./...]
+
+volumes:
+  enterprise-data:
+  enterprise-go-cache:

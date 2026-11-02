@@ -11,18 +11,20 @@ SQLite mode and TLS settings for a different endpoint. Do not copy those setting
 
 ## Start the test endpoint
 
-Use a disposable Redis with Search. From the repository root, start Redis on
-port 16389 and build the Flight server. If the test endpoint is already running,
-reuse it and skip these startup commands:
+Use a disposable Redis Enterprise cluster with Search, verified TLS, and
+username/password authentication. Build Flight through the qualified enterprise
+composition and export its authenticated `rediss://` `REDIS_URI` from your secret
+manager. See [integration setup](sdlc/testing.md). If the test endpoint is already
+running with this configuration, reuse it:
 
 ```bash
-make redis-up REDIS_PORT=16389
-make build
-./bin/redis-flight-server --redis-uri redis://localhost:16389/0 --listen localhost:18815
+# Build using the qualified enterprise composition.
+# Export REDIS_URI from your secret manager: authenticated rediss:// Enterprise endpoint.
+./bin/redis-flight-server --listen localhost:18815
 ```
 
-Keep the Flight process running while testing. These commands use isolated test
-ports; the project's normal defaults are Redis 6379 and Flight 8815. The DBeaver
+Keep the Flight process running while testing. These commands use the isolated
+Flight test port 18815; the project's normal Flight default is 8815. The DBeaver
 JDBC URL must use the **Flight** port, not the Redis port.
 
 ## Download and configure the driver

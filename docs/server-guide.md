@@ -493,25 +493,18 @@ make test-integration
 make test-cluster
 ```
 
-`make test` runs the unit tests, which need no Redis.
-`make test-integration` starts the compose Redis and runs every test with
-`-race`; `make test-cluster` does the same on a 3-shard Redis Cluster in one
-container (ports 7001–7003). They create, and remove, tables, keys and ACL
-users named `it_flight_*`. To use another Redis, set `REDIS_URI`, or
-`REDIS_PORT` for the compose one:
+`make test` runs unit tests without Redis. All integration testing requires a
+disposable Redis Enterprise cluster database with Search, verified TLS, and
+username/password authentication. Export its authenticated `rediss://` URI as
+`REDIS_URI`, then run `make test-integration` through the qualified enterprise
+source composition. `make test-cluster` is an alias for the same suite. Neither
+target starts local Redis. Tests create and remove `it_flight_*` tables, keys
+and ACL users.
 
-```bash
-REDIS_URI=redis://localhost:6379/0 go test -count=1 ./...
-```
-
-GitHub Actions (`.github/workflows/test.yml`) runs on every pull request and
-push to `main`:
-- gofmt and `go vet`
-- every test, on standalone Redis and on the 3-shard cluster
-- a check that the binary is statically linked
-- the Python quickstart against the Docker image
-- the JDBC smoke test against it, on Java 17, 21 and 25
-- a check that it serves metrics
+See [testing and CI setup](sdlc/testing.md) for credentials, CA trust, client
+checks and the private enterprise workflow recommendation. The community build
+rejects authenticated/TLS Redis connections. Public CI runs unit/static/build
+checks; it does not provide enterprise integration qualification.
 
 Releases: push a tag `vX.Y.Z` (or `vX.Y.Z-rc1` for a prerelease). The
 release workflow (`.github/workflows/release.yml`) runs the tests on it,

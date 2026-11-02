@@ -18,9 +18,10 @@ import (
 )
 
 // Benchmarks of dataset uploads and reads through the server, against the
-// Redis at REDIS_URI (CI doesn't run them):
+// Redis Enterprise cluster at the exported authenticated rediss:// REDIS_URI,
+// using the qualified enterprise composition (CI doesn't run them):
 //
-//	REDIS_URI=redis://localhost:6379/0 go test ./server -run '^$' -bench Dataset -benchtime 10x
+//	go test ./server -run '^$' -bench Dataset -benchtime 10x
 //
 // Besides time and the client's allocations, each reports Redis's cost per
 // operation from INFO (bytes it sent and received, CPU time, commands), and

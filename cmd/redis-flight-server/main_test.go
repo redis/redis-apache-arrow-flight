@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/redis/redis-apache-arrow-flight/internal/integrationtest"
 	"github.com/redis/redis-apache-arrow-flight/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -258,10 +259,7 @@ func tempIndexes(t *testing.T, admin *goredis.Client, name string) []string {
 // -shutdown-timeout is cancelled. The command then deletes the stream's
 // cursor and drops its session's temporary table before it exits.
 func TestIntegrationSIGTERM(t *testing.T) {
-	uri := os.Getenv("REDIS_URI")
-	if uri == "" {
-		t.Skip("set REDIS_URI to run the integration tests")
-	}
+	uri := integrationtest.RedisURI(t)
 	ctx := context.Background()
 	opts, err := goredis.ParseURL(uri)
 	if err != nil {

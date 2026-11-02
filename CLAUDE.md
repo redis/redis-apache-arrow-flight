@@ -6,8 +6,8 @@ Read [the SDLC index](docs/sdlc/README.md) and the change's intent, spec, and pl
 ## Commands
 
 - Build: `make build` → `bin/redis-flight-server`; requires Go from `go.mod` (1.26.10).
-- Unit tests: `env -u REDIS_URI make test`; Redis integration tests skip.
-- Integration: `make test-integration`; cluster: `make test-cluster`. Both start Docker Redis and run with `-race`.
+- Unit tests: `make test`; backend variables are unset and Redis integration tests skip.
+- Integration: `make test-integration`; cluster: `make test-cluster`. Both require an exported authenticated `rediss://` URI to a disposable Redis Enterprise cluster and the qualified enterprise Flight composition; run with `-race`, without starting Docker Redis.
 - Format check: `gofmt -l .` (empty output); static checks: `go vet ./...`.
 - Client smoke: `make example` and `make jdbc-smoke`, with Redis and the server running.
 - No `make lint` target exists. See [testing](docs/sdlc/testing.md) for prerequisites and CI coverage.
