@@ -206,3 +206,16 @@ JDBC 19 classifying prepared statements with no dataset schema as updates. Use
 separate statements for scripts whose final schema depends on earlier writes,
 and explicit casts/types for parameter-only projections. Do not claim a newer
 JDBC release fixes this without checking and retesting it.
+
+## JDBC and Metabase validation on 2026-11-01
+
+Against community source `f8a2723`, disposable Redis 8.6.2 and the pinned Redis
+ADBC revision `2f053d3affad`, Flight SQL JDBC 19.0.0 on Java 25 passed the
+existing read/write smoke suite. Metabase 0.64.2.9 with community Flight SQL
+plugin 0.8.0 passed native reads (including NULLs/empty results), table/column
+sync, generated filters/aggregates and custom SQL INSERT/UPDATE/DELETE Actions
+with SELECT read-back after each write. Metabase native DDL via its read-query
+endpoint failed with `Select statement did not produce a ResultSet for native query`.
+No browser/dashboard rendering or implicit model actions were tested. Tableau
+was not installed: application reads and writes remain blocked, independently
+of the passing JDBC driver test. See [versions, reproduction and logs](validation/2026-11-01-bi-jdbc/README.md).

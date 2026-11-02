@@ -241,6 +241,7 @@ SQL tools access SQL tables; named datasets use the Flight dataset API.
 | R | `adbcdrivermanager` with the Flight SQL shared driver | DDL, writes, queries, NULLs and empty results passed; DBI/adbi untested |
 | Apache Superset | DB-API / SQLAlchemy adapter; candidate: beta `sqlalchemy-adbc[flightsql]` | Blocked: Superset 6.1.0 and adapter 0.1.0–0.3.0 require incompatible SQLAlchemy versions |
 | Tableau | Other Databases (JDBC) with Flight SQL JDBC | Untested; metadata and generated-SQL validation required |
+| Metabase | Community Flight SQL plugin 0.8.0 with bundled JDBC 19.0.0 | Metabase 0.64.2.9 API reads, schema sync, generated queries and INSERT/UPDATE/DELETE Actions passed; [evidence and native-DDL limitation](docs/validation/2026-11-01-bi-jdbc/README.md) |
 | Power BI | Custom ADBC Power Query connector | Untested; no connector shipped |
 | Redis Insight | Connect directly to the backing Redis database | Untested; dataset payloads remain Arrow IPC |
 
