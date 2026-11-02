@@ -240,7 +240,7 @@ SQL tools access SQL tables; named datasets use the Flight dataset API.
 | DuckDB | Download an Arrow table, then query it locally | Local SQL over Flight SQL and Flight RPC Arrow results passed |
 | R | `adbcdrivermanager` with the Flight SQL shared driver | DDL, writes, queries, NULLs and empty results passed; DBI/adbi untested |
 | Apache Superset | [Version-specific guidance](docs/superset.md): direct Redis ADBC for 6.1; Flight SQL candidate for 7 | Tested Flight adapter blocked on 6.1; Superset 7 Flight SQL application validation pending |
-| Tableau | Other Databases (JDBC) with Flight SQL JDBC | Untested; metadata and generated-SQL validation required |
+| Tableau | Other Databases (JDBC) with Flight SQL JDBC | Desktop Free Edition 2026.3: connection, discovery and three-row preview (including NULL) passed; [read validation and scope](docs/validation/2026-11-01-tableau/README.md) |
 | Metabase | Community Flight SQL plugin 0.8.0 with bundled JDBC 19.0.0 | Metabase 0.64.2.9 API reads, schema sync, generated queries and INSERT/UPDATE/DELETE Actions passed; [evidence and native-DDL limitation](docs/validation/2026-11-01-bi-jdbc/README.md) |
 | Power BI | Custom ADBC Power Query connector | Untested; no connector shipped |
 | Redis Insight | Connect directly to the backing Redis database | Untested; dataset payloads remain Arrow IPC |

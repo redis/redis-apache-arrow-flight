@@ -47,8 +47,11 @@ This map identifies coverage to inspect; it does not assert all branches are cov
 
 ## CI and completion evidence
 
-Integration validation must cover both reads and writes. Verify writes by
-reading back the resulting values, using the application's supported write
+Integration validation must cover both reads and writes unless the requester
+explicitly scopes an integration to reads. Tableau acceptance is read-only:
+validate discovery and application read queries; write support is not required.
+Record the actual read coverage and untested features. For integrations with
+write coverage, verify writes by reading back the resulting values, using the application's supported write
 path. Record unsupported write paths and application/environment blockers
 separately; driver-only success does not establish application compatibility.
 See the [JDBC/Metabase read-write validation](../validation/2026-11-01-bi-jdbc/README.md).
