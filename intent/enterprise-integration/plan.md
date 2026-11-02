@@ -34,3 +34,16 @@ newer public Go sources from this worktree. See
 [actual TLS environment evidence](../../docs/validation/2026-11-01-enterprise-tls/README.md)
 for successful security/read-write checks and full-suite failures. Private hosted
 CI and its release gate remain unconfigured.
+
+
+User follow-up: repair the full Enterprise suite and private CI release gate.
+Implemented Software management-API ACL fixtures, propagation checks and cleanup;
+fixed Software command-denial status mapping; repaired stream/shutdown oracles
+for bounded driver range scans while preserving row/lifecycle assertions; and
+added per-shard cursor reservation coverage in the private composition. The full
+Enterprise race suite passed. The release gate binds successful private workflow
+receipts to both immutable revisions and the manifest, and blocks binary/image
+publication on failure. Seven gate tests and workflow lint passed.
+
+With explicit user approval, created/stored a narrowly scoped dispatch token.
+Organization approval is pending; no hosted qualification or merge is claimed.

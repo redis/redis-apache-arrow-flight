@@ -29,7 +29,7 @@ All published ports are bound to loopback. Existing containers were left intact.
 - Python syntax compilation, Go vet for the smoke client, Go formatting and
   `git diff --check`.
 
-## Full qualified suite failures
+## Initial full-suite failures (resolved by the follow-up below)
 
 `python3 scripts/enterprise-env.py test` ran all packages with `-race` and failed.
 No test assertions were removed or converted to skips:
@@ -61,3 +61,40 @@ See [setup and lifecycle](../../redis-enterprise-testing.md). Passwords, private
 keys and authenticated URIs are confined to ignored local state and are omitted
 from this evidence. `.local/enterprise/verification.json` records the latest
 nonsecret environment checks; `build.json` records the composition manifest hash.
+
+## Full-suite repair and release gate
+
+The follow-up private composition was built in an isolated worktree, preserving
+unrelated local private changes. It qualifies the public PR source, rather than
+using the older source pair described above. The complete invocation
+`python3 scripts/enterprise-env.py test` passed with `go test -count=1 -p 1 -race
+./...`: command, integration helper and server packages passed; the smoke client
+package compiled with no unit tests.
+
+ACL fixtures now use the hostname-verified Software management API with a
+separate admin identity. They create database-only roles, wait for observable
+credential/permission propagation, and clean up users, roles and ACLs. The stale
+token test retains Unauthenticated/PermissionDenied/Unauthenticated expectations;
+it denies an actual SQL metadata read because Software keeps PING available.
+
+Streaming tests assert active Flight stream gauges and keep exact row, pool,
+cancellation, fallback-budget and cleanup checks. The current driver's bounded
+row-ID scans can exhaust their Search cursor within a range while continuing
+as a live stream, so persistent shard-cursor presence is not a valid streaming
+oracle. Wide results prevent the complete result fitting in gRPC buffers.
+External cursor-pressure tests still verify real Search cursor counts, and a
+new reservation regression checks per-shard cursor costs. Software command
+permission errors map to PermissionDenied, with a public regression check.
+
+Public releases now require a fresh successful private qualification run and
+receipt matching the exact public commit, private commit, run ID and manifest
+hash. Binary and image publication depend on that gate and use its resolved
+immutable source SHA. Seven release-gate tests and actionlint passed.
+
+`ENTERPRISE_CI_TOKEN` was created with user approval and saved in the public
+repository's encrypted Actions secrets. It is restricted to the private
+Enterprise repository with Actions read/write and Contents read, and expires
+2026-12-01. GitHub reports organization approval pending. No credential value is
+included here. Private workflow execution from the release gate remains blocked
+until that approval and the coordinated workflow changes are merged; local
+full-suite success is not a claimed hosted CI success.

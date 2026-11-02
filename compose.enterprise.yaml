@@ -31,7 +31,9 @@ services:
     profiles: [tests]
     image: golang:1.26.10-bookworm
     working_dir: /source
-    env_file: .local/enterprise/flight.env
+    env_file:
+      - .local/enterprise/flight.env
+      - .local/enterprise/management.env
     environment:
       SSL_CERT_FILE: /runtime/ca.crt
       GOCACHE: /cache/go-build
@@ -45,7 +47,7 @@ services:
       - ./scripts/enterprise-smoke:/checks:ro
       - enterprise-go-cache:/cache
     entrypoint: [python3, /enterprise/build.py, --source, /source, --]
-    command: [go, test, -count=1, -race, ./...]
+    command: [go, test, -count=1, -p, "1", -race, ./...]
 
 volumes:
   enterprise-data:

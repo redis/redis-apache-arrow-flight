@@ -58,6 +58,10 @@ def config():
 def compose_env():
     # Paths are configurable, not credentials. The builder checks compatibility.
     env = os.environ.copy()
+    saved = STATE / 'paths.json'
+    if saved.exists():
+        for k,v in json.loads(saved.read_text()).items():
+            env.setdefault(k,v)
     default = Path.home() / 'sandbox/work'
     env.setdefault('ENTERPRISE_FLIGHT_SOURCE', str(default / 'redis-apache-arrow-flight'))
     env.setdefault('ENTERPRISE_FLIGHT_COMPOSITION', str(default / 'redis-apache-arrow-flight-enterprise'))
@@ -130,6 +134,7 @@ class Management:
 
     def load_context(self):
         self.context = ssl.create_default_context(cafile=str(STATE / 'api.crt'))
+        self.context.load_verify_locations(cafile=str(RUNTIME / 'ca.crt'))
         self.context.check_hostname = False
 
     def request(self, path, body=None, method=None):
@@ -271,6 +276,9 @@ def verify(cfg, api):
 
 def up(cfg):
     certificates()
+    paths = compose_env()
+    (STATE / 'paths.json').write_text(json.dumps({k:paths[k] for k in ('ENTERPRISE_FLIGHT_SOURCE','ENTERPRISE_FLIGHT_COMPOSITION','ENTERPRISE_GO_MODULE_CACHE')}))
+    if not (STATE / 'management.env').exists(): private_file(STATE / 'management.env', '')
     # Compose resolves env_file even when only the Redis service is selected.
     if not (STATE / 'flight.env').exists(): private_file(STATE / 'flight.env', '')
     dc('up', '-d', 'redis-enterprise')
@@ -296,8 +304,10 @@ def up(cfg):
     print('Waiting for isolated Redis Enterprise cluster bootstrap...', flush=True)
     retry('cluster bootstrap', bootstrap)
     api.request('/cluster/certificates', {'certificates': [{
-        'name': 'proxy', 'certificate': (STATE / 'proxy.crt').read_text(),
-        'key': (STATE / 'proxy.key').read_text()}]}, 'PUT')
+        'name': name, 'certificate': (STATE / 'proxy.crt').read_text(),
+        'key': (STATE / 'proxy.key').read_text()} for name in ('proxy','api')]}, 'PUT')
+    api.load_context()
+    api.context.check_hostname = True
     bdbs = api.request('/bdbs')
     bdb = next((b for b in bdbs if b['name'] == 'flight-integration'), None)
     if bdb is None:
@@ -337,6 +347,7 @@ def up(cfg):
     # in Linux containers so the same CA is also trusted by Flight's own client.
     private_file(STATE / 'host.env', 'REDIS_URI=rediss://%s:%s@localhost:16390/0\nREDIS_CA_FILE=%s\n' %
                  (cfg['username'], cfg['password'], RUNTIME / 'ca.crt'))
+    private_file(STATE / 'management.env', 'REDIS_ENTERPRISE_API=https://redis-enterprise:9443/v1\nREDIS_ENTERPRISE_ADMIN_USER=%s\nREDIS_ENTERPRISE_ADMIN_PASSWORD=%s\nREDIS_ENTERPRISE_CA_FILE=/runtime/ca.crt\nREDIS_ENTERPRISE_DATABASE=flight-integration\nREDIS_ENTERPRISE_SHARDS=3\n' % (cfg['admin_user'], cfg['admin_password']))
     build_env = compose_env()
     architecture = subprocess.check_output(['docker', 'info', '--format', '{{.Architecture}}'], text=True).strip()
     goarch = {'aarch64': 'arm64', 'arm64': 'arm64', 'x86_64': 'amd64', 'amd64': 'amd64'}.get(architecture)
@@ -396,7 +407,7 @@ def main():
         dc('run', '--rm', 'tests', 'go', 'run', '/checks/main.go')
     else:
         verify(cfg, Management(cfg))
-        dc('run', '--rm', 'tests', *(args.test_args or ['go', 'test', '-count=1', '-race', './...']))
+        dc('run', '--rm', 'tests', *(args.test_args or ['go', 'test', '-count=1', '-p', '1', '-race', './...']))
 
 
 if __name__ == '__main__':

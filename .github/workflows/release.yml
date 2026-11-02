@@ -40,18 +40,42 @@ env:
 
 jobs:
   test:
+    needs: enterprise-qualification
     uses: ./.github/workflows/test.yml
     with:
-      ref: ${{ inputs.tag || github.sha }}
+      ref: ${{ needs.enterprise-qualification.outputs.sha }}
+
+  enterprise-qualification:
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+          persist-credentials: false
+      - name: Resolve immutable release commit
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Require private Enterprise qualification before release
+        if: github.event_name != 'pull_request'
+        env:
+          ENTERPRISE_CI_TOKEN: ${{ secrets.ENTERPRISE_CI_TOKEN }}
+          RELEASE_SHA: ${{ steps.source.outputs.sha }}
+        run: python3 scripts/enterprise-release-gate.py --sha "$RELEASE_SHA"
+      - name: Explain PR artifact scope
+        if: github.event_name == 'pull_request'
+        run: echo 'PR artifact checks do not publish or qualify a release.'
 
   # The server needs no cgo, so one runner cross-compiles every platform.
   binaries:
-    needs: test
+    needs: [test, enterprise-qualification]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.REF }}
+          ref: ${{ needs.enterprise-qualification.outputs.sha }}
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -113,7 +137,7 @@ jobs:
           "$server" -h 2>&1 | grep -q -- -healthcheck
 
   image:
-    needs: test
+    needs: [test, enterprise-qualification]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -121,7 +145,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.REF }}
+          ref: ${{ needs.enterprise-qualification.outputs.sha }}
       - id: rev
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v4

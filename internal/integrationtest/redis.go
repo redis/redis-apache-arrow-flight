@@ -4,6 +4,7 @@ package integrationtest
 import (
 	"net/url"
 	"os"
+	"strconv"
 	"testing"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -43,4 +44,14 @@ func validateURI(uri string) string {
 		return "integration REDIS_URI must be valid and enable verified TLS"
 	}
 	return ""
+}
+
+// ShardCount is verified by provisioning and exported to the test runner.
+func ShardCount(t testing.TB) int64 {
+	t.Helper()
+	n, err := strconv.ParseInt(os.Getenv("REDIS_ENTERPRISE_SHARDS"), 10, 64)
+	if err != nil || n < 1 {
+		t.Fatal("REDIS_ENTERPRISE_SHARDS must match the verified database topology")
+	}
+	return n
 }

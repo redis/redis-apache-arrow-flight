@@ -11,8 +11,10 @@ enterprise composition. The defaults use the qualified checkouts at
 `~/sandbox/work/redis-apache-arrow-flight` and
 `~/sandbox/work/redis-apache-arrow-flight-enterprise`. Override
 `ENTERPRISE_FLIGHT_SOURCE` and `ENTERPRISE_FLIGHT_COMPOSITION` when necessary.
-The private builder verifies the complete source fingerprint before building
-or testing. This worktree's newer public changes are not silently substituted
+For the repaired suite, select the matching private composition branch and
+export `ENTERPRISE_FLIGHT_SOURCE` as this public checkout. The private builder
+verifies the complete source fingerprint before building or testing. Selected
+paths are retained in ignored `.local/enterprise/paths.json` for later commands. This worktree's newer public changes are not silently substituted
 for the qualified source pair.
 
 The environment uses the locally cached `redislabs/redis:8.2.0-78.18` image and
@@ -39,7 +41,8 @@ Secrets, a 30-day local CA and private keys live under the ignored
 separate management and data credentials, creates a database-only role, and
 installs a proxy certificate valid for localhost and the Docker service name.
 The test role grants all data commands/keys in this disposable database for the
-integration suite; it has no cluster-management role. The management client pins
+integration suite; it has no cluster-management role. Separate generated admin
+credentials are mounted only into the test runner for management API ACL fixtures. The management client pins
 the API certificate read through Docker because the generated API hostname
 differs from localhost. Data clients verify both the CA and hostname.
 
@@ -107,8 +110,29 @@ and [query performance factor](https://redis.io/docs/latest/operate/oss_and_stac
 
 ## Current validation
 
-The environment, backend security checks, focused enterprise race tests and live
-Flight SQL smoke passed. The full qualified suite currently fails on Software
-ACL fixture setup and streaming/cursor expectations. See the
+The environment, backend security checks, live Flight SQL smoke and the full
+Enterprise race suite passed with the repaired private composition. Original
+Software ACL fixture and streaming/cursor failures are retained as historical
+evidence alongside their fixes. See the
 [validation record](validation/2026-11-01-enterprise-tls/README.md) for exact
 coverage and failures; no full-suite pass is claimed.
+
+## Release qualification
+
+The public release workflow dispatches the private `enterprise-qualification.yml`
+workflow in `Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise`.
+The private manifest must bind the exact public commit before that source's
+scripts or tests execute. The workflow verifies the fingerprint, provisions an
+isolated TLS/ACL Enterprise database, runs the complete race suite and live SQL
+smoke, and uploads a small qualification receipt.
+
+The public gate rejects missing credentials, unqualified commits, failed or stale
+runs, missing/expired artifacts, and receipt mismatches. Binaries and images are
+built from the verified immutable SHA; publication cannot proceed on gate
+failure. PR artifact checks do not publish and do not claim release qualification.
+
+`ENTERPRISE_CI_TOKEN` is stored as a public-repository Actions secret, scoped to
+Actions read/write and Contents read on the single private repository. Its
+organization access currently awaits owner approval; it expires 2026-12-01 and
+must be rotated before then. The existing broadly scoped CLI login is never
+stored as a workflow credential.

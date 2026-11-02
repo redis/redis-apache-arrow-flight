@@ -41,9 +41,9 @@ in command arguments or checked-in files. The cluster's certificate must chain
 to a trusted CA in the test host and server container; install a private CA in
 those trust stores when needed. Do not disable certificate verification.
 The test identity needs the commands exercised by the suite, including Search,
-SQL data mutation and key cleanup. Enterprise ACL fixtures need Software
-management API access; the current full suite still uses unsupported Redis ACL
-mutation commands, as recorded in the
+SQL data mutation and key cleanup. Enterprise ACL fixtures use the Software
+management API with separate admin credentials; the full repaired suite and
+original compatibility failures are recorded in the
 [local validation results](../validation/2026-11-01-enterprise-tls/README.md).
 Use a dedicated disposable database and avoid concurrent suites sharing
 fixed fixture prefixes.
@@ -76,12 +76,13 @@ with network access to the cluster and the appropriate CA trust store.
 
 Public CI runs formatting, vet, community unit tests and a static build. It no
 longer runs plaintext standalone/OSS Cluster or client integration tests.
-Enterprise workflow provisioning, its check publication, and a required release
-integration gate must be configured by the repository owner. This public checkout
-does not include the private source composition or cluster credentials; local
-setup uses the separately supplied qualified pair. Until that is
-wired, a green public test/release workflow is **not** enterprise integration
-qualification. Release artifact checks only exercise version/help offline.
+The public release workflow now requires the private qualification workflow and
+a matching receipt before building/publishing binaries or images. The private
+manifest binds the exact reviewed public commit before executing its source.
+The scoped dispatch credential is stored in GitHub Secrets, with organization
+approval pending. The private workflow and its qualification manifest live in
+the coordinated private change. Public unit CI and offline artifact checks alone
+are **not** enterprise integration qualification.
 
 ## Behavior-to-test map
 
