@@ -23,7 +23,7 @@ The latter does not imply that the tool can load the Redis driver.
 
 **Redis ADBC support** means loading this repository's driver locally.
 **Redis Arrow Flight SQL support** means connecting over the network to the
-[Redis Arrow Flight server](https://github.com/alberttwong/redis-apache-arrow-flight#client-examples),
+[Redis Arrow Flight server](https://github.com/redis/redis-apache-arrow-flight#data-tools),
 which runs the Redis ADBC driver on the server side. It requires a separate server
 deployment; it is not a built-in endpoint of Redis. Its Flight datasets API is a
 separate interface and does not establish Flight SQL compatibility.

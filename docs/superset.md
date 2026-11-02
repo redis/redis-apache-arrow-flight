@@ -1,5 +1,7 @@
 # Apache Superset: choosing a Redis connection
 
+[All integration guides](integrations/README.md).
+
 Guidance checked on 2026-11-01. Choose the connection path for your Superset
 version:
 

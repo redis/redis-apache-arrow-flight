@@ -56,7 +56,7 @@ All keys involved in one dataset commit/drop share a cluster hash tag. Uploads p
 
 Dataset tickets select generation, ordered column names, and a half-open batch range. With endpoint splitting enabled, consumers must read all endpoints. Approximate chunk size is 2 MiB; dataset read/write pages target 8 MiB and at most 64 batches. These values are not hard memory bounds for an oversized row/batch. Current readers handle LIST and HASH; old LIST-only readers cannot read new HASH generations.
 
-Evidence: [dataset code](../../server/datasets.go), [IPC code](../../server/ipc.go), [SQL code](../../server/sqlserver.go), [feature reference](../../README.md#feature-reference).
+Evidence: [dataset code](../../server/datasets.go), [IPC code](../../server/ipc.go), [SQL code](../../server/sqlserver.go), [protocol capabilities](../flight-capabilities.md).
 
 ## Selected defaults and boundaries
 

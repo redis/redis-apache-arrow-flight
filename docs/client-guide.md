@@ -58,8 +58,8 @@ with `--dataset-endpoint-batches`.
 
 Use the [Arrow Flight SQL JDBC driver](https://arrow.apache.org/java/current/flight_sql_jdbc_driver.html)
 (`org.apache.arrow:flight-sql-jdbc-driver`). The recorded local validation used
-19.0.0 on Java 25; CI is configured for Java 17, 21 and 25. See
-[tested integration coverage](../README.md#tested-integration-coverage). The URL is:
+19.0.0 on Java 25; CI is configured for Java 17, 21 and 25. See the
+[client compatibility matrix](client-compatibility.md). The URL is:
 
 ```text
 jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
@@ -157,7 +157,7 @@ work with the results of either interface.
 | **Tableau** | Use [Other Databases (JDBC)](https://help.tableau.com/current/pro/desktop/en-gb/examples_otherdatabases_jdbc.htm) with Flight SQL JDBC 19.0.0 installed in Tableau's driver directory, then restart Tableau. Follow the [tested setup](validation/2026-11-01-tableau/README.md); this run needed no Tableau JVM configuration changes. Tableau's generic JDBC connector does not guarantee feature compatibility | Visual analysis and dashboards; requires driver setup and compatibility testing | Desktop Free Edition 2026.3 / JDBC 19.0.0: connection, catalog/schema/table/column discovery and three-row data preview passed. Read-only acceptance; worksheets, filters and aggregates remain untested. [Record](validation/2026-11-01-tableau/README.md) |
 | **Metabase** | Community [Flight SQL plugin](https://github.com/J0hnG4lt/metabase-flightsql-driver), with its Arrow JVM flags and a writable plugins directory. Enable Actions in connection details and database settings for writes | Native SQL and visual queries; custom SQL Actions for write-back | Metabase 0.64.2.9 / plugin 0.8.0: API reads, schema sync, generated queries and INSERT/UPDATE/DELETE Actions passed. Native DDL through the read-query endpoint failed; [validation](validation/2026-11-01-bi-jdbc/README.md) |
 | **Other JDBC applications** | Load `org.apache.arrow:flight-sql-jdbc-driver` and use the same JDBC URL, if the application supports custom JDBC drivers | Java applications and data tools that allow a custom driver | Driver only — Flight SQL JDBC 19.0.0 passed on Java 25; individual applications untested ([record](../docs/client-compatibility.md)). |
-| **Python / PyArrow** | Use [ADBC Flight SQL](https://arrow.apache.org/adbc/current/driver/flight_sql.html) (`adbc_driver_flightsql`) for SQL and [`pyarrow.flight`](https://arrow.apache.org/docs/python/flight.html) for datasets; see [Client examples](../README.md#client-examples) | Queries, bulk ingest, Arrow table transfers and ML batches | Yes — ADBC Flight SQL and PyArrow Flight smoke scripts passed ([record](../intent/driver-v0.0.17/plan.md#validation)). |
+| **Python / PyArrow** | Use [ADBC Flight SQL](https://arrow.apache.org/adbc/current/driver/flight_sql.html) (`adbc_driver_flightsql`) for SQL and [`pyarrow.flight`](https://arrow.apache.org/docs/python/flight.html) for datasets; see [Python integration guide](integrations/python.md) | Queries, bulk ingest, Arrow table transfers and ML batches | Yes — ADBC Flight SQL and PyArrow Flight smoke scripts passed ([record](../intent/driver-v0.0.17/plan.md#validation)). |
 | **pandas** | Pass an ADBC Flight SQL connection to [`pd.read_sql`](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html) (pandas 2.2+), or convert a downloaded Arrow table with `table.to_pandas()` | Dataframe analysis and reporting | Yes — `pd.read_sql` results, NULLs and empty results passed; ADBC `params=` is unsupported ([record](../docs/client-compatibility.md#flight-client-validation-on-2026-10-29)). |
 | **Polars** | Pass an ADBC Flight SQL connection to [`pl.read_database`](https://docs.pola.rs/api/python/stable/reference/api/polars.read_database.html), or convert a downloaded Arrow table with `pl.from_arrow(table)` | Dataframe transformations and analytics | Yes — `pl.read_database`, NULLs, empty results and batch iteration passed. ([record](../docs/client-compatibility.md#flight-client-validation-on-2026-10-29)). |
 | **DuckDB** | Fetch an Arrow table through ADBC or Flight, then [query it locally in DuckDB](https://duckdb.org/docs/current/guides/python/import_arrow); this uses an Arrow transfer rather than a direct DuckDB connection to the server | Joining Redis results with local files or other Arrow data | Yes — local SQL over Arrow fetched through Flight SQL and Flight RPC passed. ([record](../docs/client-compatibility.md#flight-client-validation-on-2026-10-29)). |
@@ -172,7 +172,7 @@ Flight / ADBC: grpc://localhost:8815
 JDBC:          jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false
 ```
 
-See [tested integration coverage](../README.md#tested-integration-coverage) for the ADBC,
+See the [client compatibility matrix](client-compatibility.md) for the ADBC,
 JDBC and native Flight checks. Tested status reflects recorded validation
 against this Flight server; the linked
 records give versions, dates, and scope. Tests of the Redis ADBC driver in the
