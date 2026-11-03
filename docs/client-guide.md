@@ -142,7 +142,7 @@ Known limits of the JDBC driver (19.0.0):
 See the [versioned client validation matrix](../docs/client-compatibility.md) for
 checks actually run and known client limitations.
 
-The mirrored [ADBC support across 22 data engineering tools](https://github.com/redis/redis-apache-arrow-flight/blob/main/docs/data-engineering-adbc-support.md)
+The upstream [ADBC ecosystem support inventory](https://github.com/redis/redis-adbc-driver/blob/main/docs/data-engineering-adbc-support.md)
 compares Redis ADBC, Flight SQL, and connector options, with upstream validation evidence.
 
 Use a **Flight SQL driver** to query SQL tables, or a **Flight client** to
