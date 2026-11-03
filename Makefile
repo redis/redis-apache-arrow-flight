@@ -104,3 +104,10 @@ enterprise-env-test:
 
 enterprise-env-down:
 	python3 scripts/enterprise-env.py down
+
+# All 27 inventoried Flight SQL routes; see docs/integrations/testing.md.
+INTEGRATION_RESULTS ?= /tmp/redis-flight-integrations-$(shell date -u +%Y%m%dT%H%M%SZ)
+INTEGRATION_ARGS ?= --setup --uri "$(FLIGHT_URI)" --results "$(INTEGRATION_RESULTS)"
+.PHONY: integrations-test
+integrations-test:
+	python3 scripts/test-integrations.py $(INTEGRATION_ARGS)

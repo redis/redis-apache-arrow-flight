@@ -1,0 +1,7 @@
+Nov 03, 2026 9:49:02 AM org.apache.arrow.driver.jdbc.shaded.org.apache.arrow.memory.BaseAllocator <clinit>
+INFO: Debug mode disabled. Enable with the VM option -Darrow.memory.debug.allocator=true.
+Nov 03, 2026 9:49:02 AM org.apache.arrow.driver.jdbc.shaded.org.apache.arrow.memory.DefaultAllocationManagerOption getDefaultAllocationManagerFactory
+INFO: allocation manager type not specified, using netty as the default type
+Nov 03, 2026 9:49:02 AM org.apache.arrow.driver.jdbc.shaded.org.apache.arrow.memory.CheckAllocator reportResult
+INFO: Using DefaultAllocationManager at memory/netty/DefaultAllocationManagerFactory.class
+PASS fixture drop

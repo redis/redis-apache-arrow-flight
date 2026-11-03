@@ -1,0 +1,45 @@
+Using CPython 3.12.15
+Creating virtual environment at: /private/tmp/flight-repeatable-5068/core
+Activate with: source /private/tmp/flight-repeatable-5068/core/bin/activate
+Using Python 3.12.15 environment at: /private/tmp/flight-repeatable-5068/core
+Checked 12 packages in 232ms
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/core/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 7 items
+
+tests/integrations/test_ml_ingest.py::test_numpy_from_flight PASSED      [ 14%]
+tests/integrations/test_ml_ingest.py::test_scikit_learn_from_flight PASSED [ 28%]
+tests/integrations/test_resources.py::test_dagster_resource PASSED       [ 42%]
+tests/integrations/test_resources.py::test_sqlalchemy_flightsql PASSED   [ 57%]
+tests/integrations/test_clients.py::test_pyarrow PASSED                  [ 71%]
+tests/integrations/test_clients.py::test_pandas PASSED                   [ 85%]
+tests/integrations/test_clients.py::test_polars PASSED                   [100%]
+
+==================================== PASSES ====================================
+____________________________ test_dagster_resource _____________________________
+----------------------------- Captured stderr call -----------------------------
+2026-11-03 09:46:08 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - RUN_START - Started execution of run for "__ephemeral_asset_job__".
+2026-11-03 09:46:08 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - ENGINE_EVENT - Executing steps in process (pid: 20989)
+2026-11-03 09:46:08 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - flight_rows - RESOURCE_INIT_STARTED - Starting initialization of resources [flight, io_manager].
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - flight_rows - RESOURCE_INIT_SUCCESS - Finished initialization of resources [flight, io_manager].
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - LOGS_CAPTURED - Capturing logs for process (pid: 20989).
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - flight_rows - STEP_START - Started execution of step "flight_rows".
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - flight_rows - STEP_OUTPUT - Yielded output "result" of type "Int". (Type check passed).
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - flight_rows - Writing file at: /var/folders/gv/3m3bj31563lb0qds5jsqm8sw0000gp/T/tmp9offl7w9/storage/flight_rows using PickledObjectFilesystemIOManager...
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - flight_rows - ASSET_MATERIALIZATION - Materialized value flight_rows.
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - flight_rows - HANDLED_OUTPUT - Handled output "result" using IO manager "io_manager"
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - flight_rows - STEP_SUCCESS - Finished execution of step "flight_rows" in 302ms.
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - ENGINE_EVENT - Finished steps in process (pid: 20989) in 380ms
+2026-11-03 09:46:09 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - ae1f3536-f350-46ce-9633-da7babfa38e0 - 20989 - RUN_SUCCESS - Finished execution of run for "__ephemeral_asset_job__".
+------- generated xml file: /private/tmp/flight-sweep-complete/core.xml --------
+=========================== short test summary info ============================
+PASSED tests/integrations/test_ml_ingest.py::test_numpy_from_flight
+PASSED tests/integrations/test_ml_ingest.py::test_scikit_learn_from_flight
+PASSED tests/integrations/test_resources.py::test_dagster_resource
+PASSED tests/integrations/test_resources.py::test_sqlalchemy_flightsql
+PASSED tests/integrations/test_clients.py::test_pyarrow
+PASSED tests/integrations/test_clients.py::test_pandas
+PASSED tests/integrations/test_clients.py::test_polars
+============================== 7 passed in 4.84s ===============================

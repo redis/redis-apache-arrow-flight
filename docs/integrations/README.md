@@ -22,6 +22,9 @@ to the container itself. For authenticated or TLS deployments, follow the
 [connection options](../client-guide.md#jdbc-dbeaver-and-others) and
 [server configuration](../server-guide.md#deployment-and-operations).
 
+Run and save results for the 27 inventoried Flight SQL routes with the
+[repeatable integration harness](testing.md).
+
 ## Guides
 
 | Integration | Guide |

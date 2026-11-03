@@ -1,0 +1,6 @@
+# Versions exercised on 2026-11-03; Python 3.12 (Airflow: 3.14).
+pytest==9.2.0
+adbc-driver-flightsql==1.13.0
+adbc-driver-manager==1.13.0
+pyarrow==26.0.0
+pyspark==4.3.0

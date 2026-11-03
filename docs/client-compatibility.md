@@ -242,3 +242,20 @@ Acceptance is read-only at the requester's direction. Worksheets, filters,
 aggregates, dashboards, extracts, joins and TLS/authentication were not tested.
 This supersedes the earlier installation blocker for the recorded read scope.
 See [setup, expected values and evidence limits](validation/2026-11-01-tableau/README.md).
+
+## All 27 inventoried Flight SQL routes — November 3, 2026
+
+The [saved integration sweep](validation/2026-11-03-flight-integrations/README.md)
+exercised all 21 previously candidate routes and reran the six previously
+exercised routes. All 27 have scoped passes: 24 automated tool workflows,
+RStudio and Tableau native UI checks, and Metabase API checks. The final run
+recorded 28 automated passes and two strict Datasets 5.1.0 expected failures;
+the one-shard empty-save workaround passed. Expected failures are not passes.
+
+The [repeatable runner](integrations/testing.md) uses seven isolated dependency
+profiles, persists JUnit/logs/versions/artifacts, isolates native ML runtimes,
+and keeps application evidence explicit. The local run used community source
+`c019afc`, standalone Redis Open Source 8.6.2 with Search, and ADBC Flight SQL
+1.13.0. It does not establish Software/QPF, TLS/authentication, distributed
+execution or full application certification. Operation-specific scopes and
+remaining limitations are recorded with every route.

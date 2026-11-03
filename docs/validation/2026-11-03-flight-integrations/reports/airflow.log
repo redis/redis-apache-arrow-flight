@@ -1,0 +1,18 @@
+Using CPython 3.14.8
+Creating virtual environment at: /private/tmp/flight-repeatable-5068/airflow
+Activate with: source /private/tmp/flight-repeatable-5068/airflow/bin/activate
+Using Python 3.14.8 environment at: /private/tmp/flight-repeatable-5068/airflow
+Checked 5 packages in 237ms
+============================= test session starts ==============================
+platform darwin -- Python 3.14.8, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/airflow/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 1 item
+
+tests/integrations/test_airflow.py::test_airflow_taskflow PASSED         [100%]
+
+==================================== PASSES ====================================
+------ generated xml file: /private/tmp/flight-sweep-complete/airflow.xml ------
+=========================== short test summary info ============================
+PASSED tests/integrations/test_airflow.py::test_airflow_taskflow
+============================== 1 passed in 4.81s ===============================

@@ -1,0 +1,59 @@
+Using CPython 3.12.15
+Creating virtual environment at: /private/tmp/flight-repeatable-5068/workflows
+Activate with: source /private/tmp/flight-repeatable-5068/workflows/bin/activate
+Using Python 3.12.15 environment at: /private/tmp/flight-repeatable-5068/workflows
+Checked 12 packages in 191ms
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/workflows/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 8 items
+
+tests/integrations/test_jupyter.py::test_notebook_queries_redis_in_separate_kernel PASSED [ 12%]
+tests/integrations/test_hf_datasets.py::test_local_arrow_dataset_default_save_reload[False] PASSED [ 25%]
+tests/integrations/test_hf_datasets.py::test_local_arrow_dataset_default_save_reload[True] XFAIL [ 37%]
+tests/integrations/test_hf_datasets.py::test_arrow_dataset_save_reload_and_filter[False-False] PASSED [ 50%]
+tests/integrations/test_hf_datasets.py::test_arrow_dataset_save_reload_and_filter[True-True] PASSED [ 62%]
+tests/integrations/test_hf_datasets.py::test_arrow_dataset_save_reload_and_filter[True-False] XFAIL [ 75%]
+tests/integrations/test_streamlit.py::test_dataframe_and_filtered_rerun PASSED [ 87%]
+tests/integrations/test_scipy.py::test_sparse_system_from_redis_adbc PASSED [100%]
+
+==================================== PASSES ====================================
+________________ test_notebook_queries_redis_in_separate_kernel ________________
+----------------------------- Captured stderr call -----------------------------
+[IPKernelApp] WARNING | Kernel is running over TCP without encryption. All communication (including code and outputs) is sent in plain text and is susceptible to eavesdropping. Use IPC transport or launch with kernel manager-provisioned CurveZMQ keys to enable transport encryption.
+_____________ test_local_arrow_dataset_default_save_reload[False] ______________
+----------------------------- Captured stderr call -----------------------------
+
+Saving the dataset (0/1 shards):   0%|          | 0/1 [00:00<?, ? examples/s]
+Saving the dataset (1/1 shards): 100%|██████████| 1/1 [00:00<00:00, 332.35 examples/s]
+Saving the dataset (1/1 shards): 100%|██████████| 1/1 [00:00<00:00, 318.98 examples/s]
+____________ test_arrow_dataset_save_reload_and_filter[False-False] ____________
+----------------------------- Captured stderr call -----------------------------
+
+Saving the dataset (0/1 shards):   0%|          | 0/3 [00:00<?, ? examples/s]
+Saving the dataset (1/1 shards): 100%|██████████| 3/3 [00:00<00:00, 2564.28 examples/s]
+Saving the dataset (1/1 shards): 100%|██████████| 3/3 [00:00<00:00, 2405.91 examples/s]
+
+Filter:   0%|          | 0/3 [00:00<?, ? examples/s]
+Filter: 100%|██████████| 3/3 [00:00<00:00, 972.10 examples/s]
+_____________ test_arrow_dataset_save_reload_and_filter[True-True] _____________
+----------------------------- Captured stderr call -----------------------------
+
+Saving the dataset (0/1 shards): 0 examples [00:00, ? examples/s]
+Saving the dataset (1/1 shards): : 0 examples [00:00, ? examples/s]
+Saving the dataset (1/1 shards): : 0 examples [00:00, ? examples/s]
+______________________ test_dataframe_and_filtered_rerun _______________________
+----------------------------- Captured stderr call -----------------------------
+2026-11-03 09:46:18.269 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+----- generated xml file: /private/tmp/flight-sweep-complete/workflows.xml -----
+=========================== short test summary info ============================
+PASSED tests/integrations/test_jupyter.py::test_notebook_queries_redis_in_separate_kernel
+PASSED tests/integrations/test_hf_datasets.py::test_local_arrow_dataset_default_save_reload[False]
+PASSED tests/integrations/test_hf_datasets.py::test_arrow_dataset_save_reload_and_filter[False-False]
+PASSED tests/integrations/test_hf_datasets.py::test_arrow_dataset_save_reload_and_filter[True-True]
+PASSED tests/integrations/test_streamlit.py::test_dataframe_and_filtered_rerun
+PASSED tests/integrations/test_scipy.py::test_sparse_system_from_redis_adbc
+XFAIL tests/integrations/test_hf_datasets.py::test_local_arrow_dataset_default_save_reload[True] - Datasets 5.1.0 cannot reload its default zero-shard empty save (#253)
+XFAIL tests/integrations/test_hf_datasets.py::test_arrow_dataset_save_reload_and_filter[True-False] - Datasets 5.1.0 cannot reload its default zero-shard empty save (#253)
+========================= 6 passed, 2 xfailed in 4.09s =========================

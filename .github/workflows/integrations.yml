@@ -1,0 +1,64 @@
+name: Flight SQL integrations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integrations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [core, workflows, models, orchestrators, spark, airflow, documents]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: actions/setup-java@v6
+        if: matrix.profile == 'spark'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Document runtime prerequisites
+        if: matrix.profile == 'documents'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y r-base
+          curl -fLsS https://github.com/quarto-dev/quarto-cli/releases/download/v1.10.20/quarto-1.10.20-linux-amd64.deb -o /tmp/quarto.deb
+          sudo dpkg -i /tmp/quarto.deb
+          mkdir -p "$RUNNER_TEMP/r-library"
+          R_LIBS_USER="$RUNNER_TEMP/r-library" Rscript -e 'install.packages(c("adbcdrivermanager", "nanoarrow"), repos=c("https://apache.r-universe.dev", "https://cloud.r-project.org"))'
+      - name: Start disposable endpoint
+        run: |
+          make build
+          docker compose up --detach --wait redis
+          ./bin/redis-flight-server --redis-uri redis://127.0.0.1:6379/0 --listen 127.0.0.1:8815 > /tmp/flight-server.log 2>&1 &
+          uv run --with-requirements examples/python/requirements-smoke.txt python scripts/wait-flight.py
+      - name: JDBC runtime
+        if: matrix.profile == 'spark'
+        run: make bin/flight-sql-jdbc-driver-19.0.0.jar
+      - name: Run tool workflows
+        env:
+          FLIGHT_JDBC_JAR: ${{ github.workspace }}/bin/flight-sql-jdbc-driver-19.0.0.jar
+          R_LIBS_USER: ${{ runner.temp }}/r-library
+        run: |
+          python3 scripts/test-integrations.py --setup \
+            --profiles '${{ matrix.profile }}' --automated-only \
+            --uri grpc://127.0.0.1:8815 --env-root "$RUNNER_TEMP/integration-envs" \
+            --results "$RUNNER_TEMP/integration-results"
+      - name: Save server log
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/integration-results"
+          cp /tmp/flight-server.log "$RUNNER_TEMP/integration-results/" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: flight-integrations-${{ matrix.profile }}
+          path: ${{ runner.temp }}/integration-results

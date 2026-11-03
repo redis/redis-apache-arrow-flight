@@ -1,0 +1,14 @@
+2026-11-03 native UI rerun, Tableau Desktop Free Edition 2026.3, Apple silicon.
+Arrow Flight SQL JDBC 19.0.0, SQL92 dialect.
+jdbc:arrow-flight-sql://localhost:18825/?useEncryption=false
+Fresh connection: Sign In succeeded.
+Database redis / schema public / bi_jdbc_validation discovered.
+Three columns: Id (number), Category (string), Amount (number).
+Double-click table, Update Now: native UI showed "3 fields 3 rows".
+Screenshot visually checked in computer-use session:
+1 | east | 10.50000
+2 | west | 20.00000
+3 | east | null
+PASS connection, metadata discovery, generated read preview and expected values.
+No worksheet, extract, dashboard, write, TLS, or authentication claim.
+Evidence is a contemporaneous UI observation transcript, not an exported query log.

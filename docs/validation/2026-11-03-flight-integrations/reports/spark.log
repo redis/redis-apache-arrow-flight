@@ -1,0 +1,25 @@
+Using CPython 3.12.15
+Creating virtual environment at: /private/tmp/flight-repeatable-5068/spark
+Activate with: source /private/tmp/flight-repeatable-5068/spark/bin/activate
+Using Python 3.12.15 environment at: /private/tmp/flight-repeatable-5068/spark
+Checked 5 packages in 44ms
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/spark/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 1 item
+
+tests/integrations/test_spark.py::test_spark_jdbc PASSED                 [100%]
+
+==================================== PASSES ====================================
+_______________________________ test_spark_jdbc ________________________________
+----------------------------- Captured stderr call -----------------------------
+WARNING: Using incubator modules: jdk.incubator.vector
+26/11/03 09:46:46 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+------- generated xml file: /private/tmp/flight-sweep-complete/spark.xml -------
+=========================== short test summary info ============================
+PASSED tests/integrations/test_spark.py::test_spark_jdbc
+============================== 1 passed in 7.78s ===============================
