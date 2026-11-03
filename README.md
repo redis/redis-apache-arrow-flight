@@ -164,7 +164,7 @@ The [October 29 client validation](docs/client-compatibility.md#flight-client-va
 records dataframe and R results and application blockers. See the
 [client compatibility matrix](docs/client-compatibility.md) for versions, dates
 and the scope of recorded checks. The
-[22-tool ADBC comparison](https://github.com/redis/redis-apache-arrow-flight/blob/main/docs/data-engineering-adbc-support.md)
+[ADBC ecosystem support inventory](https://github.com/redis/redis-adbc-driver/blob/main/docs/data-engineering-adbc-support.md)
 includes upstream Redis ADBC evidence; those results do not establish Flight
 server application compatibility.
 

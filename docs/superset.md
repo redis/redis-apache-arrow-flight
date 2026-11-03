@@ -34,7 +34,7 @@ for current installation and platform requirements. Keep the Superset 6.1
 environment separate from the driver's `sqlalchemy` extra and newer analytics
 dependencies. Upstream recorded checks cover discovery, dataset queries and the
 SQL Lab cursor path; they do not establish browser-rendered chart coverage.
-See the [upstream evidence summary](data-engineering-adbc-support.md#testing-status).
+See the [upstream evidence summary](https://github.com/redis/redis-adbc-driver/blob/main/docs/data-engineering-adbc-support.md#testing-status).
 
 The tested `sqlalchemy-adbc[flightsql]` versions 0.1.0–0.3.0 require SQLAlchemy
 `>=2.0`, while Superset 6.1.0 requires `>=1.4,<2`. Their installation fails with
