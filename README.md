@@ -129,6 +129,21 @@ Keep the server running, then choose a [data tool guide](#data-tools).
 
 ## Integration testing
 
+The [November 3, 2026 integration sweep](docs/validation/2026-11-03-flight-integrations/README.md)
+recorded **scoped passes for all 27 inventoried Flight SQL routes**: 24 automated
+tool workflows, RStudio and Tableau native UI checks, and Metabase API checks.
+The automated run had **28 passed test cases, 2 strict expected failures and
+0 unexpected failures/errors**. The expected failures reproduce a Datasets 5.1.0
+empty save/reload defect; its one-shard workaround passed. Expected failures
+are not passes. See the [tool-by-tool results](docs/validation/2026-11-03-flight-integrations/reports/summary.md)
+and [repeatable testing guide](docs/integrations/testing.md).
+
+That run used community source `c019afc` and standalone Redis Open Source 8.6.2
+with Search. It does not establish Redis Enterprise/Software qualification,
+4× QPF, TLS/authentication, distributed execution or full application
+certification. The live profiles have not been rerun against the newer
+Enterprise composition.
+
 Integration validation requires a disposable Redis Enterprise cluster with Search,
 verified TLS, username/password authentication, and the qualified enterprise
 Flight composition. See [the local environment](docs/redis-enterprise-testing.md)
@@ -140,7 +155,8 @@ their recorded scope; public unit CI alone is not Enterprise qualification.
 Choose the Flight SQL driver or native Flight API required by your workflow.
 A tool's generic Redis or PostgreSQL connector does not connect to this endpoint.
 SQL tools access SQL tables; named datasets use the Flight dataset API.
-Each tool links to its setup guide; start with the
+Each tool links to installation and read/write examples, including write
+limitations and external ingestion alternatives where needed. Start with the
 [shared prerequisites](docs/integrations/README.md).
 
 | Tool | Connection path | Tested status against this server |
@@ -159,9 +175,34 @@ Each tool links to its setup guide; start with the
 | [Metabase](docs/integrations/metabase.md) | Community Flight SQL plugin 0.8.0 with bundled JDBC 19.0.0 | Metabase 0.64.2.9 API reads, schema sync, generated queries and INSERT/UPDATE/DELETE Actions passed; [evidence and native-DDL limitation](docs/validation/2026-11-01-bi-jdbc/README.md) |
 | [Power BI](docs/integrations/power-bi.md) | Custom ADBC Power Query connector | Untested; no connector shipped |
 | [Redis Insight](docs/integrations/redis-insight.md) | Connect directly to the backing Redis database | Untested; dataset payloads remain Arrow IPC |
+| [NumPy](docs/integrations/numpy.md) | Flight SQL via Arrow/ADBC | November 3: Arrow-to-array reads passed |
+| [scikit-learn](docs/integrations/scikit-learn.md) | Flight SQL via Arrow/ADBC | November 3: Local model input/training passed |
+| [SQLAlchemy](docs/integrations/sqlalchemy.md) | Flight SQL via Arrow/ADBC | November 3: Flight SQL dialect reads passed; DBAPI autocommit required |
+| [Dagster](docs/integrations/dagster.md) | Flight SQL via Arrow/ADBC | November 3: Local ADBC resource materialization passed |
+| [Jupyter / JupyterLab](docs/integrations/jupyter.md) | Flight SQL via Arrow/ADBC | November 3: Notebook execution passed; browser UI untested |
+| [Hugging Face Datasets](docs/integrations/hugging-face-datasets.md) | Flight SQL via Arrow/ADBC | November 3: Arrow/filter workflow passed; two expected empty-persistence failures |
+| [Streamlit](docs/integrations/streamlit.md) | Flight SQL via Arrow/ADBC | November 3: Local data workflow passed; browser rendering untested |
+| [SciPy](docs/integrations/scipy.md) | Flight SQL via Arrow/ADBC | November 3: Local statistics over Flight rows passed |
+| [XGBoost](docs/integrations/xgboost.md) | Flight SQL via Arrow/ADBC | November 3: CPU training and local model save/reload passed |
+| [PyTorch](docs/integrations/pytorch.md) | Flight SQL via Arrow/ADBC | November 3: Local DataLoader and forward pass passed |
+| [TensorFlow](docs/integrations/tensorflow.md) | Flight SQL via Arrow/ADBC | November 3: CPU dataset/batch input passed |
+| [Keras](docs/integrations/keras.md) | Flight SQL via Arrow/ADBC | November 3: CPU inference and local model save/reload passed |
+| [Hugging Face Transformers](docs/integrations/transformers.md) | Flight SQL via Arrow/ADBC | November 3: Tiny offline model input and local save/reload passed |
+| [Plotly](docs/integrations/plotly.md) | Flight SQL via Arrow/ADBC | November 3: Local HTML/JSON artifacts passed |
+| [Matplotlib](docs/integrations/matplotlib.md) | Flight SQL via Arrow/ADBC | November 3: Local PNG rendering passed |
+| [Kubeflow Pipelines](docs/integrations/kubeflow.md) | Flight SQL via Arrow/ADBC | November 3: Local SubprocessRunner component passed |
+| [Metaflow](docs/integrations/metaflow.md) | Flight SQL via Arrow/ADBC | November 3: Local flow/datastore passed |
+| [Apache Spark](docs/integrations/spark.md) | Flight SQL JDBC | November 3: JDBC reads and predicate partitions passed |
+| [Apache Airflow](docs/integrations/airflow.md) | Flight SQL via Arrow/ADBC | November 3: Local TaskFlow DAG execution passed |
+| [Quarto](docs/integrations/quarto.md) | Flight SQL via Arrow/ADBC | November 3: Python-cell reads and HTML rendering passed |
+| [RStudio](docs/integrations/rstudio.md) | R ADBC in the native IDE | November 3: Native R Console read/write harness passed; DBI/adbi untested |
 
-The [October 29 client validation](docs/client-compatibility.md#flight-client-validation-on-2026-10-29)
-records dataframe and R results and application blockers. See the
+The table records operation-specific scopes and dates. New guide write-back
+recipes have not been live-tested and do not extend those recorded scopes.
+The [November 3 sweep](docs/client-compatibility.md#all-27-inventoried-flight-sql-routes--november-3-2026)
+adds fresh evidence for dataframe, ML, plotting, workflow and application routes;
+R DBI/adbi, Tableau worksheets/extracts/dashboards, and Metabase browser
+dashboards remain untested. See the
 [client compatibility matrix](docs/client-compatibility.md) for versions, dates
 and the scope of recorded checks. The
 [ADBC ecosystem support inventory](https://github.com/redis/redis-adbc-driver/blob/main/docs/data-engineering-adbc-support.md)

@@ -43,3 +43,21 @@ issue. The driver's empty `getTypeInfo()` can affect application type discovery;
 see [known caveats](../client-compatibility.md#jdbc-type-information-and-schema-caveats).
 SQL tools see SQL tables; named datasets require a native Flight client.
 Finish with the [sample cleanup](README.md#optional-sample-sql-table).
+
+## Write example with read-back
+
+Use only the disposable shared sample and ensure id `99` is unused. Execute
+one statement at a time in the application SQL editor. Expect a new row with amount `9.5`,
+then amount `10.5`, then an empty result after deletion:
+
+```sql
+INSERT INTO flight_tool_sample (id, label, amount) VALUES (99, 'guide', 9.5);
+SELECT * FROM flight_tool_sample WHERE id = 99;
+UPDATE flight_tool_sample SET amount = 10.5 WHERE id = 99;
+SELECT amount FROM flight_tool_sample WHERE id = 99;
+DELETE FROM flight_tool_sample WHERE id = 99;
+SELECT * FROM flight_tool_sample WHERE id = 99;
+```
+
+This is a suggested application acceptance recipe. Record the actual result
+before claiming writes for an untested application. SQL uses autocommit.

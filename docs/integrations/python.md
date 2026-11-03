@@ -70,3 +70,27 @@ python examples/python/dataset_to_sql.py --uri grpc://localhost:8815
 The scripts create and clean up fixtures; they also accept `--user` and
 `--password`. See the [ADBC Flight SQL driver documentation](https://arrow.apache.org/adbc/current/driver/flight_sql.html)
 for driver options and the [full client examples](../client-guide.md#examples).
+
+## Write and verify a SQL table
+
+Run in the environment installed above. This example writes the tool's Arrow
+output through ADBC, reads the persisted values back and drops its unique table.
+It is an illustrative recipe added after the recorded validation, not a new
+live test result. It does not establish tool-native writer API support.
+
+```python
+import uuid
+import pyarrow as pa
+import adbc_driver_flightsql.dbapi as sql
+
+output = pa.table({"id": [1, 2], "amount": [2.0, 4.0]})
+name = "guide_" + uuid.uuid4().hex
+with sql.connect("grpc://localhost:8815", autocommit=True) as conn, conn.cursor() as cur:
+    try:
+        cur.adbc_ingest(name, output, mode="create")
+        cur.execute(f'SELECT * FROM "{name}" ORDER BY id')
+        assert cur.fetch_arrow_table().equals(output)
+    finally:
+        cur.execute(f'DROP TABLE IF EXISTS "{name}"')
+        cur.fetch_arrow_table()
+```

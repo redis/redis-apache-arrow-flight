@@ -36,3 +36,40 @@ Power BI versions with results before claiming compatibility.
 SQL is autocommit without transactions. Named Arrow datasets are separate from
 SQL tables and need a native Flight client or explicit dataset-to-SQL import.
 Use the [fixture cleanup](README.md#optional-sample-sql-table) when done.
+
+## Write workflow and limits
+
+Power BI has no validated Flight SQL write-back route in this repository.
+Use an external ADBC ingestion job, then refresh the configured read integration.
+This writes through Python, not through Power BI. Install the
+[Python client environment](README.md#optional-sample-sql-table) and create the
+shared sample first. Ensure id `99` is unused in that disposable sample, then run:
+
+```python
+import adbc_driver_flightsql.dbapi as sql
+with sql.connect("grpc://localhost:8815", autocommit=True) as conn, conn.cursor() as cur:
+    cur.execute("SELECT id FROM flight_tool_sample WHERE id = 99")
+    assert cur.fetch_arrow_table().num_rows == 0, "choose a different unused id"
+    cur.execute("INSERT INTO flight_tool_sample (id, label, amount) VALUES (99, 'guide', 9.5)")
+    cur.fetch_arrow_table()
+    cur.execute("SELECT label, amount FROM flight_tool_sample WHERE id = 99")
+    assert cur.fetch_arrow_table().to_pylist() == [{"label": "guide", "amount": 9.5}]
+```
+
+Refresh the Power BI read preview after configuring its connection; expect the
+new row `99 / guide / 9.5`. Power BI still requires the connector development
+and acceptance work above before this read can be attempted.
+Do not use preview or refresh queries as DML editors. After the read check,
+remove only the row you inserted through the same Python environment:
+
+```python
+import adbc_driver_flightsql.dbapi as sql
+with sql.connect("grpc://localhost:8815", autocommit=True) as conn, conn.cursor() as cur:
+    cur.execute("DELETE FROM flight_tool_sample WHERE id = 99")
+    cur.fetch_arrow_table()
+    cur.execute("SELECT id FROM flight_tool_sample WHERE id = 99")
+    assert cur.fetch_arrow_table().num_rows == 0
+```
+
+These are illustrative external ingestion steps, not a recorded application
+write pass. This documentation update has not rerun them live.

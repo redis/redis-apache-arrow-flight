@@ -13,17 +13,29 @@ install.packages(c("adbcdrivermanager", "nanoarrow"),
                  repos = c("https://apache.r-universe.dev", "https://cloud.r-project.org"))
 ```
 
-The [recorded run](../client-compatibility.md#flight-client-validation-on-2026-10-29)
-used development builds of these packages and Flight SQL driver 1.12.0. Package
-installation above follows the repositories' available versions; it does not
+The [November 3 run](../validation/2026-11-03-flight-integrations/README.md)
+used R 4.6.2, adbcdrivermanager 0.25.0, nanoarrow 0.9.0 and the Flight SQL
+1.13.0 wheel's shared driver. Package installation above follows the repositories' available versions; it does not
 reproduce those development builds exactly.
 
 Obtain the [Flight SQL shared driver](https://arrow.apache.org/adbc/current/driver/flight_sql.html)
 for R's OS and architecture. On Linux the library is
 `libadbc_driver_flightsql.so`; use the corresponding library for your platform.
-The recorded Linux arm64 test sourced it from the Python Flight SQL 1.12.0
-wheel. Python does not execute the R queries. The tested runtime could not
-install `adbcflightsql`, so these instructions use the explicit library path.
+The older Linux arm64 test sourced it from a Python Flight SQL 1.12.0
+wheel; the November 3 run used 1.13.0. Python does not execute the R queries.
+The tested runtime could not install `adbcflightsql`, so these instructions use the explicit library path.
+
+To obtain the shared library from the recorded Python driver wheel:
+
+```sh
+python3.12 -m venv .venv-r-driver
+. .venv-r-driver/bin/activate
+python -m pip install adbc-driver-flightsql==1.13.0
+python -c 'import adbc_driver_flightsql; print(adbc_driver_flightsql._driver_path())'
+```
+
+Use the printed absolute path below and keep that environment installed.
+The wheel helper is the path used by the repository harness, not an R API.
 
 ## Run the read/write example
 

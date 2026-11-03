@@ -42,3 +42,29 @@ local aggregates over Flight SQL results and ordered/NULL results over a native
 Flight dataset; see [versions and limits](../client-compatibility.md#flight-client-validation-on-2026-10-29).
 No direct DuckDB Flight connector or write-back path was tested. Remove the
 sample table using the [shared cleanup](README.md#optional-sample-sql-table).
+
+## Write and verify a SQL table
+
+Run in the environment installed above. This example writes the tool's Arrow
+output through ADBC, reads the persisted values back and drops its unique table.
+It is an illustrative recipe added after the recorded validation, not a new
+live test result. It does not establish tool-native writer API support.
+
+```python
+import uuid
+import pyarrow as pa
+import adbc_driver_flightsql.dbapi as sql
+
+import duckdb
+with duckdb.connect() as local:
+    output = local.execute("SELECT 1::BIGINT AS id, 2.0::DOUBLE AS amount").fetch_arrow_table()
+name = "guide_" + uuid.uuid4().hex
+with sql.connect("grpc://localhost:8815", autocommit=True) as conn, conn.cursor() as cur:
+    try:
+        cur.adbc_ingest(name, output, mode="create")
+        cur.execute(f'SELECT * FROM "{name}" ORDER BY id')
+        assert cur.fetch_arrow_table().equals(output)
+    finally:
+        cur.execute(f'DROP TABLE IF EXISTS "{name}"')
+        cur.fetch_arrow_table()
+```

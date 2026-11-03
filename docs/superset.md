@@ -64,3 +64,32 @@ and schema discovery, SQL Lab queries, dataset creation, and browser-rendered
 charts including generated filters, aggregates and time grains. Record versions,
 results and failures separately from the existing Superset 6.1 installation
 failure. No Superset 7 application pass is claimed by this document.
+
+## Read and write examples
+
+After installing and configuring a compatible connection as above, enable
+SQL Lab access. Use the [shared sample table](integrations/README.md#optional-sample-sql-table)
+on the same backing database and run:
+
+```sql
+SELECT id, label, amount FROM flight_tool_sample ORDER BY id;
+```
+
+Expect three rows, including the NULL label on id 2. Where your Superset
+connection and permissions allow DML, use an unused id `99` in a disposable
+sample and execute each statement separately in SQL Lab:
+
+```sql
+INSERT INTO flight_tool_sample (id, label, amount) VALUES (99, 'guide', 9.5);
+SELECT * FROM flight_tool_sample WHERE id = 99;
+DELETE FROM flight_tool_sample WHERE id = 99;
+SELECT * FROM flight_tool_sample WHERE id = 99;
+```
+
+Expect one row with amount `9.5`, then no rows. This is an acceptance recipe,
+not a recorded Superset Flight SQL read/write pass. Superset 6.1 uses the
+direct Redis ADBC path above; the Flight adapter remains blocked for that
+version. For a blocked/unavailable connection use an
+[external ADBC ingestion job](integrations/python.md#write-and-verify-a-sql-table),
+then refresh Superset after configuring a compatible read connection. Writes
+are autocommit; do not rely on SQL Lab rollback to undo them.

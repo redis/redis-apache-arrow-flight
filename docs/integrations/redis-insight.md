@@ -37,3 +37,21 @@ then query the table through Flight SQL to compare its values. Keep dataset
 metadata and payloads consistent by using the Flight API for dataset changes.
 Remove the sample table through the [fixture cleanup](README.md#optional-sample-sql-table).
 These are suggested acceptance checks, not recorded Redis Insight passes.
+
+## Write and read back a disposable Redis value
+
+In Redis Insight's Workbench, use an unused key outside the Flight dataset
+prefix. Execute one command at a time:
+
+```text
+SET guide:insight:example hello NX
+GET guide:insight:example
+DEL guide:insight:example
+GET guide:insight:example
+```
+
+Continue only if SET returns OK; a nil response means the key already exists,
+so choose a different key rather than deleting someone else's value. Expect
+`hello`, deletion count `1`, then nil. This demonstrates a direct Redis write;
+it does not create a Flight SQL table. These suggested UI steps remain untested.
+For SQL-compatible writes use the [Python SQL write example](python.md#write-and-verify-a-sql-table).
