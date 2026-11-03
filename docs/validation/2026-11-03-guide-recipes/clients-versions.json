@@ -1,0 +1,17 @@
+{
+  "packages": {
+    "adbc-driver-flightsql": "1.12.0",
+    "adbc-driver-manager": "1.12.0",
+    "duckdb": "2.0.0",
+    "importlib_resources": "7.1.0",
+    "numpy": "2.5.4",
+    "pandas": "3.1.0",
+    "polars": "2.1.0",
+    "polars-runtime-32": "2.1.0",
+    "pyarrow": "26.0.0",
+    "python-dateutil": "4.0.0",
+    "typing_extensions": "4.16.0",
+    "tzdata": "2026.6"
+  },
+  "python": "3.12.15 (main, Oct 14 2026, 00:55:37) [Clang 23.1.3 ]"
+}

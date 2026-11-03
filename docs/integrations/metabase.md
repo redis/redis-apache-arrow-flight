@@ -64,3 +64,23 @@ For full reproduction, follow the [disposable Docker setup](../validation/2026-1
 That recipe uses Flight port 18825 and a separate fixture, and refuses an
 already configured Metabase. Remove this guide's sample using the
 [shared cleanup](README.md#optional-sample-sql-table).
+
+## Write example with read-back
+
+Use only the disposable shared sample and ensure id `99` is unused. Execute
+one statement at a time through a custom SQL Action for each write; use a native
+read query for each SELECT. Expect a new row with amount `9.5`,
+then amount `10.5`, then an empty result after deletion:
+
+```sql
+INSERT INTO flight_tool_sample (id, label, amount) VALUES (99, 'guide', 9.5);
+SELECT * FROM flight_tool_sample WHERE id = 99;
+UPDATE flight_tool_sample SET amount = 10.5 WHERE id = 99;
+SELECT amount FROM flight_tool_sample WHERE id = 99;
+DELETE FROM flight_tool_sample WHERE id = 99;
+SELECT * FROM flight_tool_sample WHERE id = 99;
+```
+
+The [live guide run](../validation/2026-11-03-guide-recipes/README.md) passed these exact SQL
+statements through fresh Metabase custom Actions and native API read-back.
+Browser rendering remains untested. SQL uses autocommit.

@@ -1,0 +1,19 @@
+{
+  "flight_uri": "grpc://localhost:18816",
+  "flight_container_id": "f56c657444ff457c5b38eaafd490d01db49c14244295a9c2d8c7efc61719c36e",
+  "image": "sha256:23ce71337b726608afb1bc00986e630a05034a87a87ea1fc2cd1ae5cf33387eb",
+  "server_binary_sha256": null,
+  "redis_tls": "verified hostname localhost against Docker-sourced pinned proxy certificate; partial-chain trust anchor",
+  "username_password_auth": "verified without logging credentials",
+  "rejected": [
+    "unauthenticated TLS",
+    "plaintext",
+    "untrusted certificate"
+  ],
+  "qpf": {
+    "active": true,
+    "scaling_factor": 4
+  },
+  "active_primary_shards": 3,
+  "source_limit": "Original mounted fixture files and executable are no longer readable. Container identity is recorded; binary checksum/source fingerprint could not be recovered. This is live client recipe evidence, not current-source or release qualification."
+}

@@ -7,6 +7,10 @@ joins and dashboards remain untested. See the [manual validation record](../vali
 
 ## Install the driver
 
+Install [Tableau Desktop](https://www.tableau.com/products/desktop) for your
+platform, then install the JDBC driver below. The recorded run used Free Edition
+2026.3.
+
 Start the server and create the [sample SQL table](README.md#optional-sample-sql-table).
 From the repository root:
 
@@ -41,3 +45,40 @@ claimed. Authentication and TLS were not covered by the recorded run.
 
 Remove the sample through the [fixture cleanup](README.md#optional-sample-sql-table).
 JDBC sees SQL tables; named Arrow datasets need the native Flight API.
+
+## Write workflow and limits
+
+Tableau has no validated Flight SQL write-back route in this repository.
+Use an external ADBC ingestion job, then refresh the configured read integration.
+This writes through Python, not through Tableau. Install the
+[Python client environment](README.md#optional-sample-sql-table) and create the
+shared sample first. Ensure id `99` is unused in that disposable sample, then run:
+
+```python
+import adbc_driver_flightsql.dbapi as sql
+with sql.connect("grpc://localhost:8815", autocommit=True) as conn, conn.cursor() as cur:
+    cur.execute("SELECT id FROM flight_tool_sample WHERE id = 99")
+    assert cur.fetch_arrow_table().num_rows == 0, "choose a different unused id"
+    cur.execute("INSERT INTO flight_tool_sample (id, label, amount) VALUES (99, 'guide', 9.5)")
+    cur.fetch_arrow_table()
+    cur.execute("SELECT label, amount FROM flight_tool_sample WHERE id = 99")
+    assert cur.fetch_arrow_table().to_pylist() == [{"label": "guide", "amount": 9.5}]
+```
+
+Refresh the Tableau read preview after configuring its connection; expect the
+new row `99 / guide / 9.5`. Do not use preview or refresh queries as DML editors. After the read check,
+remove only the row you inserted through the same Python environment:
+
+```python
+import adbc_driver_flightsql.dbapi as sql
+with sql.connect("grpc://localhost:8815", autocommit=True) as conn, conn.cursor() as cur:
+    cur.execute("DELETE FROM flight_tool_sample WHERE id = 99")
+    cur.fetch_arrow_table()
+    cur.execute("SELECT id FROM flight_tool_sample WHERE id = 99")
+    assert cur.fetch_arrow_table().num_rows == 0
+```
+
+The [live guide run](../validation/2026-11-03-guide-recipes/README.md) passed the external Python
+write/read-back and cleanup. A fresh native Tableau connection previewed all
+four rows, including `99 / guide / 9.50000`. This validates external ingestion
+followed by Tableau reading; it does not establish native Tableau writes.

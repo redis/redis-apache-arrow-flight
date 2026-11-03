@@ -1,0 +1,18 @@
+Metaflow 2.19.40 executing FlightFlow for user:flight_recipe_test
+Validating your flow...
+    The graph looks good!
+Running pylint...
+    Pylint not found, so extra checks are disabled.
+2026-11-03 11:05:50.649 Workflow starting (run-id 1793732750648975):
+2026-11-03 11:05:50.664 [1793732750648975/start/1 (pid 68242)] Task is starting.
+2026-11-03 11:05:50.938 [1793732750648975/start/1 (pid 68242)] pyarrow.Table
+2026-11-03 11:05:50.972 [1793732750648975/start/1 (pid 68242)] id: int64
+2026-11-03 11:05:50.972 [1793732750648975/start/1 (pid 68242)] amount: double
+2026-11-03 11:05:50.972 [1793732750648975/start/1 (pid 68242)] ----
+2026-11-03 11:05:50.972 [1793732750648975/start/1 (pid 68242)] id: [[1,2,3]]
+2026-11-03 11:05:50.972 [1793732750648975/start/1 (pid 68242)] amount: [[3,5,7]]
+2026-11-03 11:05:50.973 [1793732750648975/start/1 (pid 68242)] Task finished successfully.
+2026-11-03 11:05:50.980 [1793732750648975/end/2 (pid 68247)] Task is starting.
+2026-11-03 11:05:51.169 [1793732750648975/end/2 (pid 68247)] Flight read/write verified
+2026-11-03 11:05:51.193 [1793732750648975/end/2 (pid 68247)] Task finished successfully.
+2026-11-03 11:05:51.194 Done!

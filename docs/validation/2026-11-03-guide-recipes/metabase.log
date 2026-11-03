@@ -1,0 +1,6 @@
+PASS database connection
+{"check": "guide ordered read", "status": "PASS", "rows": [[1, "one", 1.5], [2, null, 2.5], [3, "three", 3.5]]}
+{"check": "INSERT guide read-back", "status": "PASS", "rows": [[99, "guide", 9.5]]}
+{"check": "UPDATE guide read-back", "status": "PASS", "rows": [[99, "guide", 10.5]]}
+{"check": "DELETE guide read-back", "status": "PASS", "rows": []}
+PASS exact guide SQL through Metabase custom Actions and native reads; browser untested

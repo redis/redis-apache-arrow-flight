@@ -1,0 +1,13 @@
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - RUN_START - Started execution of run for "__ephemeral_asset_job__".
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - ENGINE_EVENT - Executing steps in process (pid: 68287)
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - flight_copy - RESOURCE_INIT_STARTED - Starting initialization of resources [flight, io_manager].
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - flight_copy - RESOURCE_INIT_SUCCESS - Finished initialization of resources [flight, io_manager].
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - LOGS_CAPTURED - Capturing logs for process (pid: 68287).
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - flight_copy - STEP_START - Started execution of step "flight_copy".
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - flight_copy - STEP_OUTPUT - Yielded output "result" of type "Int". (Type check passed).
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - flight_copy - Writing file at: /var/folders/gv/3m3bj31563lb0qds5jsqm8sw0000gp/T/tmptozrp9i1/storage/flight_copy using PickledObjectFilesystemIOManager...
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - flight_copy - ASSET_MATERIALIZATION - Materialized value flight_copy.
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - flight_copy - HANDLED_OUTPUT - Handled output "result" using IO manager "io_manager"
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - flight_copy - STEP_SUCCESS - Finished execution of step "flight_copy" in 39ms.
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - ENGINE_EVENT - Finished steps in process (pid: 68287) in 67ms
+2026-11-03 11:05:58 -0800 - dagster - DEBUG - __ephemeral_asset_job__ - fc2f6288-2152-4ec4-a227-3a90332a24de - 68287 - RUN_SUCCESS - Finished execution of run for "__ephemeral_asset_job__".

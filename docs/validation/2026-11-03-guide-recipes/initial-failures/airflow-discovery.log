@@ -1,0 +1,4 @@
+Initial documented DAG was not bound at module scope.
+  File "/tmp/flight-recipes-live/airflow_recipe.py", line 36, in <module>
+    raise AirflowException(f"Cannot create DagRun for DAG {dag.dag_id} because the dag is not serialized")
+airflow.sdk.exceptions.AirflowException: Cannot create DagRun for DAG flight_workflow because the dag is not serialized

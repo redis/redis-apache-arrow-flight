@@ -62,3 +62,36 @@ For named datasets, use the [native Java Flight SDK](https://arrow.apache.org/ja
 with the server's [dataset API](../data-access.md#datasets); JDBC does not expose
 that API. This is an unvalidated development route. Remove the shared sample
 table with the [fixture cleanup](README.md#optional-sample-sql-table).
+
+## Write and verify through JDBC
+
+Save as `FlightWrite.java` and run with the same driver classpath and JVM flags
+as `FlightQuery.java` above. This creates its own table and removes it afterward.
+The [live recipe run](../validation/2026-11-03-guide-recipes/README.md) passed both Java examples
+with JDBC 19.0.0 and JDK 21.
+
+```java
+import java.sql.*;
+import java.util.UUID;
+
+public class FlightWrite {
+    public static void main(String[] args) throws Exception {
+        String name = "guide_" + UUID.randomUUID().toString().replace("-", "");
+        String url = "jdbc:arrow-flight-sql://localhost:8815/?useEncryption=false";
+        try (Connection conn = DriverManager.getConnection(url);
+             Statement stmt = conn.createStatement()) {
+            conn.setAutoCommit(true);
+            try {
+                stmt.executeUpdate("CREATE TABLE " + name + " (id BIGINT, amount DOUBLE)");
+                stmt.executeUpdate("INSERT INTO " + name + " VALUES (1, 2.5)");
+                try (ResultSet rows = stmt.executeQuery("SELECT * FROM " + name)) {
+                    if (!rows.next() || rows.getLong("id") != 1 || rows.getDouble("amount") != 2.5
+                        || rows.next()) throw new AssertionError("write/read-back mismatch");
+                }
+            } finally {
+                stmt.executeUpdate("DROP TABLE IF EXISTS " + name);
+            }
+        }
+    }
+}
+```

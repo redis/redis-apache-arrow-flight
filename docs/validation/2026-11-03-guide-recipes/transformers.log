@@ -1,0 +1,7 @@
+W1103 11:05:47.989000 68191 /private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/redirects.py:35] NOTE: Redirects are currently not supported in MacOs.
+pyarrow.Table
+id: int64
+feature: double
+----
+id: [[1,2,3]]
+feature: [[0.6189693808555603,0.13806812465190887,-0.3977091610431671]]

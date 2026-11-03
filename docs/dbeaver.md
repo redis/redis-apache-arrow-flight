@@ -29,6 +29,9 @@ JDBC URL must use the **Flight** port, not the Redis port.
 
 ## Download and configure the driver
 
+Install [DBeaver Community](https://dbeaver.io/download/) for your platform
+if it is not installed, then configure the driver below.
+
 Download [flight-sql-jdbc-driver-19.0.0.jar](https://repo1.maven.org/maven2/org/apache/arrow/flight-sql-jdbc-driver/19.0.0/flight-sql-jdbc-driver-19.0.0.jar)
 directly from Maven Central. The [19.0.0 directory](https://repo1.maven.org/maven2/org/apache/arrow/flight-sql-jdbc-driver/19.0.0/)
 also lists checksums and signatures. Choose the plain `.jar`, rather than a

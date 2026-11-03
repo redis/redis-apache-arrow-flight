@@ -1,0 +1,11 @@
+Native Tableau Desktop Free Edition 2026.3; existing JDBC 19.0.0 driver.
+Created new data source to jdbc:arrow-flight-sql://localhost:18816/?useEncryption=false.
+Selected redis / public / guide_live_20261103_d2f23049d00d.
+Executed guide external ADBC INSERT/read-back for row 99, then clicked Update Now.
+Native UI reported 3 fields / 4 rows; visually observed:
+1 / one / 1.50000
+2 / null / 2.50000
+3 / three / 3.50000
+99 / guide / 9.50000
+Observed by CUA screenshot and accessibility tree in this session. Screenshot is retained in chat tool history, not saved as a repository image.
+Executed guide external DELETE/read-back after observation; no native Tableau writes, worksheet, extracts, dashboards or publication tested.

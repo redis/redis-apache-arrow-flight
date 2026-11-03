@@ -1,0 +1,6 @@
+pyarrow.Table
+id: int64
+zscore: double
+----
+id: [[1,2,3]]
+zscore: [[-1.224744871391589,0,1.224744871391589]]

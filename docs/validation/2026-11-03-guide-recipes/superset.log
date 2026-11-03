@@ -1,0 +1,59 @@
+Loaded your LOCAL configuration at [/tmp/flight-recipes-live/superset/superset_config.py] (md5:b0d4a6313bc3)
+2026-11-03 11:14:58,245:WARNING:superset.initialization:--------------------------------------------------------------------------------
+                                    WARNING
+--------------------------------------------------------------------------------
+2026-11-03 11:14:58,245:WARNING:superset.initialization:SQLALCHEMY_ENCRYPTED_FIELD_ENGINE is set to the legacy 'aes' engine (AES-CBC, unauthenticated). App-encrypted fields — database passwords, SSH tunnel credentials, OAuth2 tokens, and similar — would benefit from the authenticated 'aes-gcm' engine instead.
+Switching engines on a populated database requires re-encrypting existing values first, since the two ciphertext formats are not interchangeable:
+  1. Back up the metadata database.
+  2. superset re-encrypt-secrets --engine aes-gcm
+  3. Set SQLALCHEMY_ENCRYPTED_FIELD_ENGINE = 'aes-gcm' in superset_config.py.
+  4. Restart Superset, then re-run the command above once more to sweep up any values written during the cutover.
+See UPDATING.md and docs/sip/authenticated-encryption-at-rest.md for the full runbook.
+2026-11-03 11:14:58,245:WARNING:superset.initialization:--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+2026-11-03 11:14:58,260:WARNING:py.warnings:/tmp/flight-superset7-20261101/venv/lib/python3.12/site-packages/superset/utils/cache_manager.py:231: UserWarning: Flask-Caching: CACHE_TYPE is set to NullCache, caching is effectively disabled.
+  cache.init_app(app, cache_config)
+
+2026-11-03 11:14:58,644:INFO:superset.subjects.hooks:Subject sync hooks registered
+2026-11-03 11:14:58,645:INFO:alembic.runtime.migration:Context impl SQLiteImpl.
+2026-11-03 11:14:58,645:INFO:alembic.runtime.migration:Will assume non-transactional DDL.
+2026-11-03 11:14:58,907:INFO:superset.app:Syncing configuration to database...
+2026-11-03 11:14:58,912:INFO:superset.app:Configuration sync to database completed successfully
+2026-11-03 11:14:58,986:INFO:superset.tasks.registry:Registered async task: superset.query_object_v1 -> superset.tasks.async_queries.execute_chart_query
+2026-11-03 11:14:59,407:INFO:superset.core.mcp.core_mcp_injection:fastmcp is not installed, skipping MCP initialization. Install it with: pip install 'apache-superset[fastmcp]'
+2026-11-03 11:14:59,780:WARNING:py.warnings:/tmp/flight-superset7-20261101/venv/lib/python3.12/site-packages/sqlalchemy_continuum/manager.py:309: SAWarning: The argument signature for the "ConnectionEvents.engine_connect" event listener has changed as of version 2.0, and conversion for the old argument signature will be removed in a future release.  The new signature is "def engine_connect(conn)" (This warning originated from the Session 'autoflush' process, which was invoked automatically in response to a user-initiated operation. Consider using ``no_autoflush`` context manager if this warning happened while initializing objects.)
+  conn = session.connection()
+
+2026-11-03 11:14:59,849:INFO:superset.commands.sql_lab.execute:Triggering query_id: 46
+2026-11-03 11:14:59,855:INFO:superset.sql_lab:Query 46: Set query to 'running'
+2026-11-03 11:14:59,870:INFO:superset.sql_lab:Query 46: Running block 1 out of 1
+{"check": "guide ordered read", "status": "PASS", "rows": [{"id": 1, "label": "one", "amount": 1.5}, {"id": 2, "label": null, "amount": 2.5}, {"id": 3, "label": "three", "amount": 3.5}]}
+2026-11-03 11:14:59,903:INFO:superset.commands.sql_lab.execute:Triggering query_id: 47
+2026-11-03 11:14:59,907:INFO:superset.sql_lab:Query 47: Set query to 'running'
+2026-11-03 11:14:59,918:INFO:superset.sql_lab:Query 47: Running block 1 out of 1
+2026-11-03 11:14:59,919:WARNING:py.warnings:/tmp/flight-superset7-20261101/venv/lib/python3.12/site-packages/sqlalchemy_continuum/manager.py:309: SAWarning: The argument signature for the "ConnectionEvents.engine_connect" event listener has changed as of version 2.0, and conversion for the old argument signature will be removed in a future release.  The new signature is "def engine_connect(conn)" (This warning originated from the Session 'autoflush' process, which was invoked automatically in response to a user-initiated operation. Consider using ``no_autoflush`` context manager if this warning happened while initializing objects.)
+  conn = session.connection()
+
+{"check": "guide INSERT", "status": "PASS", "rows": []}
+2026-11-03 11:14:59,941:INFO:superset.commands.sql_lab.execute:Triggering query_id: 48
+2026-11-03 11:14:59,944:INFO:superset.sql_lab:Query 48: Set query to 'running'
+2026-11-03 11:14:59,956:INFO:superset.sql_lab:Query 48: Running block 1 out of 1
+2026-11-03 11:14:59,957:WARNING:py.warnings:/tmp/flight-superset7-20261101/venv/lib/python3.12/site-packages/sqlalchemy_continuum/manager.py:309: SAWarning: The argument signature for the "ConnectionEvents.engine_connect" event listener has changed as of version 2.0, and conversion for the old argument signature will be removed in a future release.  The new signature is "def engine_connect(conn)" (This warning originated from the Session 'autoflush' process, which was invoked automatically in response to a user-initiated operation. Consider using ``no_autoflush`` context manager if this warning happened while initializing objects.)
+  conn = session.connection()
+
+{"check": "guide INSERT read-back", "status": "PASS", "rows": [{"id": 99, "label": "guide", "amount": 9.5}]}
+2026-11-03 11:14:59,979:INFO:superset.commands.sql_lab.execute:Triggering query_id: 49
+2026-11-03 11:14:59,982:INFO:superset.sql_lab:Query 49: Set query to 'running'
+2026-11-03 11:14:59,994:INFO:superset.sql_lab:Query 49: Running block 1 out of 1
+2026-11-03 11:14:59,995:WARNING:py.warnings:/tmp/flight-superset7-20261101/venv/lib/python3.12/site-packages/sqlalchemy_continuum/manager.py:309: SAWarning: The argument signature for the "ConnectionEvents.engine_connect" event listener has changed as of version 2.0, and conversion for the old argument signature will be removed in a future release.  The new signature is "def engine_connect(conn)" (This warning originated from the Session 'autoflush' process, which was invoked automatically in response to a user-initiated operation. Consider using ``no_autoflush`` context manager if this warning happened while initializing objects.)
+  conn = session.connection()
+
+{"check": "guide DELETE", "status": "PASS", "rows": []}
+2026-11-03 11:15:00,045:INFO:superset.commands.sql_lab.execute:Triggering query_id: 50
+2026-11-03 11:15:00,051:INFO:superset.sql_lab:Query 50: Set query to 'running'
+2026-11-03 11:15:00,071:INFO:superset.sql_lab:Query 50: Running block 1 out of 1
+2026-11-03 11:15:00,072:WARNING:py.warnings:/tmp/flight-superset7-20261101/venv/lib/python3.12/site-packages/sqlalchemy_continuum/manager.py:309: SAWarning: The argument signature for the "ConnectionEvents.engine_connect" event listener has changed as of version 2.0, and conversion for the old argument signature will be removed in a future release.  The new signature is "def engine_connect(conn)" (This warning originated from the Session 'autoflush' process, which was invoked automatically in response to a user-initiated operation. Consider using ``no_autoflush`` context manager if this warning happened while initializing objects.)
+  conn = session.connection()
+
+{"check": "guide DELETE read-back", "status": "PASS", "rows": []}
+PASS Superset 7 development SQL Lab APIs through Flask test client; browser and metadata discovery not tested

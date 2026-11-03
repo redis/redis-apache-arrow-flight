@@ -1,0 +1,10 @@
+record:
+  schema:
+  fields: 3
+    - id: type=int64, nullable
+    - label: type=utf8, nullable
+    - amount: type=float64, nullable
+  rows: 3
+  col[0][id]: [1 2 3]
+  col[1][label]: ["one" (null) "three"]
+  col[2][amount]: [1.5 2.5 3.5]

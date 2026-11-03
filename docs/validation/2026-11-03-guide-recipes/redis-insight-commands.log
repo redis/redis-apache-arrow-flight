@@ -1,0 +1,1 @@
+PASS SET NX / GET hello / DEL 1 / GET nil over verified TLS. Direct Redis command test only; Redis Insight UI not installed.

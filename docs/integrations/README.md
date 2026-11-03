@@ -43,6 +43,34 @@ Run and save results for the 27 inventoried Flight SQL routes with the
 | Metabase | [Community plugin and Actions](metabase.md) |
 | Power BI | [Custom connector development path](power-bi.md) |
 | Redis Insight | [Inspect the backing Redis database](redis-insight.md) |
+| NumPy | [Install, read and write](numpy.md) |
+| scikit-learn | [Install, read and write](scikit-learn.md) |
+| SQLAlchemy | [Install, read and write](sqlalchemy.md) |
+| Dagster | [Install, read and write](dagster.md) |
+| Jupyter / JupyterLab | [Install, read and write](jupyter.md) |
+| Hugging Face Datasets | [Install, read and write](hugging-face-datasets.md) |
+| Streamlit | [Install, read and write](streamlit.md) |
+| SciPy | [Install, read and write](scipy.md) |
+| XGBoost | [Install, read and write](xgboost.md) |
+| PyTorch | [Install, read and write](pytorch.md) |
+| TensorFlow | [Install, read and write](tensorflow.md) |
+| Keras | [Install, read and write](keras.md) |
+| Hugging Face Transformers | [Install, read and write](transformers.md) |
+| Plotly | [Install, read and write](plotly.md) |
+| Matplotlib | [Install, read and write](matplotlib.md) |
+| Kubeflow Pipelines | [Install, read and write](kubeflow.md) |
+| Metaflow | [Install, read and write](metaflow.md) |
+| Apache Spark | [Install, read and write](spark.md) |
+| Apache Airflow | [Install, read and write](airflow.md) |
+| Quarto | [Install, read and write](quarto.md) |
+| RStudio | [Install, read and write](rstudio.md) |
+
+Every inventoried route has a guide above, including installation and a
+read/write workflow. For read-oriented or unavailable application connectors,
+the guide states the write limitation and provides an external ingestion path.
+A local model/artifact save is separate from a database write. The [live recipe run](../validation/2026-11-03-guide-recipes/README.md) records
+executed read/write scopes and remaining application limitations separately
+from the earlier historical sweep.
 
 ## Optional sample SQL table
 
