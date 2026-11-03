@@ -22,7 +22,7 @@ limitations and application scopes.
 - New isolated standalone `redis:8.6.2`, local Flight SQL on port 18825.
   This run used Redis Open Source with Search, not Software + verified 4× QPF.
 - Fresh Python environments installed from the committed profile requirements:
-  Python 3.12.16, except Airflow on 3.14.10; ADBC Flight SQL/manager 1.13.0,
+  Python 3.12.15, except Airflow on 3.14.8; ADBC Flight SQL/manager 1.13.0,
   PyArrow 26.0.0. Every profile saves its complete resolved package versions.
 - Spark 4.3.0 used the real JDBC datasource and Flight SQL JDBC 19.0.0,
   with full OpenJDK 21.0.13. It passed typed/NULL/Unicode rows, filters,
@@ -124,3 +124,15 @@ The disposable BI fixture was dropped, the test Flight process stopped, and
 only the two containers created for this sweep were removed. Other services
 were left running. Tableau retains an unsaved read preview of the stopped
 endpoint; no workbook was published.
+
+## PR integration with newer main
+
+The PR was rebased onto `68106776b5a265af7802f5448337f8930e57efd3` after this
+recorded run. The new main requires a qualified Enterprise backend with verified
+TLS/authentication. Future-run instructions and the self-hosted dispatch
+workflow now use that environment; they do not repeat the historical OSS setup.
+These 27 scoped passes remain evidence only for the original source/backend.
+The live profiles were not rerun against the rebased Enterprise composition.
+
+Both Datasets failures are tracked by [Flight issue #57](https://github.com/redis/redis-apache-arrow-flight/issues/57),
+which links the existing [upstream defect #8912](https://github.com/huggingface/datasets/issues/8912).

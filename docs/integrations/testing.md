@@ -9,14 +9,22 @@ a passing library workflow does not certify an entire application.
 
 ## Start a disposable endpoint
 
-Requires Go, Docker and uv. Do not use a backend containing application data.
+Follow the [qualified Redis Enterprise environment guide](../redis-enterprise-testing.md).
+It requires Docker, Go, uv and the matching private enterprise composition.
+The provisioned Redis backend requires verified TLS and authentication.
 
 ```sh
-make build
-REDIS_PORT=16489 docker compose up --detach --wait redis
-./bin/redis-flight-server --redis-uri redis://127.0.0.1:16489/0 \
-  --listen 127.0.0.1:18825 --metrics-listen 127.0.0.1:19825
+python3 scripts/enterprise-env.py up
+python3 scripts/enterprise-env.py verify
+python3 scripts/enterprise-env.py smoke
 ```
+
+The default local Flight endpoint is `grpc://127.0.0.1:18816`; its Redis backend
+uses TLS and credentials. Use that URI in the runner examples below. A different
+matching qualified deployment may provide a different endpoint. The saved
+November 3 evidence used an older source and a disposable plaintext OSS backend;
+it does not qualify the current Enterprise gate. No new plaintext backend
+workflow is introduced here.
 
 Use a port reachable by each runtime. Docker Desktop BI clients use
 `host.docker.internal`; a remote worker cannot use the controller's localhost.
@@ -38,7 +46,7 @@ export QUARTO=/path/to/quarto
 # If R packages live outside .libPaths():
 export R_LIBS_USER=/path/to/r-library
 python3 scripts/test-integrations.py --setup \
-  --uri grpc://127.0.0.1:18825 --env-root /tmp/flight-integration-envs \
+  --uri grpc://127.0.0.1:18816 --env-root /tmp/flight-integration-envs \
   --results /tmp/flight-results-001 --automated-only
 ```
 
@@ -88,7 +96,7 @@ These checks require their real applications. A protocol-only JDBC test is
 insufficient. Save fresh logs and the exact versions for each execution.
 
 - **RStudio:** in its R console, source `examples/r/flight_sql.R`, then call
-  `main("grpc://localhost:18825", "/path/to/libadbc_driver_flightsql.so")`.
+  `main("grpc://localhost:18816", "/path/to/libadbc_driver_flightsql.so")`.
   The library must match the R runtime OS/architecture; it can come from that
   platform's `adbc-driver-flightsql` wheel. Save `capture.output(main(...))` to
   a log, verify the PASS message in the console, and record the IDE version.
@@ -101,7 +109,7 @@ insufficient. Save fresh logs and the exact versions for each execution.
 - **Metabase:** use a fresh disposable instance and the checksummed plugin in
   the [existing reproduction instructions](../validation/2026-11-01-bi-jdbc/README.md#reproduction).
   Seed `BiFixture.java create`, then run
-  `python3 examples/jdbc/metabase_smoke.py --metabase http://127.0.0.1:13030 --flight-port 18825`.
+  `python3 examples/jdbc/metabase_smoke.py --metabase http://127.0.0.1:13030 --flight-port 18816`.
   Save stdout/stderr and exit status. This covers API reads, sync, generated SQL
   and write Actions. Drop the fixture and remove the disposable container.
 
@@ -128,10 +136,14 @@ logs are copied into the report directory. Results include the source Git SHA
 and Flight URI. Keep the directory with your build/deployment metadata.
 
 `make integrations-test` creates environments and a timestamped `/tmp` result directory; use `INTEGRATION_ARGS` for its flags.
-The **Flight SQL integrations** workflow can run each automated profile manually
-and uploads results even on failure. Hosted workflow configuration is not a
-recorded hosted pass. RStudio and Tableau continue to require native UI checks;
+The **Flight SQL integrations** workflow runs the automated profiles serially on a provisioned
+`redis-flight-enterprise` self-hosted Linux x64 runner with the external
+runtimes and matching private source/composition pair. It verifies the
+Enterprise environment before client checks and uploads results on failure.
+Workflow configuration is not evidence of an executed self-hosted run. RStudio and Tableau continue to require native UI checks;
 Metabase's disposable API procedure is separately reproducible.
 
 The [November 3 saved validation](../validation/2026-11-03-flight-integrations/README.md)
 records the actual tested source, versions, outcomes and limits.
+
+The two Datasets expected failures are tracked in [Flight issue #57](https://github.com/redis/redis-apache-arrow-flight/issues/57), linked to [upstream Datasets #8912](https://github.com/huggingface/datasets/issues/8912).

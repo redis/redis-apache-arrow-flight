@@ -23,3 +23,5 @@ save/reload: an independent library reproduction and a Flight SQL reproduction.
 Only its exact zero-shard error is expected. The explicit one-shard workaround
 must pass; other errors fail the profile. A future unexpected pass also fails,
 so the expectation must be reviewed when upgrading the dependency.
+
+The two empty-save expected failures are tracked by [Flight #57](https://github.com/redis/redis-apache-arrow-flight/issues/57) and [Datasets #8912](https://github.com/huggingface/datasets/issues/8912).
