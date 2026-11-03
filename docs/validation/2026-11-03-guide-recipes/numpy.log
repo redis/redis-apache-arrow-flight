@@ -1,0 +1,6 @@
+pyarrow.Table
+id: int64
+scaled: double
+----
+id: [[1,2,3]]
+scaled: [[3,5,7]]

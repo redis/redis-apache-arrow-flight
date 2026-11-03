@@ -14,6 +14,8 @@ python3.14 -m venv .venv-airflow
 python -m pip install -r requirements/integrations/airflow.txt
 export AIRFLOW_HOME="$(mktemp -d)"
 export AIRFLOW__CORE__LOAD_EXAMPLES=False
+export AIRFLOW__CORE__DAGS_FOLDER="$AIRFLOW_HOME/dags"
+mkdir -p "$AIRFLOW__CORE__DAGS_FOLDER"
 airflow db migrate
 ```
 
@@ -24,7 +26,9 @@ for secure deployment configuration.
 
 ## Read, write and verify
 
-Save as `airflow_example.py` and run `python airflow_example.py`.
+Save as `$AIRFLOW__CORE__DAGS_FOLDER/airflow_example.py` and run
+`python "$AIRFLOW__CORE__DAGS_FOLDER/airflow_example.py"`. Keep unrelated Python
+scripts outside that directory; Airflow imports files there when discovering DAGs.
 
 ```python
 from airflow.sdk import dag, task
@@ -61,8 +65,10 @@ def flight_workflow():
 
     copy_rows()
 
+dag_instance = flight_workflow()
+
 if __name__ == "__main__":
-    result = flight_workflow().test()
+    result = dag_instance.test()
     assert result.state == "success", result.state
 ```
 
@@ -73,10 +79,9 @@ without a deployed scheduler or a generic Flight provider hook.
 
 ## Validation and cleanup
 
-The [November 3 results](../validation/2026-11-03-flight-integrations/README.md)
-record the historical workflow for this tool. The new read/write recipe above
-has not been run against a live endpoint; fixture writes through another
-client and local artifact saves do not prove this tool's database write support.
+The [live guide recipe run](../validation/2026-11-03-guide-recipes/README.md) passed this example's read,
+write, fresh read-back and cleanup. The report records runtime versions and
+local execution limits.
 SQL uses autocommit without transactions. The example drops its own unique
 output table; remove the shared input with the
 [fixture cleanup](README.md#optional-sample-sql-table) after finishing the guides.

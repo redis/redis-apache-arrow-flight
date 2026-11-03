@@ -67,8 +67,8 @@ table with the [fixture cleanup](README.md#optional-sample-sql-table).
 
 Save as `FlightWrite.java` and run with the same driver classpath and JVM flags
 as `FlightQuery.java` above. This creates its own table and removes it afterward.
-The recipe uses the validated JDBC statement APIs; this exact snippet was not
-rerun as part of this documentation update.
+The [live recipe run](../validation/2026-11-03-guide-recipes/README.md) passed both Java examples
+with JDBC 19.0.0 and JDK 21.
 
 ```java
 import java.sql.*;

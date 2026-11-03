@@ -53,5 +53,7 @@ GET guide:insight:example
 Continue only if SET returns OK; a nil response means the key already exists,
 so choose a different key rather than deleting someone else's value. Expect
 `hello`, deletion count `1`, then nil. This demonstrates a direct Redis write;
-it does not create a Flight SQL table. These suggested UI steps remain untested.
+it does not create a Flight SQL table. The [live guide run](../validation/2026-11-03-guide-recipes/README.md) passed these commands directly
+over verified Redis TLS. Redis Insight was not installed, so its UI remains
+untested.
 For SQL-compatible writes use the [Python SQL write example](python.md#write-and-verify-a-sql-table).

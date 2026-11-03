@@ -67,10 +67,9 @@ pipeline artifacts remain in `flight-kfp-output`; the SQL output is removed.
 
 ## Validation and cleanup
 
-The [November 3 results](../validation/2026-11-03-flight-integrations/README.md)
-record the historical workflow for this tool. The new read/write recipe above
-has not been run against a live endpoint; fixture writes through another
-client and local artifact saves do not prove this tool's database write support.
+The [live guide recipe run](../validation/2026-11-03-guide-recipes/README.md) passed this example's read,
+write, fresh read-back and cleanup. The report records runtime versions and
+local execution limits.
 SQL uses autocommit without transactions. The example drops its own unique
 output table; remove the shared input with the
 [fixture cleanup](README.md#optional-sample-sql-table) after finishing the guides.

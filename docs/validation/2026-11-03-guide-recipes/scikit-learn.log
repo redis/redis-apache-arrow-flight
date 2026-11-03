@@ -1,0 +1,6 @@
+pyarrow.Table
+id: int64
+prediction: double
+----
+id: [[1,2,3]]
+prediction: [[1.5,2.5,3.5]]

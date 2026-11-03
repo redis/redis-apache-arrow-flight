@@ -77,7 +77,7 @@ Remove the shared sample table with the [fixture cleanup](README.md#optional-sam
 In the `run()` function above, after client creation and before its SELECT,
 add this block. It writes a unique table, checks the returned value and drops
 its fixture. Add `"github.com/google/uuid"` to imports and run `go mod tidy`.
-This illustrative snippet has not been rerun against a live endpoint.
+The [live recipe run](../validation/2026-11-03-guide-recipes/README.md) passed the combined read/write program.
 
 ```go
 name := "guide_" + uuid.NewString()

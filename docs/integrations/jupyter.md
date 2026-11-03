@@ -43,7 +43,7 @@ with sql.connect(uri, autocommit=True) as conn, conn.cursor() as cur:
 frame = source.to_pandas()
 display(frame)
 frame["amount"] = frame["amount"] * 2
-output = pa.Table.from_pandas(frame, preserve_index=False)
+output = pa.Table.from_pandas(frame, schema=source.schema, preserve_index=False)
 
 # Write the tool's output through Flight SQL, then verify the stored values.
 name = "guide_" + uuid.uuid4().hex
@@ -59,15 +59,15 @@ with sql.connect(uri, autocommit=True) as conn, conn.cursor() as cur:
         cur.fetch_arrow_table()
 ```
 
+Pandas may choose Arrow `large_string` for text. Supplying the SQL source
+schema keeps the write/read-back comparison on the same logical types.
+
 ## Validation and limits
 
-The [November 3 evidence](../validation/2026-11-03-flight-integrations/README.md)
-records the tested workflow for this tool; consult the
-[tool report](../validation/2026-11-03-flight-integrations/reports/summary.md)
-for its scope. The read/write recipe above is documentation added after that
-run and has not been executed against a live endpoint. Historical model reads
-or local artifact saves do not establish database write coverage. Writes here
-use Arrow ingestion through Flight SQL; this is not a tool-native Redis writer.
+The [live guide recipe run](../validation/2026-11-03-guide-recipes/README.md) passed this example's remote
+read, output write, fresh ordered read-back and cleanup. The report records
+runtime versions and the precise scope. Writes use Arrow ingestion through
+Flight SQL; native writer API support is not implied.
 
 SQL uses autocommit. Client results are materialized in memory; these examples
 do not establish distributed execution, Enterprise qualification or TLS/auth.

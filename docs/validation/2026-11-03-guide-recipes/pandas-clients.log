@@ -1,0 +1,4 @@
+   id  label  amount
+0   1    one     1.5
+1   2    NaN     2.5
+2   3  three     3.5

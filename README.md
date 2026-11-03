@@ -141,8 +141,17 @@ and [repeatable testing guide](docs/integrations/testing.md).
 That run used community source `c019afc` and standalone Redis Open Source 8.6.2
 with Search. It does not establish Redis Enterprise/Software qualification,
 4× QPF, TLS/authentication, distributed execution or full application
-certification. The live profiles have not been rerun against the newer
-Enterprise composition.
+certification. That historical profile sweep has not been repeated in full against the
+newer Enterprise composition; the separate guide recipe run below has its own
+execution scope and provenance.
+
+The [subsequent live guide recipe run](docs/validation/2026-11-03-guide-recipes/README.md)
+passed scoped workflows for those 27 routes against the retained Enterprise-backed
+endpoint, including output writes and read-back. Tableau used external ADBC
+writes followed by a native preview. Three recipe defects were fixed: notebook
+string schema conversion, Airflow DAG discovery and DuckDB 2.0's Arrow API.
+This validates the documented client flows against that running deployment;
+it does not requalify the current public source fingerprint or a release.
 
 Integration validation requires a disposable Redis Enterprise cluster with Search,
 verified TLS, username/password authentication, and the qualified enterprise
@@ -170,7 +179,7 @@ limitations and external ingestion alternatives where needed. Start with the
 | [Polars](docs/integrations/polars.md) | ADBC `pl.read_database`, or `pl.from_arrow()` | Reads, NULLs, empty results and batch iteration passed |
 | [DuckDB](docs/integrations/duckdb.md) | Download an Arrow table, then query it locally | Local SQL over Flight SQL and Flight RPC Arrow results passed |
 | [R](docs/integrations/r.md) | `adbcdrivermanager` with the Flight SQL shared driver | DDL, writes, queries, NULLs and empty results passed; DBI/adbi untested |
-| [Apache Superset](docs/superset.md) | Direct Redis ADBC for 6.1; Flight SQL candidate for 7 | Tested Flight adapter blocked on 6.1; Superset 7 Flight SQL application validation pending |
+| [Apache Superset](docs/superset.md) | Direct Redis ADBC for 6.1; Flight SQL candidate for 7 | Flight adapter blocked on 6.1; 7.0.0 development runtime SQL Lab API read/write passed; browser and full application validation pending |
 | [Tableau](docs/integrations/tableau.md) | Other Databases (JDBC) with Flight SQL JDBC | Desktop Free Edition 2026.3: connection, discovery and three-row preview (including NULL) passed; [read validation and scope](docs/validation/2026-11-01-tableau/README.md) |
 | [Metabase](docs/integrations/metabase.md) | Community Flight SQL plugin 0.8.0 with bundled JDBC 19.0.0 | Metabase 0.64.2.9 API reads, schema sync, generated queries and INSERT/UPDATE/DELETE Actions passed; [evidence and native-DDL limitation](docs/validation/2026-11-01-bi-jdbc/README.md) |
 | [Power BI](docs/integrations/power-bi.md) | Custom ADBC Power Query connector | Untested; no connector shipped |
@@ -197,8 +206,9 @@ limitations and external ingestion alternatives where needed. Start with the
 | [Quarto](docs/integrations/quarto.md) | Flight SQL via Arrow/ADBC | November 3: Python-cell reads and HTML rendering passed |
 | [RStudio](docs/integrations/rstudio.md) | R ADBC in the native IDE | November 3: Native R Console read/write harness passed; DBI/adbi untested |
 
-The table records operation-specific scopes and dates. New guide write-back
-recipes have not been live-tested and do not extend those recorded scopes.
+The table records operation-specific scopes and dates. The [live recipe results](docs/validation/2026-11-03-guide-recipes/summary.md)
+add scoped read/write evidence; native application writes and external ADBC
+ingestion are identified separately.
 The [November 3 sweep](docs/client-compatibility.md#all-27-inventoried-flight-sql-routes--november-3-2026)
 adds fresh evidence for dataframe, ML, plotting, workflow and application routes;
 R DBI/adbi, Tableau worksheets/extracts/dashboards, and Metabase browser

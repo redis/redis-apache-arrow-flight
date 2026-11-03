@@ -63,8 +63,8 @@ on disk; remove the shared input with the [fixture cleanup](README.md#optional-s
 
 ## Validation and limits
 
-The [November 3 run](../validation/2026-11-03-flight-integrations/README.md)
-validated Python reads and rendered HTML, with PyYAML explicitly installed.
-The write example above was added afterward and has not been executed live.
-It uses ADBC ingestion in a document cell, not a Quarto database connector.
-It does not establish Enterprise, TLS/authentication or production write coverage.
+The [live guide run](../validation/2026-11-03-guide-recipes/README.md) passed remote reads,
+ADBC ingestion, exact read-back, cleanup and HTML rendering with the executed
+Python cell. The document profile explicitly includes PyYAML. This uses ADBC
+in a document cell, not a packaged Quarto database connector. It does not
+establish production deployment or client TLS/authentication coverage.

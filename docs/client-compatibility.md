@@ -259,3 +259,24 @@ and keeps application evidence explicit. The local run used community source
 1.13.0. It does not establish Software/QPF, TLS/authentication, distributed
 execution or full application certification. Operation-specific scopes and
 remaining limitations are recorded with every route.
+
+## Live guide recipes — November 3, 2026
+
+The [guide recipe validation](validation/2026-11-03-guide-recipes/README.md)
+executed the documented client flows against the retained Enterprise-backed
+endpoint after the historical OSS sweep above. All 27 inventoried routes have
+scoped recipe passes: output writes and exact read-back through ADBC for library
+workflows, native RStudio console execution, Tableau external ingestion followed
+by native preview, and Metabase Actions plus native API reads. Java, Go,
+DuckDB, driver-level JDBC SQL and Superset 7.0.0 development SQL Lab APIs were
+also exercised. This is not a claim of native database writers in every tool.
+
+The notebook, Airflow and DuckDB recipes were corrected and rerun successfully.
+Backend checks verified TLS/hostname against a Docker-sourced pinned proxy
+certificate, ACL identity, rejection of plaintext/unauthenticated/untrusted
+connections, three active primary shards and active 4x QPF. Flight clients used
+local plaintext gRPC. The old host bind mount disappeared, so the server's
+binary checksum and full source fingerprint could not be recovered. These
+client checks do not qualify current-source builds or a release. Consult the
+[per-guide results](validation/2026-11-03-guide-recipes/summary.md) for partial
+Power BI/Redis Insight checks and unchanged application UI limitations.

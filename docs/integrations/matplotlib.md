@@ -62,13 +62,10 @@ with sql.connect(uri, autocommit=True) as conn, conn.cursor() as cur:
 
 ## Validation and limits
 
-The [November 3 evidence](../validation/2026-11-03-flight-integrations/README.md)
-records the tested workflow for this tool; consult the
-[tool report](../validation/2026-11-03-flight-integrations/reports/summary.md)
-for its scope. The read/write recipe above is documentation added after that
-run and has not been executed against a live endpoint. Historical model reads
-or local artifact saves do not establish database write coverage. Writes here
-use Arrow ingestion through Flight SQL; this is not a tool-native Redis writer.
+The [live guide recipe run](../validation/2026-11-03-guide-recipes/README.md) passed this example's remote
+read, output write, fresh ordered read-back and cleanup. The report records
+runtime versions and the precise scope. Writes use Arrow ingestion through
+Flight SQL; native writer API support is not implied.
 
 Use a separate interpreter for each model example. The recorded combined
 XGBoost/PyTorch runtime aborted; the runner isolates native ML runtimes.

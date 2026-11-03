@@ -1,0 +1,9 @@
+pyarrow.Table
+id: int64
+label: string
+amount: double
+----
+id: [[2,3]]
+label: [[null,"three"]]
+amount: [[2.5,3.5]]
+<pyarrow.Buffer address=0x4c2034140 size=143 is_cpu=True is_mutable=True>

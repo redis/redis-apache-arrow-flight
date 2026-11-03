@@ -1,0 +1,61 @@
+[IPKernelApp] WARNING | Kernel is running over TCP without encryption. All communication (including code and outputs) is sent in plain text and is susceptible to eavesdropping. Use IPC transport or launch with kernel manager-provisioned CurveZMQ keys to enable transport encryption.
+Traceback (most recent call last):
+  File "/tmp/flight-recipes-live/run-notebooks.py", line 10, in <module>
+    nb=NotebookClient(nb,kernel_name='flight-guide-live',timeout=90).execute(cwd=str(out),env=os.environ.copy())
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flight-repeatable-5068/workflows/lib/python3.12/site-packages/jupyter_core/utils/__init__.py", line 165, in wrapped
+    return loop.run_until_complete(inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/albert.wong/.local/share/uv/python/cpython-3.12.15-macos-aarch64-none/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/tmp/flight-repeatable-5068/workflows/lib/python3.12/site-packages/nbclient/client.py", line 709, in async_execute
+    await self.async_execute_cell(
+  File "/tmp/flight-repeatable-5068/workflows/lib/python3.12/site-packages/nbclient/client.py", line 1062, in async_execute_cell
+    await self._check_raise_for_error(cell, cell_index, exec_reply)
+  File "/tmp/flight-repeatable-5068/workflows/lib/python3.12/site-packages/nbclient/client.py", line 918, in _check_raise_for_error
+    raise CellExecutionError.from_cell_and_msg(cell, exec_reply_content)
+nbclient.exceptions.CellExecutionError: An error occurred while executing the following cell:
+------------------
+import os
+import uuid
+import pyarrow as pa
+import adbc_driver_flightsql.dbapi as sql
+
+uri = os.environ.get("FLIGHT_URI", "grpc://localhost:18816")
+with sql.connect(uri, autocommit=True) as conn, conn.cursor() as cur:
+    cur.execute("SELECT id, label, amount FROM guide_live_20261103_d2f23049d00d ORDER BY id")
+    source = cur.fetch_arrow_table()
+
+# Run this cell in the Python kernel installed in the active environment.
+frame = source.to_pandas()
+display(frame)
+frame["amount"] = frame["amount"] * 2
+output = pa.Table.from_pandas(frame, preserve_index=False)
+
+# Write the tool's output through Flight SQL, then verify the stored values.
+name = "guide_" + uuid.uuid4().hex
+with sql.connect(uri, autocommit=True) as conn, conn.cursor() as cur:
+    try:
+        cur.adbc_ingest(name, output, mode="create")
+        cur.execute(f'SELECT * FROM "{name}" ORDER BY id')
+        received = cur.fetch_arrow_table()
+        assert received.equals(output)
+        print(received)
+    finally:
+        cur.execute(f'DROP TABLE IF EXISTS "{name}"')
+        cur.fetch_arrow_table()
+
+------------------
+
+
+---------------------------------------------------------------------------
+AssertionError                            Traceback (most recent call last)
+Cell In[1], line 28
+     24         assert received.equals(output)
+     25         print(received)
+     26     finally:
+     27         cur.execute(f'DROP TABLE IF EXISTS "{name}"')
+---> 28         cur.fetch_arrow_table()
+
+AssertionError:

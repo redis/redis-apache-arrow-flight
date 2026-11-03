@@ -67,3 +67,7 @@ adbc_database_release(db)
 Keep autocommit enabled. If loading fails, check library architecture, OS,
 dependencies and the `AdbcDriverFlightSQLInit` entry point. The recorded checks
 use a local unauthenticated endpoint; TLS/authentication remains outside that scope.
+
+The [live guide recipe run](../validation/2026-11-03-guide-recipes/README.md) also passed this exact R
+harness against the retained Enterprise-backed Flight endpoint. Its scope is
+R driver-manager statements and stream conversion, not DBI/adbi.

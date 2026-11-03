@@ -1,0 +1,5 @@
+SHARDS:
+DB:ID    NAME               ID      NODE   ROLE   SLOTS       USED_MEMORY STATUS
+db:1     flight-integration redis:1 node:1 master 0-5460      4.48MB      OK
+db:1     flight-integration redis:2 node:1 master 5461-10922  4.86MB      OK
+db:1     flight-integration redis:3 node:1 master 10923-16383 4.39MB      OK

@@ -30,7 +30,7 @@ sample table. Inspect the script for the complete statement and stream code.
 
 ## Validation and limits
 
-The [November 3 RStudio transcript](../validation/2026-11-03-flight-integrations/rstudio.log)
+The [November 3 RStudio transcript](../validation/2026-11-03-guide-recipes/rstudio.log)
 records native R Console execution of this harness, including writes and
-read-back. DBI/adbi and RStudio's Connections pane remain untested. The recorded
-community/OSS run did not qualify Enterprise or TLS/authentication.
+read-back. DBI/adbi and RStudio's Connections pane remain untested. The live run used the retained Enterprise-backed endpoint; it does not
+qualify a new public source fingerprint or test Flight client TLS/auth.

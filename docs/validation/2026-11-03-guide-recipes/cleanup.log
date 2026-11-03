@@ -1,0 +1,5 @@
+PASS all test row 99 writes were removed; original input retained ids 1,2,3 before drop.
+PASS dropped test-owned input guide_live_20261103_d2f23049d00d.
+PASS metadata returned no guide_ output tables.
+Existing unrelated tables and Redis/Flight containers untouched.
+PASS removed disposable container flight-guide-metabase-20261103.

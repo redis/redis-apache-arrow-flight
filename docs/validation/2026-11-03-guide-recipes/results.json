@@ -1,0 +1,250 @@
+{
+  "observed_at": "2026-11-03T19:19:03.381030+00:00",
+  "guide_source_commit": "d5158fcd93c466412336a8528d1ddafc85a30921",
+  "recipe_fixes": [
+    "jupyter source Arrow schema",
+    "Airflow module-level DAG and isolated DAG directory",
+    "DuckDB 2.0 to_arrow_table API"
+  ],
+  "fixture": "guide_live_20261103_d2f23049d00d",
+  "flight_uri": "grpc://localhost:18816",
+  "inventory_route_scoped_passes": 27,
+  "results": {
+    "numpy": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.7,
+      "profile": "core",
+      "log": "numpy.log",
+      "source": "docs/integrations/numpy.md"
+    },
+    "scikit-learn": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 1.61,
+      "profile": "core",
+      "log": "scikit-learn.log",
+      "source": "docs/integrations/scikit-learn.md"
+    },
+    "sqlalchemy": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.63,
+      "profile": "core",
+      "log": "sqlalchemy.log",
+      "source": "docs/integrations/sqlalchemy.md"
+    },
+    "dagster": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 1.39,
+      "profile": "core",
+      "log": "dagster.log",
+      "source": "docs/integrations/dagster.md"
+    },
+    "pandas": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": "pandas-clients.log",
+      "profile": "clients",
+      "scope": "documented client versions read/write"
+    },
+    "polars": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": "polars-clients.log",
+      "profile": "clients",
+      "scope": "documented client versions read/write"
+    },
+    "python": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": "python-clients.log",
+      "profile": "clients",
+      "scope": "documented client versions read/write"
+    },
+    "duckdb": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": "duckdb-clients.log",
+      "profile": "clients",
+      "scope": "documented client versions read/write"
+    },
+    "scipy": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 10.56,
+      "profile": "workflows",
+      "log": "scipy.log",
+      "source": "docs/integrations/scipy.md"
+    },
+    "hugging-face-datasets": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.66,
+      "profile": "workflows",
+      "log": "hugging-face-datasets.log",
+      "source": "docs/integrations/hugging-face-datasets.md"
+    },
+    "xgboost": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.64,
+      "profile": "models",
+      "log": "xgboost.log",
+      "source": "docs/integrations/xgboost.md"
+    },
+    "pytorch": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 1.2,
+      "profile": "models",
+      "log": "pytorch.log",
+      "source": "docs/integrations/pytorch.md"
+    },
+    "tensorflow": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 3.42,
+      "profile": "models",
+      "log": "tensorflow.log",
+      "source": "docs/integrations/tensorflow.md"
+    },
+    "keras": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 2.27,
+      "profile": "models",
+      "log": "keras.log",
+      "source": "docs/integrations/keras.md"
+    },
+    "transformers": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 3.85,
+      "profile": "models",
+      "log": "transformers.log",
+      "source": "docs/integrations/transformers.md"
+    },
+    "plotly": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.28,
+      "profile": "models",
+      "log": "plotly.log",
+      "source": "docs/integrations/plotly.md"
+    },
+    "matplotlib": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.41,
+      "profile": "models",
+      "log": "matplotlib.log",
+      "source": "docs/integrations/matplotlib.md"
+    },
+    "kubeflow": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.92,
+      "profile": "orchestrators",
+      "log": "kubeflow.log",
+      "source": "docs/integrations/kubeflow.md"
+    },
+    "metaflow": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 0.89,
+      "profile": "orchestrators",
+      "log": "metaflow.log",
+      "source": "docs/integrations/metaflow.md"
+    },
+    "airflow": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": "airflow-fixed.log",
+      "scope": "local TaskFlow read/write, verification and cleanup"
+    },
+    "spark": {
+      "status": "passed",
+      "exit_code": 0,
+      "seconds": 5.91,
+      "profile": "spark",
+      "log": "spark.log",
+      "source": "docs/integrations/spark.md"
+    },
+    "tableau": {
+      "status": "passed",
+      "exit_code": 0,
+      "log": "tableau-clients.log",
+      "profile": "clients",
+      "scope": "native JDBC connection/catalog/schema/table discovery and preview; external ADBC INSERT and verification, native UI displayed row 99 / guide / 9.5; no native Tableau writes",
+      "ui_log": "tableau-ui.log"
+    },
+    "power-bi": {
+      "status": "partial",
+      "exit_code": 0,
+      "log": "power-bi-clients.log",
+      "profile": "clients",
+      "scope": "external ADBC ingestion/read-back passed; Power BI application/connector unavailable, so refresh not run"
+    },
+    "jupyter": {
+      "status": "passed",
+      "scope": "separate notebook kernel",
+      "log": "notebooks.log"
+    },
+    "streamlit": {
+      "status": "passed",
+      "scope": "AppTest button execution; no browser rendering",
+      "log": "notebooks.log"
+    },
+    "quarto": {
+      "status": "passed",
+      "log": "quarto.log",
+      "scope": "Python cell read/write/read-back and rendered HTML"
+    },
+    "r": {
+      "status": "passed",
+      "log": "r.log",
+      "scope": "standalone R ADBC DDL/INSERT/read/NULL/empty/aggregate/cleanup"
+    },
+    "rstudio": {
+      "status": "passed",
+      "log": "rstudio.log",
+      "scope": "native RStudio R Console, sourced guide harness; reads and writes"
+    },
+    "go": {
+      "status": "passed",
+      "log": "go.log",
+      "scope": "Go Flight SQL ExecuteUpdate and typed read-back, plus guide SELECT"
+    },
+    "java": {
+      "status": "passed",
+      "log": "java-write.log",
+      "scope": "documented Java JDBC read and write programs; read-back asserted"
+    },
+    "jdbc-applications": {
+      "status": "passed",
+      "log": "jdbc-applications.log",
+      "scope": "guide aggregate and INSERT/UPDATE/DELETE SQL through JDBC; arbitrary application UIs untested"
+    },
+    "metabase": {
+      "status": "passed",
+      "log": "metabase.log",
+      "scope": "fresh application custom Actions INSERT/UPDATE/DELETE plus native read-back"
+    },
+    "superset": {
+      "status": "passed",
+      "log": "superset.log",
+      "scope": "Superset 7.0.0 development runtime SQL Lab via in-process Flask API; reads/INSERT/DELETE/read-back"
+    },
+    "redis-insight": {
+      "status": "partial",
+      "log": "redis-insight-commands.log",
+      "scope": "documented SET NX / GET / DEL / GET commands passed directly over verified Redis TLS; Redis Insight UI not installed"
+    },
+    "dbeaver": {
+      "status": "not_run",
+      "scope": "no new SQL recipe was added to this guide, only installation link; UI retest not completed because navigator content was unavailable to accessibility and coordinate targeting failed; historical results unchanged"
+    }
+  }
+}

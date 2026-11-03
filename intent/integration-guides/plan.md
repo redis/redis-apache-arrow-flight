@@ -5,7 +5,9 @@
 3. Complete existing write examples and link every guide from both entry points.
 4. Check local links/anchors, embedded code syntax and whitespace; create a PR.
 
-Review: documentation-only; no server/protocol/storage/identity changes. New
-recipes remain explicitly unexecuted live. Tableau and Power BI writes use an
+Review: documentation-only; no server/protocol/storage/identity changes. The follow-up live run executed all 27 inventoried scoped recipes and fixed
+notebook schema conversion, Airflow DAG discovery and DuckDB 2.0 API usage.
+See docs/validation/2026-11-03-guide-recipes/README.md for scope and provenance
+limits. Tableau and Power BI writes use an
 external ingestion alternative; no native application write pass is claimed.
 Maintainer approval remains pending in the PR.

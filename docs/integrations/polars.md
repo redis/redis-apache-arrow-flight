@@ -45,8 +45,8 @@ establish arbitrary Polars API compatibility. Use the
 
 Run in the environment installed above. This example writes the tool's Arrow
 output through ADBC, reads the persisted values back and drops its unique table.
-It is an illustrative recipe added after the recorded validation, not a new
-live test result. It does not establish tool-native writer API support.
+The [live recipe run](../validation/2026-11-03-guide-recipes/README.md) passed with the documented
+client requirements. It does not establish tool-native writer API support.
 
 ```python
 import uuid

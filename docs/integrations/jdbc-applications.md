@@ -59,5 +59,6 @@ DELETE FROM flight_tool_sample WHERE id = 99;
 SELECT * FROM flight_tool_sample WHERE id = 99;
 ```
 
-This is a suggested application acceptance recipe. Record the actual result
-before claiming writes for an untested application. SQL uses autocommit.
+The [live guide run](../validation/2026-11-03-guide-recipes/README.md) passed these SQL statements
+through the Flight SQL JDBC driver. That driver-level result does not validate
+arbitrary application UIs; record each application separately. SQL uses autocommit.

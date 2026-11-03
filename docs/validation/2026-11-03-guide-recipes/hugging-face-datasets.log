@@ -1,0 +1,11 @@
+
+Filter:   0%|          | 0/3 [00:00<?, ? examples/s]
+Filter: 100%|██████████| 3/3 [00:00<00:00, 1109.12 examples/s]
+pyarrow.Table
+id: int64
+label: string
+amount: double
+----
+id: [[2,3]]
+label: [[null,"three"]]
+amount: [[2.5,3.5]]

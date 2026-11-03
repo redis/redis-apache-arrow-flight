@@ -68,8 +68,9 @@ Run and save results for the 27 inventoried Flight SQL routes with the
 Every inventoried route has a guide above, including installation and a
 read/write workflow. For read-oriented or unavailable application connectors,
 the guide states the write limitation and provides an external ingestion path.
-A local model/artifact save is separate from a database write. New write-back
-recipes are illustrative and do not expand historical validation claims.
+A local model/artifact save is separate from a database write. The [live recipe run](../validation/2026-11-03-guide-recipes/README.md) records
+executed read/write scopes and remaining application limitations separately
+from the earlier historical sweep.
 
 ## Optional sample SQL table
 

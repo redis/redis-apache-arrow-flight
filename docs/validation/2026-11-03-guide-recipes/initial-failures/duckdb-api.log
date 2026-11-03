@@ -1,0 +1,1 @@
+DuckDB 2.0.0: AttributeError: '_duckdb.DuckDBPyConnection' object has no attribute 'fetch_arrow_table'. Did you mean: 'to_arrow_table'?

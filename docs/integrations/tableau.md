@@ -78,5 +78,7 @@ with sql.connect("grpc://localhost:8815", autocommit=True) as conn, conn.cursor(
     assert cur.fetch_arrow_table().num_rows == 0
 ```
 
-These are illustrative external ingestion steps, not a recorded application
-write pass. This documentation update has not rerun them live.
+The [live guide run](../validation/2026-11-03-guide-recipes/README.md) passed the external Python
+write/read-back and cleanup. A fresh native Tableau connection previewed all
+four rows, including `99 / guide / 9.50000`. This validates external ingestion
+followed by Tableau reading; it does not establish native Tableau writes.

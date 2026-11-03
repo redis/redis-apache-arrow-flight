@@ -71,5 +71,6 @@ with sql.connect("grpc://localhost:8815", autocommit=True) as conn, conn.cursor(
     assert cur.fetch_arrow_table().num_rows == 0
 ```
 
-These are illustrative external ingestion steps, not a recorded application
-write pass. This documentation update has not rerun them live.
+The [live guide run](../validation/2026-11-03-guide-recipes/README.md) passed the external Python
+write/read-back and cleanup. Power BI and a compatible connector were not
+available, so its refresh was not run. No Power BI application pass is claimed.

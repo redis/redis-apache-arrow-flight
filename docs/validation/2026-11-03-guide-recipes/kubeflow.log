@@ -1,0 +1,30 @@
+11:05:50.046 - INFO - Executing task 'copy-rows'
+11:05:50.046 - INFO - Streamed logs:
+
+    [KFP Executor 2026-11-03 11:05:50,109 INFO]: Looking for component `copy_rows` in --component_module_path `/var/folders/gv/3m3bj31563lb0qds5jsqm8sw0000gp/T/tmp.YK26xfdMa7/ephemeral_component.py`
+    [KFP Executor 2026-11-03 11:05:50,109 INFO]: Loading KFP component "copy_rows" from /var/folders/gv/3m3bj31563lb0qds5jsqm8sw0000gp/T/tmp.YK26xfdMa7/ephemeral_component.py (directory "/var/folders/gv/3m3bj31563lb0qds5jsqm8sw0000gp/T/tmp.YK26xfdMa7" and module name "ephemeral_component")
+    [KFP Executor 2026-11-03 11:05:50,109 INFO]: Got executor_input:
+    {
+        "inputs": {},
+        "outputs": {
+            "parameters": {
+                "Output": {
+                    "outputFile": "/private/tmp/flight-recipes-live/flight-kfp-output/copy-rows-2026-11-03-11-05-50-046524/copy-rows/Output"
+                }
+            },
+            "outputFile": "/private/tmp/flight-recipes-live/flight-kfp-output/copy-rows-2026-11-03-11-05-50-046524/copy-rows/executor_output.json"
+        }
+    }
+    pyarrow.Table
+    id: int64
+    amount: double
+    ----
+    id: [[1,2,3]]
+    amount: [[3,5,7]]
+    [KFP Executor 2026-11-03 11:05:50,336 INFO]: Wrote executor output file to /private/tmp/flight-recipes-live/flight-kfp-output/copy-rows-2026-11-03-11-05-50-046524/copy-rows/executor_output.json.
+
+
+11:05:50.347 - INFO - Task 'copy-rows' finished with status SUCCESS
+11:05:50.347 - INFO - Task 'copy-rows' outputs:
+    Output: 3
+--------------------------------------------------------------------------------
