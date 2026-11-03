@@ -1,0 +1,46 @@
+Using CPython 3.12.15
+Creating virtual environment at: /private/tmp/flight-repeatable-5068/documents
+Activate with: source /private/tmp/flight-repeatable-5068/documents/bin/activate
+Using Python 3.12.15 environment at: /private/tmp/flight-repeatable-5068/documents
+Checked 8 packages in 51ms
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/documents/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 2 items
+
+tests/integrations/test_documents.py::test_quarto PASSED                 [ 50%]
+tests/integrations/test_documents.py::test_r_driver_manager PASSED       [100%]
+
+==================================== PASSES ====================================
+____________________________ test_r_driver_manager _____________________________
+----------------------------- Captured stdout call -----------------------------
+PASS R Flight SQL: DDL, writes, query, nulls, empty result, aggregate
+R version 4.6.2 (2026-10-29)
+Platform: aarch64-apple-darwin25.6.0
+Running under: macOS Tahoe 26.7.2
+
+Matrix products: default
+BLAS:   /opt/homebrew/Cellar/openblas/0.3.34/lib/libopenblasp-r0.3.34.dylib
+LAPACK: /opt/homebrew/Cellar/r/4.6.2/lib/R/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+
+time zone: America/Los_Angeles
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] adbcdrivermanager_0.25.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.2  nanoarrow_0.9.0
+
+----- generated xml file: /private/tmp/flight-sweep-complete/documents.xml -----
+=========================== short test summary info ============================
+PASSED tests/integrations/test_documents.py::test_quarto
+PASSED tests/integrations/test_documents.py::test_r_driver_manager
+============================== 2 passed in 3.02s ===============================

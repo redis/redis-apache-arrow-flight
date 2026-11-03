@@ -1,0 +1,51 @@
+Using CPython 3.12.15
+Creating virtual environment at: /private/tmp/flight-repeatable-5068/orchestrators
+Activate with: source /private/tmp/flight-repeatable-5068/orchestrators/bin/activate
+Using Python 3.12.15 environment at: /private/tmp/flight-repeatable-5068/orchestrators
+Checked 6 packages in 59ms
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/orchestrators/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 2 items
+
+tests/integrations/test_orchestrator_candidates.py::test_kubeflow_local_component PASSED [ 50%]
+tests/integrations/test_orchestrator_candidates.py::test_metaflow_local_flow PASSED [100%]
+
+==================================== PASSES ====================================
+________________________ test_kubeflow_local_component _________________________
+----------------------------- Captured stdout call -----------------------------
+09:46:43.472 - INFO - Executing task [96m'read-redis'[0m
+09:46:43.472 - INFO - Streamed logs:
+
+    [KFP Executor 2026-11-03 09:46:43,539 INFO]: Looking for component `read_redis` in --component_module_path `/var/folders/gv/3m3bj31563lb0qds5jsqm8sw0000gp/T/tmp.PPSIAFy7iw/ephemeral_component.py`
+    [KFP Executor 2026-11-03 09:46:43,539 INFO]: Loading KFP component "read_redis" from /var/folders/gv/3m3bj31563lb0qds5jsqm8sw0000gp/T/tmp.PPSIAFy7iw/ephemeral_component.py (directory "/var/folders/gv/3m3bj31563lb0qds5jsqm8sw0000gp/T/tmp.PPSIAFy7iw" and module name "ephemeral_component")
+    [KFP Executor 2026-11-03 09:46:43,541 INFO]: Got executor_input:
+    {
+        "inputs": {
+            "parameterValues": {
+                "table_name": "it_flight_sweep_3444ace1a793435fa3b3c67289472090",
+                "redis_uri": "grpc://127.0.0.1:18825"
+            }
+        },
+        "outputs": {
+            "parameters": {
+                "Output": {
+                    "outputFile": "/private/tmp/flight-sweep-complete/artifacts/orchestrators/test_kubeflow_local_component0/outputs/read-redis-2026-11-03-09-46-43-472046/read-redis/Output"
+                }
+            },
+            "outputFile": "/private/tmp/flight-sweep-complete/artifacts/orchestrators/test_kubeflow_local_component0/outputs/read-redis-2026-11-03-09-46-43-472046/read-redis/executor_output.json"
+        }
+    }
+    [KFP Executor 2026-11-03 09:46:43,628 INFO]: Wrote executor output file to /private/tmp/flight-sweep-complete/artifacts/orchestrators/test_kubeflow_local_component0/outputs/read-redis-2026-11-03-09-46-43-472046/read-redis/executor_output.json.
+
+
+09:46:43.639 - INFO - Task [96m'read-redis'[0m finished with status [92mSUCCESS[0m
+09:46:43.640 - INFO - Task [96m'read-redis'[0m outputs:
+    Output: 6
+--------------------------------------------------------------------------------
+--- generated xml file: /private/tmp/flight-sweep-complete/orchestrators.xml ---
+=========================== short test summary info ============================
+PASSED tests/integrations/test_orchestrator_candidates.py::test_kubeflow_local_component
+PASSED tests/integrations/test_orchestrator_candidates.py::test_metaflow_local_flow
+============================== 2 passed in 1.77s ===============================

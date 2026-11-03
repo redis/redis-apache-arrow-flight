@@ -1,0 +1,145 @@
+Using CPython 3.12.16
+Creating virtual environment at: /private/tmp/flight-repeatable-5068/documents
+Activate with: source /private/tmp/flight-repeatable-5068/documents/bin/activate
+Using Python 3.12.16 environment at: /private/tmp/flight-repeatable-5068/documents
+Resolved 44 packages in 7ms
+Installed 44 packages in 171ms
+ + adbc-driver-flightsql==1.13.0
+ + adbc-driver-manager==1.13.0
+ + appnope==1.0.0
+ + asttokens==3.0.2
+ + attrs==26.1.0
+ + comm==0.2.3
+ + debugpy==1.8.22
+ + executing==2.3.0
+ + fastjsonschema==2.22.3
+ + iniconfig==2.3.1
+ + ipykernel==7.4.0
+ + ipython==9.18.1
+ + ipython-pygments-lexers==1.1.1
+ + jedi==0.20.1
+ + jsonschema==4.26.0
+ + jsonschema-specifications==2025.9.1
+ + jupyter-client==8.10.0
+ + jupyter-core==5.9.1
+ + matplotlib-inline==0.2.2
+ + nbclient==0.11.0
+ + nbformat==5.11.1
+ + nest-asyncio2==1.7.4
+ + packaging==26.3
+ + parso==0.8.7
+ + pexpect==4.9.0
+ + platformdirs==4.14.3
+ + pluggy==1.7.0
+ + prompt-toolkit==3.0.53
+ + psutil==7.2.2
+ + ptyprocess==0.7.0
+ + pure-eval==0.2.4
+ + pyarrow==26.0.0
+ + pygments==2.21.0
+ + pytest==9.2.0
+ + python-dateutil==4.0.0
+ + pyzmq==27.2.0
+ + referencing==0.37.0
+ + rpds-py==2026.9.1
+ + stack-data==0.6.3
+ + tornado==6.6
+ + traitlets==5.16.1
+ + typing-extensions==4.16.0
+ + tzdata==2026.6
+ + wcwidth==0.9.4
+============================= test session starts ==============================
+platform darwin -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/documents/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 2 items
+
+tests/integrations/test_documents.py::test_quarto FAILED                 [ 50%]
+tests/integrations/test_documents.py::test_r_driver_manager PASSED       [100%]
+
+=================================== FAILURES ===================================
+_________________________________ test_quarto __________________________________
+
+uri = 'grpc://127.0.0.1:18825'
+workflow_rows = ('it_flight_sweep_b0c33a1b6c874a5d8f4f922100e92e68', pyarrow.Table
+id: int64
+label: string
+amount: double
+active: bool
+----
+id: [[1,2,3]]
+label: [["alpha",null,"雪"]]
+amount: [[2.5,null,7.5]]
+active: [[true,null,false]])
+tmp_path = PosixPath('/private/tmp/flight-sweep-final/artifacts/documents/test_quarto0')
+
+    def test_quarto(uri, workflow_rows, tmp_path):
+        name, _ = workflow_rows
+        doc = tmp_path / 'flight.qmd'
+        doc.write_text(textwrap.dedent('''\
+            ---
+            title: Flight SQL integration
+            format: html
+            jupyter: python3
+            ---
+            ```{python}
+            import os
+            import adbc_driver_flightsql.dbapi as sql
+            with sql.connect(os.environ['FLIGHT_URI'], autocommit=True) as conn, conn.cursor() as cur:
+                cur.execute('SELECT * FROM "' + os.environ['FLIGHT_TABLE'] + '" ORDER BY id')
+                data = cur.fetch_arrow_table()
+            assert data['label'].to_pylist() == ['alpha', None, '雪']
+            assert data['amount'].to_pylist() == [2.5, None, 7.5]
+            print('FLIGHT_ROWS_CHECKED=3')
+            ```
+            '''))
+        env = {**os.environ, 'FLIGHT_URI':uri, 'FLIGHT_TABLE':name,
+               'QUARTO_PYTHON':sys.executable, 'JUPYTER_RUNTIME_DIR': str(tmp_path/'runtime')}
+        result = subprocess.run([os.environ.get('QUARTO','quarto'),'render',str(doc)], env=env,
+                                capture_output=True,text=True,timeout=180)
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError:
+E         Starting python3 kernel...Traceback (most recent call last):
+E           File "/Applications/RStudio.app/Contents/Resources/app/quarto/share/jupyter/jupyter.py", line 20, in <module>
+E             from notebook import notebook_execute, RestartKernel
+E           File "/Applications/RStudio.app/Contents/Resources/app/quarto/share/jupyter/notebook.py", line 15, in <module>
+E             from yaml import safe_load as parse_string
+E         ModuleNotFoundError: No module named 'yaml'
+E         WARN: Error encountered when rendering files
+E
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/Applications/RStudio.app/Contents/Resources/app/quarto/bin/quarto', 'render', '/private/tmp/flight-sweep-final/artifacts/documents/test_quarto0/flight.qmd'], returncode=1, stdout='', stderr='\nStarting python3 kernel...Traceback (most recent call last):\n  File "/Applications/RStudio.app/Contents/Resources/app/quarto/share/jupyter/jupyter.py", line 20, in <module>\n    from notebook import notebook_execute, RestartKernel\n  File "/Applications/RStudio.app/Contents/Resources/app/quarto/share/jupyter/notebook.py", line 15, in <module>\n    from yaml import safe_load as parse_string\nModuleNotFoundError: No module named \'yaml\'\nWARN: Error encountered when rendering files\n').returncode
+
+tests/integrations/test_documents.py:32: AssertionError
+==================================== PASSES ====================================
+____________________________ test_r_driver_manager _____________________________
+----------------------------- Captured stdout call -----------------------------
+PASS R Flight SQL: DDL, writes, query, nulls, empty result, aggregate
+R version 4.6.2 (2026-10-29)
+Platform: aarch64-apple-darwin25.6.0
+Running under: macOS Tahoe 26.7.2
+
+Matrix products: default
+BLAS:   /opt/homebrew/Cellar/openblas/0.3.34/lib/libopenblasp-r0.3.34.dylib
+LAPACK: /opt/homebrew/Cellar/r/4.6.2/lib/R/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] C.UTF-8/C.UTF-8/C.UTF-8/C/C.UTF-8/C.UTF-8
+
+time zone: America/Los_Angeles
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base
+
+other attached packages:
+[1] adbcdrivermanager_0.25.0
+
+loaded via a namespace (and not attached):
+[1] compiler_4.6.2  nanoarrow_0.9.0
+
+------ generated xml file: /private/tmp/flight-sweep-final/documents.xml -------
+=========================== short test summary info ============================
+PASSED tests/integrations/test_documents.py::test_r_driver_manager
+FAILED tests/integrations/test_documents.py::test_quarto - AssertionError:
+========================= 1 failed, 1 passed in 1.52s ==========================

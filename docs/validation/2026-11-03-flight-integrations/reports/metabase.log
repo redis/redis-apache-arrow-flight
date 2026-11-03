@@ -1,0 +1,11 @@
+PASS database connection
+{"check": "native ordered rows and NULL", "status": "PASS", "rows": [[1, "east", 10.5], [2, "west", 20.0], [3, "east", null]]}
+{"check": "native aggregate", "status": "PASS", "rows": [["east", 2, 10.5], ["west", 1, 20.0]]}
+{"check": "native empty result", "status": "PASS", "rows": []}
+{"check": "schema sync", "status": "PASS", "schema": "public", "fields": [{"name": "id", "base_type": "type/Integer", "database_type": "BIGINT"}, {"name": "category", "base_type": "type/Text", "database_type": "CHARACTER VARYING"}, {"name": "amount", "base_type": "type/Float", "database_type": "DOUBLE PRECISION"}]}
+{"check": "Metabase generated filter/order", "status": "PASS", "rows": [[2, "west", 20.0], [3, "east", null]]}
+{"check": "Metabase generated grouped count", "status": "PASS", "rows": [["east", 2], ["west", 1]]}
+{"check": "INSERT read-back", "status": "PASS", "rows": [[4, "write-test", 5.0]]}
+{"check": "UPDATE read-back", "status": "PASS", "rows": [[4, "write-test", 9.5]]}
+{"check": "DELETE read-back", "status": "PASS", "rows": []}
+All Metabase API smoke checks passed; browser rendering was not tested.

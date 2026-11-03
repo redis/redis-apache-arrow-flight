@@ -1,8 +1,6 @@
 # Rscript examples/r/flight_sql.R grpc://localhost:8815 /path/to/libadbc_driver_flightsql.so
 # Requires adbcdrivermanager and nanoarrow. The library must match R's OS/architecture.
 library(adbcdrivermanager)
-args <- commandArgs(trailingOnly = TRUE)
-stopifnot(length(args) == 2L)
 
 main <- function(uri, driver_path) {
   driver <- adbc_driver(driver_path, entrypoint = "AdbcDriverFlightSQLInit")
@@ -31,4 +29,8 @@ main <- function(uri, driver_path) {
   cat("PASS R Flight SQL: DDL, writes, query, nulls, empty result, aggregate\n")
   print(sessionInfo())
 }
-main(args[[1]], args[[2]])
+if (sys.nframe() == 0L) {
+  args <- commandArgs(trailingOnly = TRUE)
+  stopifnot(length(args) == 2L)
+  main(args[[1]], args[[2]])
+}

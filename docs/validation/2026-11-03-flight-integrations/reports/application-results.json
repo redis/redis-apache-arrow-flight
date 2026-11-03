@@ -1,0 +1,21 @@
+{
+  "uri": "grpc://127.0.0.1:18825",
+  "observed_at": "2026-11-03T17:41:58.510162+00:00",
+  "tools": {
+    "RStudio": {
+      "status": "passed",
+      "evidence": "rstudio.log",
+      "scope": "RStudio 2026.10.1 / R 4.6.2: R console executed Flight SQL driver-manager DDL, writes, typed reads, NULLs, empty result, SUM and cleanup. DBI not exercised."
+    },
+    "Tableau": {
+      "status": "passed",
+      "evidence": "tableau.log",
+      "scope": "Desktop Free Edition 2026.3 / JDBC 19.0.0: connection, catalog/schema/table/column discovery and three-row data preview including NULL. No worksheets or extracts."
+    },
+    "Metabase": {
+      "status": "passed",
+      "evidence": "metabase.log",
+      "scope": "0.64.2.9 / Flight SQL plugin 0.8.0 / JDBC 19.0.0: application API reads, metadata, generated filters/aggregates and write Actions. No browser rendering."
+    }
+  }
+}

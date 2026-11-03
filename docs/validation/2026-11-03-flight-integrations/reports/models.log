@@ -1,0 +1,115 @@
+Using CPython 3.12.15
+Creating virtual environment at: /private/tmp/flight-repeatable-5068/models
+Activate with: source /private/tmp/flight-repeatable-5068/models/bin/activate
+Using Python 3.12.15 environment at: /private/tmp/flight-repeatable-5068/models
+Checked 14 packages in 145ms
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/models/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 7 items / 6 deselected / 1 selected
+
+tests/integrations/test_model_candidates.py::test_xgboost_train_save_reload PASSED [100%]
+
+==================================== PASSES ====================================
+-- generated xml file: /private/tmp/flight-sweep-complete/models-xgboost.xml ---
+=========================== short test summary info ============================
+PASSED tests/integrations/test_model_candidates.py::test_xgboost_train_save_reload
+======================= 1 passed, 6 deselected in 0.42s ========================
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/models/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 7 items / 6 deselected / 1 selected
+
+tests/integrations/test_model_candidates.py::test_pytorch_dataloader_and_forward PASSED [100%]
+
+==================================== PASSES ====================================
+-- generated xml file: /private/tmp/flight-sweep-complete/models-pytorch.xml ---
+=========================== short test summary info ============================
+PASSED tests/integrations/test_model_candidates.py::test_pytorch_dataloader_and_forward
+======================= 1 passed, 6 deselected in 1.40s ========================
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/models/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 7 items / 6 deselected / 1 selected
+
+tests/integrations/test_model_candidates.py::test_tensorflow_dataset_batches PASSED [100%]
+
+==================================== PASSES ====================================
+_______________________ test_tensorflow_dataset_batches ________________________
+------------------------------ Captured log call -------------------------------
+WARNING  matplotlib.font_manager:font_manager.py:1249 Matplotlib is building the font cache; this may take a moment.
+- generated xml file: /private/tmp/flight-sweep-complete/models-tensorflow.xml -
+=========================== short test summary info ============================
+PASSED tests/integrations/test_model_candidates.py::test_tensorflow_dataset_batches
+======================= 1 passed, 6 deselected in 12.13s =======================
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/models/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 7 items / 6 deselected / 1 selected
+
+tests/integrations/test_model_candidates.py::test_keras_model_input_and_persistence PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/integrations/test_model_candidates.py::test_keras_model_input_and_persistence
+tests/integrations/test_model_candidates.py::test_keras_model_input_and_persistence
+  /private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/keras/src/backend/tensorflow/core.py:172: DeprecationWarning: __array__ implementation doesn't accept a copy keyword, so passing copy=False failed. __array__ must implement 'dtype' and 'copy' keyword arguments. To learn more, see the migration guide https://numpy.org/devdocs/numpy_2_0_migration_guide.html#adapting-to-changes-in-the-copy-keyword
+    return np.array(x)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+--- generated xml file: /private/tmp/flight-sweep-complete/models-keras.xml ----
+=========================== short test summary info ============================
+PASSED tests/integrations/test_model_candidates.py::test_keras_model_input_and_persistence
+================= 1 passed, 6 deselected, 2 warnings in 2.16s ==================
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/models/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 7 items / 6 deselected / 1 selected
+
+tests/integrations/test_model_candidates.py::test_transformers_local_tokenizer_model PASSED [100%]
+
+==================================== PASSES ====================================
+___________________ test_transformers_local_tokenizer_model ____________________
+----------------------------- Captured stderr call -----------------------------
+W1103 09:46:40.524000 22594 torch/distributed/elastic/multiprocessing/redirects.py:35] NOTE: Redirects are currently not supported in MacOs.
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00, 456.40it/s]
+
+Loading weights:   0%|          | 0/23 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 23/23 [00:00<00:00, 24183.75it/s]
+- generated xml file: /private/tmp/flight-sweep-complete/models-transformers.xml -
+=========================== short test summary info ============================
+PASSED tests/integrations/test_model_candidates.py::test_transformers_local_tokenizer_model
+======================= 1 passed, 6 deselected in 3.02s ========================
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/models/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 7 items / 6 deselected / 1 selected
+
+tests/integrations/test_plotting_candidates.py::test_plotly_html_and_json PASSED [100%]
+
+==================================== PASSES ====================================
+--- generated xml file: /private/tmp/flight-sweep-complete/models-plotly.xml ---
+=========================== short test summary info ============================
+PASSED tests/integrations/test_plotting_candidates.py::test_plotly_html_and_json
+======================= 1 passed, 6 deselected in 0.22s ========================
+============================= test session starts ==============================
+platform darwin -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/models/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 7 items / 6 deselected / 1 selected
+
+tests/integrations/test_plotting_candidates.py::test_matplotlib_agg_png PASSED [100%]
+
+==================================== PASSES ====================================
+- generated xml file: /private/tmp/flight-sweep-complete/models-matplotlib.xml -
+=========================== short test summary info ============================
+PASSED tests/integrations/test_plotting_candidates.py::test_matplotlib_agg_png
+======================= 1 passed, 6 deselected in 0.29s ========================

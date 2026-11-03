@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="2.157" timestamp="2026-11-03T09:46:35.236091-08:00" hostname="J3Y2WY6YQW-Albert-Wong"><testcase classname="tests.integrations.test_model_candidates" name="test_keras_model_input_and_persistence" time="2.143" /></testsuite></testsuites>

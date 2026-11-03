@@ -1,0 +1,53 @@
+name: Flight SQL integrations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flight-integrations-enterprise
+  cancel-in-progress: false
+
+jobs:
+  integrations:
+    # Requires Docker, a full JDK, R + ADBC/nanoarrow, Quarto, uv, and the
+    # qualified private enterprise source/composition pair documented below.
+    runs-on: [self-hosted, linux, x64, redis-flight-enterprise]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: astral-sh/setup-uv@v10.2.0
+      - name: Check external runtimes
+        run: |
+          java -version
+          Rscript -e 'stopifnot(requireNamespace("adbcdrivermanager", quietly=TRUE), requireNamespace("nanoarrow", quietly=TRUE))'
+          quarto --version
+      - name: Start qualified Enterprise environment
+        # Uses the provisioned matching private checkouts, never substitutes
+        # this newer source for the composition's qualified source fingerprint.
+        run: |
+          python3 scripts/enterprise-env.py up
+          python3 scripts/enterprise-env.py verify
+          python3 scripts/enterprise-env.py smoke
+      - name: JDBC runtime
+        run: make bin/flight-sql-jdbc-driver-19.0.0.jar
+      - name: Run automated tool workflows
+        env:
+          FLIGHT_JDBC_JAR: ${{ github.workspace }}/bin/flight-sql-jdbc-driver-19.0.0.jar
+        run: |
+          python3 scripts/test-integrations.py --setup --automated-only \
+            --uri grpc://127.0.0.1:18816 --env-root "$RUNNER_TEMP/integration-envs" \
+            --results "$RUNNER_TEMP/integration-results"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: flight-integrations
+          path: ${{ runner.temp }}/integration-results
+      - name: Stop test services
+        if: always()
+        run: python3 scripts/enterprise-env.py down

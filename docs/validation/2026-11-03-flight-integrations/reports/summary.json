@@ -1,0 +1,382 @@
+{
+  "created_at": "2026-11-03T17:47:01.977391+00:00",
+  "source_revision": "c019afcdcc11fed4288833bacbddd70dc2d50c1c",
+  "scope": "27 deck routes; custom pipelines and local workflows only where stated. No production certification.",
+  "profiles": {
+    "core": {
+      "exit_code": 0,
+      "elapsed_seconds": 7.064
+    },
+    "workflows": {
+      "exit_code": 0,
+      "elapsed_seconds": 6.865
+    },
+    "models": {
+      "exit_code": 0,
+      "elapsed_seconds": 23.467
+    },
+    "orchestrators": {
+      "exit_code": 0,
+      "elapsed_seconds": 2.319
+    },
+    "spark": {
+      "exit_code": 0,
+      "elapsed_seconds": 8.23
+    },
+    "airflow": {
+      "exit_code": 0,
+      "elapsed_seconds": 5.511
+    },
+    "documents": {
+      "exit_code": 0,
+      "elapsed_seconds": 3.424
+    }
+  },
+  "tools": [
+    {
+      "tool": "NumPy",
+      "previously_exercised": false,
+      "profile": "core",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_numpy_from_flight"
+      ],
+      "log": "core.log"
+    },
+    {
+      "tool": "scikit-learn",
+      "previously_exercised": false,
+      "profile": "core",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_scikit_learn_from_flight"
+      ],
+      "log": "core.log"
+    },
+    {
+      "tool": "SQLAlchemy",
+      "previously_exercised": false,
+      "profile": "core",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_sqlalchemy_flightsql"
+      ],
+      "log": "core.log"
+    },
+    {
+      "tool": "Dagster",
+      "previously_exercised": false,
+      "profile": "core",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_dagster_resource"
+      ],
+      "log": "core.log"
+    },
+    {
+      "tool": "pandas",
+      "previously_exercised": true,
+      "profile": "core",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_pandas"
+      ],
+      "log": "core.log"
+    },
+    {
+      "tool": "Polars",
+      "previously_exercised": true,
+      "profile": "core",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_polars"
+      ],
+      "log": "core.log"
+    },
+    {
+      "tool": "PyArrow",
+      "previously_exercised": true,
+      "profile": "core",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_pyarrow"
+      ],
+      "log": "core.log"
+    },
+    {
+      "tool": "Jupyter / JupyterLab",
+      "previously_exercised": false,
+      "profile": "workflows",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_notebook_queries_redis_in_separate_kernel"
+      ],
+      "log": "workflows.log"
+    },
+    {
+      "tool": "Hugging Face Datasets",
+      "previously_exercised": false,
+      "profile": "workflows",
+      "status": "passed",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 1,
+      "cases": [
+        "test_arrow_dataset_save_reload_and_filter[False-False]",
+        "test_arrow_dataset_save_reload_and_filter[True-True]",
+        "test_arrow_dataset_save_reload_and_filter[True-False]"
+      ],
+      "log": "workflows.log",
+      "limitations": [
+        "Datasets 5.1.0 cannot reload its default zero-shard empty save (#253)"
+      ]
+    },
+    {
+      "tool": "Streamlit",
+      "previously_exercised": false,
+      "profile": "workflows",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_dataframe_and_filtered_rerun"
+      ],
+      "log": "workflows.log"
+    },
+    {
+      "tool": "SciPy",
+      "previously_exercised": false,
+      "profile": "workflows",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_sparse_system_from_redis_adbc"
+      ],
+      "log": "workflows.log"
+    },
+    {
+      "tool": "XGBoost",
+      "previously_exercised": false,
+      "profile": "models",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_xgboost_train_save_reload"
+      ],
+      "log": "models.log"
+    },
+    {
+      "tool": "PyTorch",
+      "previously_exercised": false,
+      "profile": "models",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_pytorch_dataloader_and_forward"
+      ],
+      "log": "models.log"
+    },
+    {
+      "tool": "TensorFlow",
+      "previously_exercised": false,
+      "profile": "models",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_tensorflow_dataset_batches"
+      ],
+      "log": "models.log"
+    },
+    {
+      "tool": "Keras",
+      "previously_exercised": false,
+      "profile": "models",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_keras_model_input_and_persistence"
+      ],
+      "log": "models.log"
+    },
+    {
+      "tool": "Hugging Face Transformers",
+      "previously_exercised": false,
+      "profile": "models",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_transformers_local_tokenizer_model"
+      ],
+      "log": "models.log"
+    },
+    {
+      "tool": "Plotly",
+      "previously_exercised": false,
+      "profile": "models",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_plotly_html_and_json"
+      ],
+      "log": "models.log"
+    },
+    {
+      "tool": "Matplotlib",
+      "previously_exercised": false,
+      "profile": "models",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_matplotlib_agg_png"
+      ],
+      "log": "models.log"
+    },
+    {
+      "tool": "Kubeflow Pipelines",
+      "previously_exercised": false,
+      "profile": "orchestrators",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_kubeflow_local_component"
+      ],
+      "log": "orchestrators.log"
+    },
+    {
+      "tool": "Metaflow",
+      "previously_exercised": false,
+      "profile": "orchestrators",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_metaflow_local_flow"
+      ],
+      "log": "orchestrators.log"
+    },
+    {
+      "tool": "Apache Spark",
+      "previously_exercised": false,
+      "profile": "spark",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_spark_jdbc"
+      ],
+      "log": "spark.log"
+    },
+    {
+      "tool": "Apache Airflow",
+      "previously_exercised": false,
+      "profile": "airflow",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_airflow_taskflow"
+      ],
+      "log": "airflow.log"
+    },
+    {
+      "tool": "Quarto",
+      "previously_exercised": false,
+      "profile": "documents",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_quarto"
+      ],
+      "log": "documents.log"
+    },
+    {
+      "tool": "R",
+      "previously_exercised": true,
+      "profile": "documents",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        "test_r_driver_manager"
+      ],
+      "log": "documents.log"
+    },
+    {
+      "tool": "RStudio",
+      "previously_exercised": false,
+      "profile": "manual",
+      "status": "passed",
+      "evidence": "rstudio.log",
+      "scope": "RStudio 2026.10.1 / R 4.6.2: R console executed Flight SQL driver-manager DDL, writes, typed reads, NULLs, empty result, SUM and cleanup. DBI not exercised.",
+      "observed_at": "2026-11-03T17:41:58.510162+00:00"
+    },
+    {
+      "tool": "Tableau",
+      "previously_exercised": true,
+      "profile": "manual",
+      "status": "passed",
+      "evidence": "tableau.log",
+      "scope": "Desktop Free Edition 2026.3 / JDBC 19.0.0: connection, catalog/schema/table/column discovery and three-row data preview including NULL. No worksheets or extracts.",
+      "observed_at": "2026-11-03T17:41:58.510162+00:00"
+    },
+    {
+      "tool": "Metabase",
+      "previously_exercised": true,
+      "profile": "manual",
+      "status": "passed",
+      "evidence": "metabase.log",
+      "scope": "0.64.2.9 / Flight SQL plugin 0.8.0 / JDBC 19.0.0: application API reads, metadata, generated filters/aggregates and write Actions. No browser rendering.",
+      "observed_at": "2026-11-03T17:41:58.510162+00:00"
+    }
+  ],
+  "flight_uri": "grpc://127.0.0.1:18825"
+}

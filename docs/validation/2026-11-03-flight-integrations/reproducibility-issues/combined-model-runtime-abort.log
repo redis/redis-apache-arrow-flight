@@ -1,0 +1,168 @@
+Using CPython 3.12.16
+Creating virtual environment at: /private/tmp/flight-repeatable-5068/models
+Activate with: source /private/tmp/flight-repeatable-5068/models/bin/activate
+Using Python 3.12.16 environment at: /private/tmp/flight-repeatable-5068/models
+WARN Fixing invalid version specifier by removing stray quotes (before: `>= '2.7'`; after: `>= 2.7`)
+Resolved 76 packages in 386ms
+Downloading sympy (6.0MiB)
+Downloading keras (2.3MiB)
+Downloading h5py (2.7MiB)
+Downloading xgboost (2.3MiB)
+Downloading libclang (24.6MiB)
+Downloading plotly (9.2MiB)
+Downloading tokenizers (3.0MiB)
+Downloading tensorflow (213.1MiB)
+Downloading transformers (12.4MiB)
+Downloading torch (132.1MiB)
+Downloading fonttools (3.0MiB)
+Downloading matplotlib (8.9MiB)
+ Downloaded xgboost
+ Downloaded keras
+ Downloaded h5py
+ Downloaded tokenizers
+ Downloaded fonttools
+ Downloaded sympy
+ Downloaded matplotlib
+ Downloaded plotly
+ Downloaded transformers
+ Downloaded libclang
+ Downloaded torch
+ Downloaded tensorflow
+Prepared 30 packages in 19.64s
+Installed 76 packages in 483ms
+ + absl-py==2.5.1
+ + adbc-driver-flightsql==1.13.0
+ + adbc-driver-manager==1.13.0
+ + annotated-doc==0.0.5
+ + anyio==4.16.0
+ + astunparse==1.6.3
+ + certifi==2026.10.23
+ + charset-normalizer==3.5.2
+ + click==8.5.0
+ + contourpy==1.4.0
+ + cycler==0.12.1
+ + filelock==4.2.7
+ + flatbuffers==25.12.19
+ + fonttools==4.68.0
+ + fsspec==2026.9.0
+ + gast==0.7.0
+ + google-pasta==0.2.0
+ + grpcio==1.85.1
+ + h11==0.16.0
+ + h5py==3.14.0
+ + hf-xet==1.8.0
+ + httpcore2==2.16.0
+ + httpx2==2.16.0
+ + huggingface-hub==2.4.0
+ + idna==3.20
+ + iniconfig==2.3.1
+ + jinja2==3.1.6
+ + keras==3.15.1
+ + kiwisolver==1.5.1
+ + libclang==18.1.1
+ + markdown-it-py==4.2.0
+ + markupsafe==3.0.4
+ + matplotlib==3.11.2
+ + mdurl==0.1.2
+ + ml-dtypes==0.6.0
+ + mpmath==1.3.0
+ + namex==0.1.0
+ + narwhals==2.28.0
+ + networkx==3.7
+ + numpy==2.5.4
+ + opt-einsum==3.4.0
+ + optree==0.20.0
+ + packaging==26.3
+ + pillow==13.0.0
+ + plotly==7.1.0
+ + pluggy==1.7.0
+ + protobuf==7.36.2
+ + pyarrow==26.0.0
+ + pygments==2.21.0
+ + pyparsing==3.3.3
+ + pytest==9.2.0
+ + python-dateutil==4.0.0
+ + pyyaml==6.0.3
+ + regex==2026.9.29
+ + requests==2.34.2
+ + rich==15.0.0
+ + safetensors==0.8.0
+ + scipy==1.18.1
+ + setuptools==84.2.1
+ + shellingham==1.5.4
+ + six==1.17.0
+ + sympy==1.14.0
+ + tensorflow==2.21.0
+ + termcolor==3.3.0
+ + tokenizers==0.23.3
+ + torch==2.15.0
+ + tqdm==4.70.1
+ + transformers==5.22.1
+ + truststore==0.10.5
+ + typer==0.27.3
+ + typing-extensions==4.16.0
+ + tzdata==2026.6
+ + urllib3==2.8.0
+ + wheel==0.48.0
+ + wrapt==2.5.2
+ + xgboost==3.4.1
+============================= test session starts ==============================
+platform darwin -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /private/tmp/flight-repeatable-5068/models/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight
+collecting ... collected 7 items
+
+tests/integrations/test_model_candidates.py::test_xgboost_train_save_reload PASSED [ 14%]
+tests/integrations/test_model_candidates.py::test_pytorch_dataloader_and_forward Fatal Python error: Aborted
+
+Current thread 0x00000001fa6ce240 (most recent call first):
+  File "<frozen importlib._bootstrap>", line 488 in _call_with_frames_removed
+  File "<frozen importlib._bootstrap_external>", line 1293 in create_module
+  File "<frozen importlib._bootstrap>", line 813 in module_from_spec
+  File "<frozen importlib._bootstrap>", line 921 in _load_unlocked
+  File "<frozen importlib._bootstrap>", line 1331 in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1360 in _find_and_load
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/torch/__init__.py", line 505 in <module>
+  File "<frozen importlib._bootstrap>", line 488 in _call_with_frames_removed
+  File "<frozen importlib._bootstrap_external>", line 999 in exec_module
+  File "<frozen importlib._bootstrap>", line 935 in _load_unlocked
+  File "<frozen importlib._bootstrap>", line 1331 in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1360 in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1387 in _gcd_import
+  File "/private/tmp/redis-adbc-python/cpython-3.12.16-macos-aarch64-none/lib/python3.12/importlib/__init__.py", line 90 in import_module
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/outcomes.py", line 264 in importorskip
+  File "/Users/albert.wong/.codex/worktrees/5068/redis-apache-arrow-flight/tests/integrations/test_model_candidates.py", line 35 in test_pytorch_dataloader_and_forward
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/python.py", line 187 in pytest_pyfunc_call
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/python.py", line 1798 in runtest
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/runner.py", line 184 in pytest_runtest_call
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/runner.py", line 250 in <lambda>
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/runner.py", line 361 in from_call
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/runner.py", line 249 in call_and_report
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/runner.py", line 139 in runtestprotocol
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/runner.py", line 118 in pytest_runtest_protocol
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/main.py", line 411 in pytest_runtestloop
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/main.py", line 387 in _main
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/main.py", line 333 in wrap_session
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/main.py", line 380 in pytest_cmdline_main
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_execution.py", line 147 in _multicall
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_manager.py", line 183 in _hookexec
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pluggy/_caller.py", line 197 in __call__
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/config/__init__.py", line 262 in _main
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/_pytest/config/__init__.py", line 286 in _console_main
+  File "/private/tmp/flight-repeatable-5068/models/lib/python3.12/site-packages/pytest/__main__.py", line 9 in <module>
+  File "<frozen runpy>", line 88 in _run_code
+  File "<frozen runpy>", line 198 in _run_module_as_main
+
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, pyarrow.lib, adbc_driver_manager._lib, pyarrow._compute, pyarrow._acero, pyarrow._fs, pyarrow._csv, pyarrow._json, pyarrow._substrait, pyarrow._dataset, pyarrow._dataset_orc, pyarrow._parquet, pyarrow._azurefs, pyarrow._hdfs, pyarrow._gcsfs, pyarrow._s3fs, pyarrow._parquet_encryption, pyarrow._dataset_parquet_encryption, pyarrow._dataset_parquet, adbc_driver_manager._reader, _cyutility, scipy._cyutility, scipy._lib._ccallback_c, scipy.sparse._sparsetools, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._pcg64, numpy.random._generator, numpy.random._mt19937, numpy.random._philox, numpy.random._sfc64, numpy.random.mtrand, charset_normalizer.md, charset_normalizer.cd, _csparsetools, scipy.sparse._csparsetools, scipy.special._ufuncs_cxx, scipy.linalg._fblas, scipy.linalg._flapack, scipy.linalg._batched_linalg, scipy.linalg._cythonized_array_utils, scipy.linalg._solve_toeplitz, scipy.linalg._internal_matfuncs, scipy.linalg._linalg_pythran, scipy.linalg.cython_blas, scipy.linalg.cython_lapack, scipy.linalg._decomp_update, scipy.special._ellip_harm_2, scipy.special._special_ufuncs, scipy.special._gufuncs, scipy.special._ufuncs, scipy.special._specfun, scipy.special._comb (total: 55)

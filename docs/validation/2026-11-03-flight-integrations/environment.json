@@ -1,0 +1,46 @@
+{
+  "server_source_revision": "c019afcdcc11fed4288833bacbddd70dc2d50c1c",
+  "server_binary_sha256": "322215b93cf55765b59ccda45d371fcf77e21b675f5fe872d619cadbb25089f7",
+  "server_go_build": "bin/redis-flight-server: go1.27.2\n\tpath\tgithub.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server\n\tmod\tgithub.com/redis/redis-apache-arrow-flight\tv0.1.1-0.20261102042838-c019afcdcc11\t\n\tdep\tgithub.com/adbc-drivers/driverbase-go/driverbase\tv0.0.0-20261015034256-4c82882827b5\th1:rUZIUCBqgCHMhU+Yk3KWgtHanU9KHyqJpC1vhxhoMe0=\n\tdep\tgithub.com/adbc-drivers/redis/go\tv0.0.0-20261022161448-9cc8e25c0f01\n\t=>\tgithub.com/redis/redis-adbc-driver/go\tv0.0.0-20261026173111-2f053d3affad\th1:GMbckfNsdQQjasNtFWvAKvTIP6CwDX6ee3HUYyE6B1I=\n\t\n\tdep\tgithub.com/andybalholm/brotli\tv1.2.6\th1:ftYnfj6usCp+UGV5kSJ3+chpMQgU+gJf/AxsUQ52REI=\n\tdep\tgithub.com/apache/arrow-adbc/go/adbc\tv1.12.0\th1:1S7h8M12a+JZPuduuBo0kIQIRq+4heUikMnHBQ9seXE=\n\tdep\tgithub.com/apache/arrow-go/v18\tv18.8.0\th1:BLOzbPv7bxMPgXPacAg6HQjnxupYsZzC4tf+FkqPU/M=\n\tdep\tgithub.com/apache/thrift\tv0.25.0\th1:6LLlvoPjy8Cc/0b5TYRcTR3RZa2W0at3WQRcOkDwVGs=\n\tdep\tgithub.com/beorn7/perks\tv1.0.1\th1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=\n\tdep\tgithub.com/cenkalti/backoff/v5\tv5.0.3\th1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=\n\tdep\tgithub.com/cespare/xxhash/v2\tv2.3.0\th1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=\n\tdep\tgithub.com/dlclark/regexp2/v2\tv2.9.1\th1:q6bZW/NN9VodqMjYXpuic2lZxdHPfFTzGS+MJxIJmKQ=\n\tdep\tgithub.com/go-logr/logr\tv1.4.4\th1:tG4xh9yMsRCAiodLVTxyrkzSZ9+o0L1Kg/+cPVcbP/8=\n\tdep\tgithub.com/go-logr/stdr\tv1.2.2\th1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=\n\tdep\tgithub.com/goccy/go-json\tv0.11.2\th1:jdZv93Tt4ioR8yW1CoNsvSxrcZlCXAUU1aZXN7gpXUA=\n\tdep\tgithub.com/google/flatbuffers\tv25.12.19+incompatible\th1:haMV2JRRJCe1998HeW/p0X9UaMTK6SDo0ffLn2+DbLs=\n\tdep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=\n\tdep\tgithub.com/grpc-ecosystem/grpc-gateway/v2\tv2.32.0\th1:QMILzF8BA7xftE4zVORkRrlv08m12St3csK4RsyRgRs=\n\tdep\tgithub.com/klauspost/compress\tv1.20.3\th1:zWNoFqq/lSuYQRim3dUXlXeA0IqwuZGicdG5ZTfY5j4=\n\tdep\tgithub.com/klauspost/cpuid/v2\tv2.4.1\th1:I9KxadAkvo+QjtcEE2f2tyfEvmIla/T0m+14PrZNl0U=\n\tdep\tgithub.com/munnerz/goautoneg\tv0.0.0-20191010083416-a7dc8b61c822\th1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=\n\tdep\tgithub.com/pierrec/lz4/v4\tv4.1.33\th1:GjG1TJ1V4IzKP8L96muuuDNpTwd7D+l2ccXrjAbe014=\n\tdep\tgithub.com/prometheus/client_golang\tv1.25.0\th1:cDtW1TcFsMi1RJc8khwCKB4VhzwV04aKqbYtNOXuiK0=\n\tdep\tgithub.com/prometheus/client_model\tv0.6.3\th1:O0jaTVAYNxTHYInEPFJt5I3+sN8zqBtVMPTB1qyxiEo=\n\tdep\tgithub.com/prometheus/common\tv0.72.1\th1:ZAiQed/nk8IIcsdzb2TlJu23NEUDyDLQ9TXTN2WRK6Y=\n\tdep\tgithub.com/redis/go-redis/v9\tv9.23.0\th1:/TTVdJa8BRNsybwwGGnmiYktHNlUXtbOQxlWpHBPL3s=\n\tdep\tgithub.com/zeebo/xxh3\tv1.1.0\th1:s7DLGDK45Dyfg7++yxI0khrfwq9661w9EN78eP/UZVs=\n\tdep\tgo.opentelemetry.io/auto/sdk\tv1.2.1\th1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=\n\tdep\tgo.opentelemetry.io/otel\tv1.47.0\th1:j7ALJ/zgkS7Z6aeJW09p8VC9804bC+PpeTfCD4XPnOM=\n\tdep\tgo.opentelemetry.io/otel/exporters/otlp/otlptrace\tv1.47.0\th1:julhjPeUH/q/7hinbSdDdqt5h7Zw9YWmRlWRhI0jd54=\n\tdep\tgo.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc\tv1.47.0\th1:UFpxOpYPmMNUtOWhdb+nC1WELIgVf8z9higURrbzYU4=\n\tdep\tgo.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp\tv1.47.0\th1:aXZXsZ012wOgVkqaiQv+Z/d8V0xKjmg70F6m4CE94lc=\n\tdep\tgo.opentelemetry.io/otel/exporters/stdout/stdouttrace\tv1.47.0\th1:N3YQCxjxQ/bMjyc3heladfRm9t9RTksGQH8z4w6yU/0=\n\tdep\tgo.opentelemetry.io/otel/log\tv1.47.0\th1:cOTS1CcLbSQeZKanGJ+0JpF/+t4PELi3O3bbl2lqCcI=\n\tdep\tgo.opentelemetry.io/otel/metric\tv1.47.0\th1:4PptaldXx3Eat1XjMZ68pPJEs5wrhlemctZE9a3UdWY=\n\tdep\tgo.opentelemetry.io/otel/sdk\tv1.47.0\th1:zWXEr4j2lFefG87TU6Yg8a7ngfohIKFZHKp0Hf5hC6I=\n\tdep\tgo.opentelemetry.io/otel/trace\tv1.47.0\th1:JOjX/Oci8K94QHddo+bbfya/Ai/nf6/dt9ZfrFNWSrM=\n\tdep\tgo.opentelemetry.io/proto/otlp\tv1.11.1\th1:SCrPqH9NE5CmBrOqpjNCiT0X5mGwMyGERXdogfR7Yjw=\n\tdep\tgo.uber.org/atomic\tv1.12.0\th1:BvcXdFKuviU4fTL/f+SxdQ5qJX/Jix8pAkgdUcb3XOE=\n\tdep\tgolang.org/x/exp\tv0.0.0-20261014143641-f0251eb4aa3e\th1:HgI6W1OolKK6tcV74is+rl9SMT0njsHlp0TbQiGXI/A=\n\tdep\tgolang.org/x/net\tv0.61.0\th1:RR+6j/BTBCrggOLugxa+66R8FvoN6MHlzDlZIbN9YFw=\n\tdep\tgolang.org/x/sync\tv0.24.0\th1:iqiDrGoDgyuvAKrhLQthUEzU/R378N78gXbBjxed7oA=\n\tdep\tgolang.org/x/sys\tv0.49.0\th1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA=\n\tdep\tgolang.org/x/text\tv0.43.0\th1:1QivrlhwAsnMOcqgOdl9my7s9OyZl8O5/UGUTJVXoWc=\n\tdep\tgoogle.golang.org/genproto/googleapis/api\tv0.0.0-20261019180522-ce908d29299b\th1:nB3spRIaSPtxJpxb0k41yljROvm2Jrwfs2pSNdKS5y8=\n\tdep\tgoogle.golang.org/genproto/googleapis/rpc\tv0.0.0-20261019180522-ce908d29299b\th1:6WNWHZk91dp4gZ25642OALkuG1UVNZbwENJD19DnB8k=\n\tdep\tgoogle.golang.org/grpc\tv1.84.0\th1:soMyaPJ8pAak5PIQ0DGBUir0XRo2fRoMqhNWMLlLxO0=\n\tdep\tgoogle.golang.org/protobuf\tv1.36.12\th1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc=\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-trimpath=true\n\tbuild\tDefaultGODEBUG=tracebacklabels=0,x509sslcertoverrideplatform=0\n\tbuild\tCGO_ENABLED=0\n\tbuild\tGOARCH=arm64\n\tbuild\tGOOS=darwin\n\tbuild\tGOARM64=v8.0\n\tbuild\tvcs=git\n\tbuild\tvcs.revision=c019afcdcc11fed4288833bacbddd70dc2d50c1c\n\tbuild\tvcs.time=2026-11-02T04:28:38Z\n\tbuild\tvcs.modified=false\n",
+  "backend": "Disposable redis:8.6.2, standalone, Search available; no Software/QPF, TLS or authentication validation claimed.",
+  "endpoint": "grpc://127.0.0.1:18825",
+  "harness": "New uncommitted files accompanying this record; hashes identify the executed harness.",
+  "source_sha256": {
+    "scripts/test-integrations.py": "6751001627f551c5731577760a439aa1bac1bacd2d24876a6a51a591b8845bd6",
+    "examples/r/flight_sql.R": "49fbf23d022537be81284b08db5c4dbbeced73e77f48bcc0ecb1cf15b07313ad",
+    "tests/integrations/test_airflow.py": "9eb682fbad1151ce166508931a76a22df604aad55dd3c736de21687e6c321a2a",
+    "tests/integrations/test_resources.py": "771fe4e936a61770b21611288baec3c4f10c5b8c0e7ab6903c993d26435b7a48",
+    "tests/integrations/conftest.py": "eaf24b2759e61cd6db10f873ca0d71451a21ae890973828b629ba980dd0936d9",
+    "tests/integrations/test_scipy.py": "2ca76e4bc9ef6c3dc0a9bd6bda0fb213bdc1a9596e0903eb9b3e740f04dddadd",
+    "tests/integrations/test_spark.py": "24d8fef2ec2c98d0ba38b77eb5d36fc58b20473bf2b5f2cfeea81b4c2c5c39f6",
+    "tests/integrations/test_model_candidates.py": "50f5a0ace6b0400deca77730fb6429d994cf65dddc95d619b37a2f25a9422fd9",
+    "tests/integrations/test_ml_ingest.py": "cb9d6ba30fb9de3616785ca51618e81d7cfd12be79e423c3198301d84b128e5c",
+    "tests/integrations/test_plotting_candidates.py": "2a2b5da6d90845dc09ab242a685d874d1e9c341860ee2718aa147a73ad10c4d3",
+    "tests/integrations/test_clients.py": "44a642099b2f53cc207ff14aee5d4cd00966f11cb4b42f3e24acd515c8f622a2",
+    "tests/integrations/test_orchestrator_candidates.py": "8c446f1acb7c9578beff393eff3abd233ed6391807d6dfda97494a2c13c47dd9",
+    "tests/integrations/test_streamlit.py": "c2a069171b1cfe7fd82665b44bf186c17c65eba2b1280372651c35619d31b2fa",
+    "tests/integrations/test_jupyter.py": "323206386ac903bad8730cb4477e9eba078ddcc1174a09e8251f45efa3cc70e3",
+    "tests/integrations/test_hf_datasets.py": "1f6fd41b5c135f91d5f92781fd361e3b8e28de53ae33d6b8ffe8e8dc4d125ba2",
+    "tests/integrations/test_documents.py": "0c2817d53186ce4ff6db961da265af38bf1d4060aefd2c8b10d36557881aad00",
+    "requirements/integrations/spark.txt": "e6b8b08ddab64e0e5e67e422f1ee9f2edb9afdf11faf8f1579f2f5ffabc50669",
+    "requirements/integrations/airflow.txt": "19d65399d680fbe56304dcc0a02742bf5140bd3fcdef481259bed2212913d366",
+    "requirements/integrations/models.txt": "bfc65ffd0fe4ed0d914b20acfa968eaf13ac2e5c3c89626b557068777c9654db",
+    "requirements/integrations/workflows.txt": "44535566cd83359e52c2f034d7964c546ae368ffa53668e8a6dd5de787980590",
+    "requirements/integrations/core.txt": "768a9dc88c61cb03b51c5af734af69ac7451fe13e6497a412df77366e623b606",
+    "requirements/integrations/orchestrators.txt": "6a2ccf8e4e10029990dd9e6f325b4e9c84d17c9d98acf225df1af7cc20a4eefa",
+    "requirements/integrations/documents.txt": "fb94d6846b101b13281bfe5017e53614e5bd4e1896bc0aaf1f43d7359f15ed71"
+  },
+  "jdbc_sha256": "d3beee43c613c457789825343368f652d570d76c08799dad38a43a10e569b57f",
+  "external_runtimes": {
+    "java": "OpenJDK 21.0.13",
+    "quarto": "1.10.20 (bundled in RStudio)",
+    "r": "4.6.2",
+    "RStudio": "2026.10.1+239",
+    "Tableau": "Desktop Free Edition 2026.3",
+    "Metabase": "0.64.2.9, Flight SQL plugin 0.8.0, JDBC 19.0.0"
+  },
+  "post_run_normalization": "Trailing whitespace removed from text logs and test_orchestrator_candidates.py for Git whitespace checks; test assertions unchanged.",
+  "normalized_source_sha256": {
+    "tests/integrations/test_orchestrator_candidates.py": "57bdaea02aa773872049bbff878f19402db6d5cf79374d29d5f94e6c380f39b3"
+  }
+}
