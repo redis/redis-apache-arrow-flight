@@ -243,6 +243,8 @@ aggregates, dashboards, extracts, joins and TLS/authentication were not tested.
 This supersedes the earlier installation blocker for the recorded read scope.
 See [setup, expected values and evidence limits](validation/2026-11-01-tableau/README.md).
 
+<a id="all-27-inventoried-flight-sql-routes--november-3-2026"></a>
+
 ## All 27 inventoried Flight SQL routes — November 3, 2026
 
 The [saved integration sweep](validation/2026-11-03-flight-integrations/README.md)

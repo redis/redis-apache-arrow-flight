@@ -1,0 +1,97 @@
+site_name: Redis Arrow Flight
+site_description: SQL queries and Apache Arrow dataset transfers for Redis through Flight SQL, ADBC, JDBC, and native Flight clients.
+site_url: https://redis.github.io/redis-apache-arrow-flight/
+repo_url: https://github.com/redis/redis-apache-arrow-flight
+repo_name: redis/redis-apache-arrow-flight
+edit_uri: ''
+docs_dir: docs
+site_dir: site
+hooks:
+  - scripts/docs-site.py
+theme:
+  name: mkdocs
+  navigation_depth: 3
+  highlightjs: true
+plugins:
+  - search
+markdown_extensions:
+  - tables
+  - fenced_code
+  - toc:
+      permalink: true
+validation:
+  links:
+    not_found: warn
+    anchors: warn
+nav:
+  - Home: index.md
+  - Get started:
+      - Run locally: docs/local-development.md
+      - Build profiles: docs/build-profiles.md
+      - Choose a data interface: docs/data-access.md
+      - Client guide: docs/client-guide.md
+      - Dataset to SQL: docs/dataset-sql-workflow.md
+  - Reference:
+      - Server guide: docs/server-guide.md
+      - SQL reference: docs/sql-reference.md
+      - Protocol capabilities: docs/flight-capabilities.md
+      - Endpoint acceptance: docs/endpoint-acceptance.md
+      - Client compatibility: docs/client-compatibility.md
+      - Performance: docs/performance.md
+  - Integrations:
+      - Overview: docs/integrations/README.md
+      - Python: docs/integrations/python.md
+      - Go: docs/integrations/go.md
+      - Java: docs/integrations/java.md
+      - pandas: docs/integrations/pandas.md
+      - Polars: docs/integrations/polars.md
+      - DuckDB: docs/integrations/duckdb.md
+      - R: docs/integrations/r.md
+      - DBeaver: docs/dbeaver.md
+      - JDBC applications: docs/integrations/jdbc-applications.md
+      - Superset: docs/superset.md
+      - Tableau: docs/integrations/tableau.md
+      - Metabase: docs/integrations/metabase.md
+      - Power BI: docs/integrations/power-bi.md
+      - Redis Insight: docs/integrations/redis-insight.md
+      - NumPy: docs/integrations/numpy.md
+      - scikit-learn: docs/integrations/scikit-learn.md
+      - SQLAlchemy: docs/integrations/sqlalchemy.md
+      - Dagster: docs/integrations/dagster.md
+      - Jupyter: docs/integrations/jupyter.md
+      - Hugging Face Datasets: docs/integrations/hugging-face-datasets.md
+      - Streamlit: docs/integrations/streamlit.md
+      - SciPy: docs/integrations/scipy.md
+      - XGBoost: docs/integrations/xgboost.md
+      - PyTorch: docs/integrations/pytorch.md
+      - TensorFlow: docs/integrations/tensorflow.md
+      - Keras: docs/integrations/keras.md
+      - Transformers: docs/integrations/transformers.md
+      - Plotly: docs/integrations/plotly.md
+      - Matplotlib: docs/integrations/matplotlib.md
+      - Kubeflow: docs/integrations/kubeflow.md
+      - Metaflow: docs/integrations/metaflow.md
+      - Spark: docs/integrations/spark.md
+      - Airflow: docs/integrations/airflow.md
+      - Quarto: docs/integrations/quarto.md
+      - RStudio: docs/integrations/rstudio.md
+      - Integration testing: docs/integrations/testing.md
+  - Validation records:
+      - Core endpoint: docs/validation/2026-10-29-core-endpoint/README.md
+      - Enterprise TLS: docs/validation/2026-11-01-enterprise-tls/README.md
+      - BI and JDBC: docs/validation/2026-11-01-bi-jdbc/README.md
+      - Tableau: docs/validation/2026-11-01-tableau/README.md
+      - Flight integrations: docs/validation/2026-11-03-flight-integrations/README.md
+      - Integration summary: docs/validation/2026-11-03-flight-integrations/reports/summary.md
+      - Live guide recipes: docs/validation/2026-11-03-guide-recipes/README.md
+      - Guide recipe results: docs/validation/2026-11-03-guide-recipes/summary.md
+  - Contributing:
+      - Project workflow: docs/sdlc/README.md
+      - Project context: docs/sdlc/context.md
+      - Testing: docs/sdlc/testing.md
+      - Enterprise test environment: docs/redis-enterprise-testing.md
+      - Operations: docs/sdlc/operations.md
+      - Incident template: docs/sdlc/incident-template.md
+      - Active-Active proposal: docs/active-active-control-plane.md
+      - Repository migration: docs/repository-migration.md
+      - Publishing documentation: docs/documentation-site.md

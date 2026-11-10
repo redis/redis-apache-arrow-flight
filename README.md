@@ -221,6 +221,10 @@ server application compatibility.
 
 ## Documentation
 
+Read the [documentation website](https://redis.github.io/redis-apache-arrow-flight/)
+for browsable guides and full-text search. See
+[documentation publishing](docs/documentation-site.md) to preview or maintain it.
+
 | Topic | Guide |
 |---|---|
 | Data tool setup and examples | [Integration guides](docs/integrations/README.md) |
