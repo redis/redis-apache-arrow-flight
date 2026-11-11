@@ -35,3 +35,13 @@ Follow-up security scope (requester: "do the minimum"):
 - Final security follow-up verification: full `go test -count=1 -race ./...`,
   `go vet ./...`, formatting, diff checks and static build passed. The full unit
   run used permission for ephemeral localhost listeners; backend tests skipped.
+
+## Requested validation follow-up — 2026-11-11
+
+Provisioned an isolated Redis Enterprise TLS/ACL/three-primary-shard/4x-QPF
+environment and ran the core gateway without private overlays. Actual Python
+Flight SQL testing found the C++ client's append-only nonempty header behavior;
+the negative test now clears headers before replacement. Full backend Go testing
+also exposed existing index-layout/table-type fixture failures; none were hidden
+or relaxed. See [dated results and remaining gates](../../docs/validation/2026-11-11-shared-snapshots/README.md)
+for the authoritative follow-up evidence, superseding the initial not-run status.

@@ -114,9 +114,13 @@ def test_handle_requires_own_session(snapshot_connect):
             with pytest.raises(AdbcError):
                 execute(stranger, 'SELECT 1')
             # A diagnostic native generation is never accepted as the handle.
+            # The C++ Flight SQL driver appends nonempty header values; clear
+            # the prior value before replacing it or requests carry duplicates.
+            owner.adbc_connection.set_options(**{HEADER: ""})
             owner.adbc_connection.set_options(**{HEADER: acquired["generation"]})
             with pytest.raises(AdbcError):
                 execute(owner, 'SELECT 1')
+            owner.adbc_connection.set_options(**{HEADER: ""})
             owner.adbc_connection.set_options(**{HEADER: acquired["handle"]})
 
 

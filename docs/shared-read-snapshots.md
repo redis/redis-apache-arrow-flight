@@ -14,8 +14,9 @@ This implementation pins Redis ADBC **v0.0.24**, Go submodule
 Checked upstream on 2026-11-11: latest completed release v0.0.24; default branch
 `766dded08cc3728edfd092f5e4941e95932bfc9a`. The release was chosen rather than
 unreleased main. [Native contract](https://github.com/redis/redis-adbc-driver/blob/v0.0.24/docs/shared-read-snapshots.md).
-Python qualification targets ADBC Flight SQL/driver manager **1.13.0** and
-PyArrow **26.0.0**; these are test targets, not a validation claim.
+Local transport validation exercises ADBC Flight SQL/driver manager **1.13.0**
+and PyArrow **26.0.0** on Python **3.12.12**. See the [dated evidence](validation/2026-11-11-shared-snapshots/README.md)
+for results and outstanding gates; this does not qualify the external connector.
 
 Acquisition requires enabled cookie sessions, Flight `redis-acl` authentication
 and Flight TLS certificates. At the requester's direction (2026-11-11), the
@@ -51,7 +52,9 @@ with these Redis extension names. ADBC Flight SQL exposes them through
    parameter/schema planning or table extraction. Treat any error as failure of
    the entire full-refresh attempt. Do not downgrade or retry on another connection.
 3. Read `redis.read_snapshot_status`. Require `state=active`. Install its `handle`
-   as `adbc.flight.sql.rpc.call_header.x-redis-read-snapshot`. Every discovery,
+   as `adbc.flight.sql.rpc.call_header.x-redis-read-snapshot`. Install it once:
+   the C++ Flight SQL driver appends nonempty values; to replace a value, clear
+   it with an empty string first. Duplicate guard values are rejected. Every discovery,
    schema/planning and read RPC must carry this header and the session cookie.
 4. Rediscover and validate **all** selected schemas inside this attempt, then
    consume tables/views sequentially on this connection. Close/drain each Arrow
@@ -178,7 +181,9 @@ They also exercise connection affinity, failed acquire, lost authority, terminal
 resource release with test doubles. Neither mocked Go tests nor Python syntax
 checks establish enterprise integration support.
 
-Still required before enabling Airbyte: run and record the Python suite and
+The [2026-11-11 local run](validation/2026-11-11-shared-snapshots/README.md)
+records the actual Python transport results and broader Go integration failures.
+Still required before enabling Airbyte: independent connector validation,
 revoked-grant/Redis-ACL tests with independently authenticated principals, forced
 native lease loss, gateway kill/restart and disconnect cleanup through the
 qualified deployment; verify compaction actually occurred. The new TLS unit tests
