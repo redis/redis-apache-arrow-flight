@@ -6,7 +6,7 @@ Provision the isolated environment from this worktree:
 python3 scripts/enterprise-env.py up
 ```
 
-Requires Docker Compose, Python 3.9+, OpenSSL, Go 1.26.10 and a matching private
+Requires Docker Compose, Python 3.9+, OpenSSL, Go 1.27.3 and a matching private
 enterprise composition. The defaults use the qualified checkouts at
 `~/sandbox/work/redis-apache-arrow-flight` and
 `~/sandbox/work/redis-apache-arrow-flight-enterprise`. Override

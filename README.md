@@ -154,8 +154,9 @@ This validates the documented client flows against that running deployment;
 it does not requalify the current public source fingerprint or a release.
 
 Integration validation requires a disposable Redis Enterprise cluster with Search,
-verified TLS, username/password authentication, and the qualified enterprise
-Flight composition. See [the local environment](docs/redis-enterprise-testing.md)
+verified TLS and username/password authentication. Basic TLS/ACL login is
+available in this checkout; paid-feature tests additionally need their qualified
+enterprise Flight composition. See [the local environment](docs/redis-enterprise-testing.md)
 and [test/CI setup](docs/sdlc/testing.md). Historical client checks below retain
 their recorded scope; public unit CI alone is not Enterprise qualification.
 
@@ -237,6 +238,7 @@ for browsable guides and full-text search. See
 | Cancellation and named Arrow datasets | [Data access reference](docs/data-access.md) |
 | Combining datasets and SQL | [Dataset-to-SQL workflow](docs/dataset-sql-workflow.md) |
 | Community and enterprise availability | [Build profiles](docs/build-profiles.md) |
+| Shared managed-catalog read snapshots (qualification pending) | [Snapshot protocol](docs/shared-read-snapshots.md) |
 | Cookies, settings and temporary tables | [Sessions](docs/server-guide.md#sessions) |
 | Configuration, security, shutdown and monitoring | [Deployment and operations](docs/server-guide.md#deployment-and-operations) |
 | Routing, storage and request flow | [Architecture](docs/server-guide.md#architecture) |

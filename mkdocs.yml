@@ -35,6 +35,7 @@ nav:
       - Server guide: docs/server-guide.md
       - SQL reference: docs/sql-reference.md
       - Protocol capabilities: docs/flight-capabilities.md
+      - Shared read snapshots: docs/shared-read-snapshots.md
       - Endpoint acceptance: docs/endpoint-acceptance.md
       - Client compatibility: docs/client-compatibility.md
       - Performance: docs/performance.md

@@ -1,6 +1,6 @@
 module github.com/redis/redis-apache-arrow-flight
 
-go 1.26.10
+go 1.27.3
 
 require (
 	github.com/adbc-drivers/redis/go v0.0.0-20261022161448-9cc8e25c0f01
@@ -57,4 +57,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
 )
 
-replace github.com/adbc-drivers/redis/go => github.com/redis/redis-adbc-driver/go v0.0.0-20261026173111-2f053d3affad
+replace github.com/adbc-drivers/redis/go => github.com/redis/redis-adbc-driver/go v0.0.0-20261110200608-b052eedad9f2

@@ -28,6 +28,12 @@ func isDataset(desc *flight.FlightDescriptor) bool {
 }
 
 func (r *router) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := snapshotGuard(ctx); err != nil {
+		return nil, err
+	}
+	if isDataset(desc) && hasSnapshotHeader(ctx) {
+		return nil, status.Error(codes.InvalidArgument, "shared snapshots cover managed SQL catalogs only")
+	}
 	if isDataset(desc) {
 		return r.ds.GetFlightInfo(ctx, desc)
 	}
@@ -35,6 +41,12 @@ func (r *router) GetFlightInfo(ctx context.Context, desc *flight.FlightDescripto
 }
 
 func (r *router) PollFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	if err := snapshotGuard(ctx); err != nil {
+		return nil, err
+	}
+	if isDataset(desc) && hasSnapshotHeader(ctx) {
+		return nil, status.Error(codes.InvalidArgument, "shared snapshots cover managed SQL catalogs only")
+	}
 	if isDataset(desc) {
 		info, err := r.ds.GetFlightInfo(ctx, desc)
 		if err != nil {
@@ -48,6 +60,12 @@ func (r *router) PollFlightInfo(ctx context.Context, desc *flight.FlightDescript
 }
 
 func (r *router) GetSchema(ctx context.Context, desc *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	if err := snapshotGuard(ctx); err != nil {
+		return nil, err
+	}
+	if isDataset(desc) && hasSnapshotHeader(ctx) {
+		return nil, status.Error(codes.InvalidArgument, "shared snapshots cover managed SQL catalogs only")
+	}
 	if isDataset(desc) {
 		return r.ds.GetSchema(ctx, desc)
 	}
@@ -55,7 +73,13 @@ func (r *router) GetSchema(ctx context.Context, desc *flight.FlightDescriptor) (
 }
 
 func (r *router) DoGet(tkt *flight.Ticket, stream flight.FlightService_DoGetServer) error {
+	if err := snapshotGuard(stream.Context()); err != nil {
+		return err
+	}
 	if len(tkt.GetTicket()) > 0 && tkt.Ticket[0] == '{' {
+		if hasSnapshotHeader(stream.Context()) {
+			return status.Error(codes.InvalidArgument, "shared snapshots cover managed SQL catalogs only")
+		}
 		return r.ds.DoGet(tkt, stream)
 	}
 	ctx, cancel := context.WithCancel(stream.Context())
@@ -95,6 +119,9 @@ func (s *cancelOnSendError) Send(d *flight.FlightData) error {
 // DoPut reads the first message to see where the stream goes, and replays
 // it to the handler.
 func (r *router) DoPut(stream flight.FlightService_DoPutServer) error {
+	if err := snapshotGuard(stream.Context()); err != nil {
+		return err
+	}
 	first, err := stream.Recv()
 	if errors.Is(err, io.EOF) {
 		return status.Error(codes.InvalidArgument, "DoPut got no messages")
@@ -106,16 +133,35 @@ func (r *router) DoPut(stream flight.FlightService_DoPutServer) error {
 		return status.Error(codes.InvalidArgument, "the first DoPut message needs a FlightDescriptor")
 	}
 	if isDataset(first.FlightDescriptor) {
+		if hasSnapshotHeader(stream.Context()) {
+			return status.Error(codes.InvalidArgument, "shared snapshots cover managed SQL catalogs only")
+		}
 		return r.ds.DoPut(stream, first)
 	}
 	return r.sql.DoPut(&replayStream{FlightService_DoPutServer: stream, first: first})
 }
 
 func (r *router) ListFlights(criteria *flight.Criteria, stream flight.FlightService_ListFlightsServer) error {
+	if err := snapshotGuard(stream.Context()); err != nil {
+		return err
+	}
+	if hasSnapshotHeader(stream.Context()) {
+		return status.Error(codes.InvalidArgument, "shared snapshots cover managed SQL catalogs only")
+	}
 	return r.ds.ListFlights(criteria, stream)
 }
 
 func (r *router) DoAction(action *flight.Action, stream flight.FlightService_DoActionServer) error {
+	switch action.GetType() {
+	case "SetSessionOptions", "GetSessionOptions", "CloseSession", "CancelFlightInfo", "CancelQuery":
+	default:
+		if err := snapshotGuard(stream.Context()); err != nil {
+			return err
+		}
+		if hasSnapshotHeader(stream.Context()) && action.GetType() == actionDropDataset {
+			return status.Error(codes.InvalidArgument, "shared snapshots cover managed SQL catalogs only")
+		}
+	}
 	if action.GetType() == actionDropDataset {
 		return r.ds.Drop(action, stream)
 	}

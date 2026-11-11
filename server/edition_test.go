@@ -1,22 +1,21 @@
 package server
 
 import (
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
 func TestBuildProfileSecurityAndTelemetry(t *testing.T) {
-	if FeatureCapabilities()["security"] != enterpriseBuild {
+	if !FeatureCapabilities()["security"] {
 		t.Fatal("wrong capability")
 	}
 	if enterpriseBuild {
 		return
 	}
-	for _, cfg := range []Config{{Auth: AuthRedisACL}, {TLSCertFile: "missing.crt", TLSKeyFile: "missing.key"}, {RedisURI: "rediss://localhost:1"}, {RedisURI: "redis://user:profile-canary@localhost:1"}} {
-		if _, err := New(cfg); !errors.Is(err, errFeatureUnavailable) {
-			t.Fatalf("security request did not fail closed: %v", err)
+	for _, cfg := range []Config{{Auth: AuthRedisACL}, {TLSCertFile: "missing.crt", TLSKeyFile: "missing.key"}, {RedisURI: "rediss://localhost:1?skip_verify=true"}, {RedisURI: "redis://user:profile-canary@localhost:1"}} {
+		if _, err := New(cfg); err == nil {
+			t.Fatalf("invalid security configuration did not fail closed: %v", cfg)
 		}
 	}
 	recorder := httptest.NewRecorder()

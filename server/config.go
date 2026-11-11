@@ -217,6 +217,12 @@ func (c *Config) validate() error {
 	default:
 		return fmt.Errorf("invalid auth mode %q (want %q or %q)", c.Auth, AuthNone, AuthRedisACL)
 	}
+	if c.Auth == AuthRedisACL && c.TokenTTL < time.Second {
+		return errors.New("Redis ACL token lifetime must be at least one second")
+	}
+	if c.Auth == AuthRedisACL && (c.TLSCertFile == "" || c.TLSKeyFile == "") {
+		return errors.New("Redis ACL authentication requires Flight TLS certificate and key")
+	}
 	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
 		return errors.New("TLS needs both a certificate and a key file")
 	}

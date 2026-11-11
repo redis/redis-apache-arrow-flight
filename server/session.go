@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -74,11 +75,12 @@ type session struct {
 	token, owner string
 	store        *sessionStore
 
-	mu      sync.Mutex // held by the request using the session
-	conn    adbc.ConnectionWithContext
-	release func() // the tenant hold, while conn is open
-	opts    map[string]string
-	closed  bool
+	mu       sync.Mutex // held by the request using the session
+	conn     adbc.ConnectionWithContext
+	release  func() // the tenant hold, while conn is open
+	opts     map[string]string
+	closed   bool
+	snapshot *readSnapshot // guarded by mu; terminal state survives connection loss
 	// temp is set once conn may have temporary tables or views, until it
 	// closes. They shadow other tables' unqualified names, so the
 	// session's results are then read on conn (see scanSettings).
@@ -93,7 +95,8 @@ type session struct {
 // run runs fn on the session's connection, opening it from t on first use.
 // If fn fails because of the connection, or panics, the connection is
 // closed; the next request opens another and sets the session's options
-// on it again (its temporary objects are gone).
+// on it again (its temporary objects are gone). A snapshot attempt instead
+// remains terminal and must never reopen against a newer catalog.
 func (s *session) run(ctx context.Context, t *tenant, fn func(adbc.ConnectionWithContext) error) (err error) {
 	s.store.begin(s)
 	defer s.store.end(s)
@@ -101,6 +104,9 @@ func (s *session) run(ctx context.Context, t *tenant, fn func(adbc.ConnectionWit
 	defer s.mu.Unlock()
 	if s.closed {
 		return status.Error(codes.Aborted, "the session was closed; start a new one")
+	}
+	if err := s.checkSnapshot(ctx); err != nil {
+		return err
 	}
 	if s.conn == nil {
 		if err := s.open(ctx, t); err != nil {
@@ -110,11 +116,14 @@ func (s *session) run(ctx context.Context, t *tenant, fn func(adbc.ConnectionWit
 	ok := false
 	defer func() {
 		if !ok {
+			if s.snapshot != nil {
+				s.snapshot.State = "failed"
+			}
 			s.dropConn()
 		}
 	}()
 	err = fn(s.conn)
-	ok = err == nil || isStatementError(err)
+	ok = err == nil || (s.snapshot == nil && isStatementError(err))
 	return err
 }
 
@@ -614,6 +623,9 @@ func (s *contextStream) Context() context.Context { return s.ctx }
 // on the session's connection, starting a session if the request has
 // none.
 func (s *sqlServer) SetSessionOptions(ctx context.Context, req *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error) {
+	if _, ok := req.GetSessionOptions()[snapshotOption]; ok {
+		return s.setReadSnapshot(ctx, req)
+	}
 	sess, err := ensureSession(ctx)
 	if err != nil {
 		return nil, err
@@ -628,6 +640,9 @@ func (s *sqlServer) SetSessionOptions(ctx context.Context, req *flight.SetSessio
 		res.Errors[name] = &flight.SetSessionOptionsResultError{Value: v}
 	}
 	err = sess.run(ctx, t, func(conn adbc.ConnectionWithContext) error {
+		if sess.snapshot != nil {
+			return errSnapshotLost
+		}
 		for name, v := range req.GetSessionOptions() {
 			opt, ok := sessionOptions[name]
 			if !ok {
@@ -674,6 +689,37 @@ func (s *sqlServer) GetSessionOptions(ctx context.Context, _ *flight.GetSessionO
 	}
 	defer done()
 	res := &flight.GetSessionOptionsResult{SessionOptions: map[string]*flight.SessionOptionValue{}}
+	if !s.tenants.cfg.DisableSessions && s.tenants.cfg.Auth == AuthRedisACL && s.tenants.cfg.TLSCertFile != "" && s.tenants.cfg.TLSKeyFile != "" {
+		res.SessionOptions[snapshotProtocolOption] = &flight.SessionOptionValue{OptionValue: &pb.SessionOptionValue_StringValue{StringValue: "1"}}
+	}
+	if sess := sessionFrom(ctx); sess != nil {
+		if !sess.mu.TryLock() {
+			return nil, status.Error(codes.ResourceExhausted, "session has an active Arrow reader")
+		}
+		if sess.snapshot != nil {
+			if hasSnapshotHeader(ctx) {
+				handle, err := snapshotHeaderValue(ctx)
+				if err != nil || handle != sess.snapshot.Handle {
+					sess.mu.Unlock()
+					return nil, errSnapshotLost
+				}
+			}
+			if sess.snapshot.State == "active" {
+				md, _ := metadata.FromIncomingContext(ctx)
+				md = md.Copy()
+				md.Set(snapshotHeader, sess.snapshot.Handle)
+				if err := sess.checkSnapshot(metadata.NewIncomingContext(ctx, md)); err != nil {
+					sess.mu.Unlock()
+					return nil, err
+				}
+			}
+			raw, _ := json.Marshal(sess.snapshot)
+			res.SessionOptions[snapshotStatusOption] = &flight.SessionOptionValue{OptionValue: &pb.SessionOptionValue_StringValue{StringValue: string(raw)}}
+			sess.mu.Unlock()
+			return res, nil
+		}
+		sess.mu.Unlock()
+	}
 	err = t.withConn(ctx, "", func(conn adbc.ConnectionWithContext) error {
 		for name, opt := range sessionOptions {
 			v, err := connOption(ctx, conn, opt.key)

@@ -111,6 +111,7 @@ func newSQLServer(tenants *tenantCache, alloc memory.Allocator, keyPrefix string
 // that already ran has its result instead: Result, or ResultKey, the
 // Redis key that holds it.
 type statementHandle struct {
+	Snapshot  string `json:"snapshot,omitempty"`
 	CancelID  string `json:"c,omitempty"`
 	Query     string `json:"q,omitempty"`
 	Params    []byte `json:"p,omitempty"` // an Arrow IPC stream
@@ -136,6 +137,9 @@ func decodeHandle(b []byte) (statementHandle, error) {
 // newStatement makes a statement for h on conn. Its query result is read
 // whole unless stream is set (see executeQuery).
 func (s *sqlServer) newStatement(ctx context.Context, conn adbc.ConnectionWithContext, h statementHandle, stream bool) (adbc.StatementWithContext, error) {
+	if err := validateSnapshotHandle(ctx, h); err != nil {
+		return nil, err
+	}
 	stmt, err := conn.NewStatement(ctx)
 	if err != nil {
 		return nil, err
@@ -198,7 +202,7 @@ func (s *sqlServer) planSchema(ctx context.Context, t *tenant, h statementHandle
 func (s *sqlServer) infoSchema(ctx context.Context, t *tenant, h statementHandle) (*arrow.Schema, error) {
 	schema, err := s.planSchema(ctx, t, h)
 	if err != nil {
-		if st := toStatus(err); status.Code(st) != codes.Unimplemented {
+		if st := toStatus(err); hasSnapshotHeader(ctx) || status.Code(st) != codes.Unimplemented {
 			return nil, st
 		}
 		return nil, nil
@@ -244,6 +248,9 @@ var errPlannedOnRun = status.Error(codes.Unimplemented,
 	"the result schema of a script that changes things is known only when it runs: read it from its result")
 
 func (s *sqlServer) statementInfo(ctx context.Context, h statementHandle, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	if err := bindSnapshotHandle(ctx, &h); err != nil {
+		return nil, err
+	}
 	parsed, err := redis.ParseScript(h.Query)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -445,6 +452,15 @@ func (s *sqlServer) executeQuery(ctx context.Context, h statementHandle) (*arrow
 	t, done, err := s.tenants.acquire(ctx)
 	if err != nil {
 		return nil, nil, err
+	}
+	if sess := sessionFrom(ctx); sess != nil {
+		sess.mu.Lock()
+		snapshot := sess.snapshot != nil
+		sess.mu.Unlock()
+		if snapshot {
+			defer done()
+			return s.snapshotQuery(ctx, t, sess, h)
+		}
 	}
 	m := s.tenants.metrics
 	src, ss, why, err := s.streamable(ctx, t, h.Query)
@@ -714,6 +730,9 @@ func (s *sqlServer) CreatePreparedStatement(ctx context.Context, req flightsql.A
 		return res, errNoTransactions
 	}
 	h := statementHandle{Query: req.GetQuery()}
+	if err := bindSnapshotHandle(ctx, &h); err != nil {
+		return res, err
+	}
 	parsed, err := redis.ParseScript(h.Query)
 	if err != nil {
 		return res, status.Error(codes.InvalidArgument, err.Error())

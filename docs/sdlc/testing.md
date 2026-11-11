@@ -8,7 +8,7 @@ Evidence: [Makefile](../../Makefile), [test workflow](../../.github/workflows/te
 For a provisioned local TLS/ACL cluster and containerized enterprise runner, see
 [the Redis Enterprise environment](../redis-enterprise-testing.md).
 
-Use Go as pinned by [go.mod](../../go.mod). Integration tests create and delete tables, keys, and ACL users named `it_flight_*`; examples also mutate data. Use a disposable Redis Enterprise cluster database with Search, verified TLS, and a nonempty username and password. Use the qualified enterprise Flight composition: community explicitly rejects these security features.
+Use Go as pinned by [go.mod](../../go.mod). Integration tests create and delete tables, keys, and ACL users named `it_flight_*`; examples also mutate data. Use a disposable Redis Enterprise cluster database with Search, verified TLS, and a nonempty username and password. Core TLS/ACL authentication is available in community; paid-feature tests still need the qualified enterprise composition.
 
 | Check | Command | Prerequisites and success signal |
 | --- | --- | --- |

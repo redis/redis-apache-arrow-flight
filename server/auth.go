@@ -1,68 +1,135 @@
 package server
 
 import (
+	"context"
+	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"time"
+
+	goredis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"time"
 )
 
-// With AuthRedisACL, a client logs in with the Flight handshake and HTTP
-// Basic credentials, which are a Redis ACL user's. The server checks them
-// with PING and returns a bearer token for the client to send with every
-// call. Each call then runs as that Redis user, so Redis's ACLs decide what
-// it may read and change.
-//
-// A token is the identity and an expiry time sealed with AES-256-GCM. The
-// server keeps no session state, so any server with the same token secret
-// accepts it. Tokens contain the Redis password, encrypted: keep the
-// secret secret, and use TLS.
-
+// Redis ACL login exchanges credentials over verified TLS for an expiring,
+// authenticated-encrypted bearer token. Each request still uses that principal's
+// Redis credentials; the token and snapshot never replace Redis authorization.
 const tokenAAD = "redis-arrow-flight token v1"
+const authTimeout = 5 * time.Second
 
-type tokenSealer struct {
-	aead cipher.AEAD
-}
+type tokenSealer struct{ aead cipher.AEAD }
 
-// newTokenSealer uses the community implementation; see the build-profile contract.
 func newTokenSealer(secret string) (*tokenSealer, error) {
-	return nil, errFeatureUnavailable
+	var key [32]byte
+	if secret == "" {
+		if _, err := rand.Read(key[:]); err != nil {
+			return nil, err
+		}
+	} else {
+		if len(secret) < 32 {
+			return nil, errors.New("token secret must contain at least 32 bytes")
+		}
+		key = sha256.Sum256([]byte(secret))
+	}
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, err
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	return &tokenSealer{aead: aead}, nil
 }
 
 type tokenClaims struct {
 	identity
-	Expires int64 `json:"e"` // unix seconds
+	Expires int64 `json:"e"`
 }
 
 func (s *tokenSealer) seal(id identity, expires time.Time) (string, error) {
-	return "", errFeatureUnavailable
+	raw, err := json.Marshal(tokenClaims{identity: id, Expires: expires.Unix()})
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, s.aead.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	encrypted := s.aead.Seal(nonce, nonce, raw, []byte(tokenAAD))
+	return base64.RawURLEncoding.EncodeToString(encrypted), nil
 }
 
 var errBadToken = errors.New("invalid or expired token")
 
 func (s *tokenSealer) open(token string, now time.Time) (identity, error) {
-	return identity{}, errFeatureUnavailable
+	if len(token) > 16384 {
+		return identity{}, errBadToken
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(token)
+	n := s.aead.NonceSize()
+	if err != nil || len(raw) < n+s.aead.Overhead() {
+		return identity{}, errBadToken
+	}
+	plaintext, err := s.aead.Open(nil, raw[:n], raw[n:], []byte(tokenAAD))
+	if err != nil {
+		return identity{}, errBadToken
+	}
+	var claims tokenClaims
+	if json.Unmarshal(plaintext, &claims) != nil || claims.Expires <= now.Unix() || claims.Username == "" || claims.Password == "" {
+		return identity{}, errBadToken
+	}
+	return claims.identity, nil
 }
 
-// aclValidator is the flight.BasicAuthValidator for AuthRedisACL.
 type aclValidator struct {
 	uri    string
+	caFile string
 	sealer *tokenSealer
 	ttl    time.Duration
 	now    func() time.Time
 }
 
-// Validate uses the community implementation; see the build-profile contract.
 func (v *aclValidator) Validate(username, password string) (string, error) {
-	return "", errFeatureUnavailable
+	if username == "" || password == "" {
+		return "", status.Error(codes.Unauthenticated, "Redis username and password are required")
+	}
+	id := identity{Username: username, Password: password}
+	opts, err := clientOptionsWithCA(v.uri, id, v.caFile)
+	if err != nil || opts.TLSConfig == nil {
+		return "", status.Error(codes.Unavailable, "verified Redis TLS is required")
+	}
+	opts.MaxRetries = -1
+	opts.DialTimeout, opts.ReadTimeout, opts.WriteTimeout = authTimeout, authTimeout, authTimeout
+	opts.ContextTimeoutEnabled = true
+	client := goredis.NewClient(opts)
+	defer client.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), authTimeout)
+	defer cancel()
+	if err := client.Ping(ctx).Err(); err != nil {
+		switch status.Code(toStatus(err)) {
+		case codes.Unauthenticated, codes.PermissionDenied:
+			return "", status.Error(codes.Unauthenticated, "Redis authentication failed")
+		default:
+			return "", status.Error(codes.Unavailable, "Redis authentication service unavailable")
+		}
+	}
+	token, err := v.sealer.seal(id, v.now().Add(v.ttl))
+	if err != nil {
+		return "", status.Error(codes.Internal, "could not issue authentication token")
+	}
+	return token, nil
 }
 
-// IsValid returns the identity a bearer token carries.
 func (v *aclValidator) IsValid(token string) (any, error) {
 	id, err := v.sealer.open(token, v.now())
 	if err != nil {
-		return nil, status.Error(codes.Unauthenticated, err.Error())
+		return nil, status.Error(codes.Unauthenticated, errBadToken.Error())
 	}
 	return id, nil
 }

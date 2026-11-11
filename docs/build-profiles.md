@@ -1,8 +1,9 @@
 # Community and enterprise build profiles
 
-This checkout builds **community** with paid-feature stubs. Use an enterprise
-composition for TLS/authentication, monitoring, tuning and automation. The table
-below describes exact feature availability.
+This checkout builds **community** with basic verified TLS and Redis ACL
+authentication. The minimum security baseline was added at the requester's
+explicit direction for shared snapshots (2026-11-11). Monitoring, tuning and
+automation retain their existing enterprise composition boundaries.
 
 The community profile resolves only public dependencies and contains community
 implementations at the paid-feature boundaries. Enterprise builds compose the
@@ -15,12 +16,14 @@ plugin, a Flight requirement for native ADBC, or a network license check.
 | Monitoring | No diagnostics file, empty optional metrics; Flight metrics HTTP 204 and health UNKNOWN | Existing diagnostics, metrics, backend health and request logging |
 | Optimization | Full driver SQL execution; basic Flight connections and one dataset endpoint | Full driver SQL execution plus Flight pooling and accelerated streaming as implemented |
 | Automation | Full driver automation; basic Flight protocol/shard routing | Full driver automation plus existing Flight management automation |
-| Security | Requested TLS/authentication/security operations fail explicitly before execution | Existing verified TLS/custom CA, Redis credentials/ACL integration and Flight authentication |
+| Basic security | Verified Flight TLS, Redis TLS/custom CA, Redis ACL login and encrypted expiring tokens | Same minimum contract; extra security capabilities require their own review |
 | Backup, Active-Active adaptation and infrastructure migration | Unavailable | Not yet implemented; this split does not implement the roadmap |
 
-Community security stubs do not authenticate credentials, accept certificates,
-skip verification or downgrade a secure connection to plaintext. Use enterprise
-for TLS or authenticated Redis. Basic operational errors/startup/shutdown logs
+Both profiles reject insecure TLS verification and plaintext credential transport.
+Redis ACL login requires Flight TLS and a verified rediss backend. A custom Redis
+trust bundle uses the same `adbc.redis.tls_ca_file` option in gateway and native
+clients. No enterprise composition is required for this basic security baseline.
+Basic operational errors/startup/shutdown logs
 and SQL/storage/Arrow integrity and cleanup remain core behavior; optional
 monitoring and automation cannot remove those invariants.
 
@@ -46,9 +49,9 @@ source-revision-coupled: core changes need a newly qualified composition manifes
 It is not binary plugin ABI compatibility or license enforcement. Keep all original
 copyright/license notices. The split does not revoke existing licenses/history.
 
-Test both profiles. Tests that assert paid plans, telemetry, authenticated
-connections or automation live with those implementations, with their assertions
-intact. Core result/lifecycle tests and explicit stub/fail-closed tests remain
+Test both profiles. Tests that assert paid plans, telemetry or automation live
+with those implementations, with their assertions intact. Basic TLS/ACL tests
+are public alongside their core implementation. Core result/lifecycle tests and explicit stub/fail-closed tests remain
 public. Preserve exact Arrow values, errors, cleanup, and cancellation. Software
 integration requires verified active 4x QPF; no Active-Active or benchmark
 qualification follows from a successful build or unit pass.
@@ -65,10 +68,12 @@ readiness with a real SQL query, as `scripts/wait-flight.py` does in CI.
 Public CI runs formatting, vet, community unit tests and a static binary build.
 All integration suites and client validation require a disposable Redis
 Enterprise cluster with Search, verified TLS and username/password authentication.
-The community profile cannot run them because it rejects these security features.
-Use the qualified enterprise source composition; `make test-integration` and
-its `make test-cluster` alias require an exported authenticated `rediss://`
-`REDIS_URI` and never provision plaintext local Redis.
+Core TLS/authentication and snapshot ownership tests run in the community unit
+suite with generated certificates and a TLS RESP test fixture. Full SQL/native
+snapshot qualification still requires a disposable authenticated TLS Software
+endpoint. Enterprise feature assertions additionally require their qualified source
+composition. `make test-integration` and its `make test-cluster` alias require an
+exported authenticated `rediss://` `REDIS_URI`; they never provision plaintext Redis.
 
 See [testing and recommended private CI setup](sdlc/testing.md) for provisioning,
 secret management and the outstanding external qualification gate. Public CI

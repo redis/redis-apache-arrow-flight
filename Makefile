@@ -46,7 +46,7 @@ test:
 	env -u REDIS_URI -u REDIS_INTEGRATION_REQUIRED go test ./...
 
 # Supply REDIS_URI in the environment; never echo credentials in recipes.
-# Run through the qualified enterprise composition (see docs/build-profiles.md).
+# Paid-feature tests also need their qualified enterprise composition (see docs/build-profiles.md).
 export REDIS_URI
 test-integration:
 	@test -n "$$REDIS_URI" || (echo 'Set REDIS_URI to a Redis Enterprise TLS endpoint with username and password'; exit 1)
@@ -111,3 +111,8 @@ INTEGRATION_ARGS ?= --setup --uri "$(FLIGHT_URI)" --results "$(INTEGRATION_RESUL
 .PHONY: integrations-test
 integrations-test:
 	python3 scripts/test-integrations.py $(INTEGRATION_ARGS)
+
+# Requires a TLS/authenticated gateway backed by disposable Redis Enterprise; never native ADBC.
+.PHONY: test-shared-snapshot
+test-shared-snapshot:
+	python3 -m pytest -v tests/integrations/test_shared_snapshot.py

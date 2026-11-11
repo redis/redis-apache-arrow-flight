@@ -10,5 +10,5 @@ const enterpriseBuild = false
 
 // FeatureCapabilities reports implementation availability, not health or entitlement.
 func FeatureCapabilities() map[string]bool {
-	return map[string]bool{"enterprise": enterpriseBuild, "active_active": false, "migration": false, "monitoring": enterpriseBuild, "optimization": enterpriseBuild, "security": enterpriseBuild, "automation": enterpriseBuild, "backup": false}
+	return map[string]bool{"enterprise": enterpriseBuild, "active_active": false, "migration": false, "monitoring": enterpriseBuild, "optimization": enterpriseBuild, "security": true, "automation": enterpriseBuild, "backup": false}
 }
