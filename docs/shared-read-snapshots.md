@@ -167,7 +167,10 @@ its required data/authority becomes unavailable.
 Run `make test-shared-snapshot` after installing
 `requirements/shared-snapshot.txt`, with `FLIGHT_URI=grpc+tls://...`,
 `FLIGHT_USERNAME`, `FLIGHT_PASSWORD` and optionally `FLIGHT_TLS_ROOT_CERTS` (PEM
-file). Set `FLIGHT_SNAPSHOT_LONG_TESTS=1` for the two-minute expiry case.
+file). Set `FLIGHT_SNAPSHOT_LONG_TESTS=1` for the two-minute expiry case and
+`FLIGHT_INTEGRATION_SCOPE` to the same nonsecret scope used by other suites on
+this database. The Makefile runner serializes cooperating runs; see
+[test isolation](sdlc/testing.md).
 Use a disposable Redis Enterprise catalog. Basic TLS/ACL is available in core;
 use a qualified composition when exercising additional enterprise features.
 No credentials belong in command arguments or committed output.
@@ -182,7 +185,8 @@ resource release with test doubles. Neither mocked Go tests nor Python syntax
 checks establish enterprise integration support.
 
 The [2026-11-11 local run](validation/2026-11-11-shared-snapshots/README.md)
-records the actual Python transport results and broader Go integration failures.
+records the actual Python transport results, initial Go fixture failures, and
+the successful complete backend rerun after fixes for #68–#71.
 Still required before enabling Airbyte: independent connector validation,
 revoked-grant/Redis-ACL tests with independently authenticated principals, forced
 native lease loss, gateway kill/restart and disconnect cleanup through the

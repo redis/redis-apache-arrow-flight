@@ -69,7 +69,9 @@ did not independently instrument completion of a compaction. Its foreign-session
 case uses another connection with the same test credentials; independent-principal
 coverage remains in the Go TLS test with a native test double, not this live case.
 
-## Broader real-Redis Go integration results
+## Initial broader real-Redis Go integration results
+
+These are the original failures, subsequently repaired as documented below.
 
 The full Linux integration/race run **failed**. Package serialization (`-p 1`, as
 used by the existing environment runner) reproduced the following unchanged
@@ -82,10 +84,11 @@ integration assertions:
 | `TestIntegrationMetadata` | Native table types include `MATERIALIZED VIEW`, `TABLE`, `VIEW`; the assertion still expects exactly `TABLE`, `VIEW`. |
 | `TestIntegrationSIGTERM` | Initial shared-catalog runs reported a retriable concurrent catalog change during ingestion. An isolated rerun passed ingestion but failed before shutdown: the temporary-table fixture finds no index under its old naming assumption. |
 
-The fixture/test files above are unchanged from main; they were not skipped or
-relaxed to produce a green result. The index assertions need adaptation to the
-current native storage protocol before those resource/shutdown checks can
-establish their intended guarantees. No full real-Redis Go-suite pass is claimed.
+Those fixture/test files were unchanged from main during the initial run and
+were not skipped or relaxed. Their index assertions needed adaptation before
+resource/shutdown checks could establish their intended guarantees. That initial
+run did not establish a full real-Redis Go-suite pass; the subsequent repairs and
+successful complete rerun are documented below.
 
 ## Remaining gates
 
@@ -93,5 +96,54 @@ Do not enable the external Airbyte connector based on this run alone. Still
 required: connector lifecycle integration and independent validation, real
 independent-principal SQL grant/Redis ACL revocation, forced native lease loss,
 gateway kill/restart and disconnect cleanup, direct compaction evidence, and
-resolution of the broader Go integration failures above. No release, migration,
-production deployment or durable resume is qualified here.
+any additional enterprise-composition qualification required for paid features.
+No release, migration, production deployment or durable resume is qualified here.
+
+## Follow-up: issues #68–#71 repaired
+
+The user requested fixes for all four issue groups. The follow-up changes are
+verification/harness code; production gateway behavior and the pinned driver are
+unchanged. A fresh disposable Software instance used the same verified TLS/ACL,
+three-primary-shard, active-4x-QPF topology described above.
+
+- **#68:** test-only read-only protocol-17 metadata inspection now atomically
+  resolves the committed root, metadata bucket and actual table descriptor.
+  Cursor assertions inspect every primary/retained-segment index. Unsupported
+  formats, broken descriptors, missing indexes and unavailable statistics fail;
+  they do not become zero cursors or skipped assertions.
+- **#69:** the metadata test asserts exactly MATERIALIZED VIEW, TABLE and VIEW.
+  It creates a real materialized view and checks filtered discovery, type and
+  serialized schema through Flight SQL.
+- **#70:** SIGTERM setup resolves the actual temporary schema/index and captures
+  all managed indexes. Post-shutdown checks require zero cursors, logical temp
+  removal and physical temp-index reclamation after normal native sweep. The
+  test still verifies deadline cancellation, actual unread row counts, successful
+  upload completion and exact dataset read-back. It reaches and passes these
+  checks rather than bypassing setup.
+- **#71:** the supported integration target serializes Go packages with `-p 1`.
+  `scripts/run-integration.py` holds a POSIX advisory scope lock for the command's
+  lifetime. Cooperating Go/Python suites sharing a database use the same scope;
+  container aliases require an explicit shared scope/lock location. Separate
+  hosts need separate databases. No SQL write retry or error suppression was added.
+
+Results:
+
+- Focused previously failing cases: **passed** with `-race -p 1` against real Redis.
+- Full Linux Go backend suite: **passed** with `REDIS_INTEGRATION_REQUIRED=1 go test
+  -count=1 -p 1 -race ./...`; the command and server packages passed in 9.348s and
+  29.595s respectively. All applicable core backend tests ran; existing
+  enterprise-only optimization skips remain unchanged.
+- The Python command was started while Go held the scope lock. Its log showed
+  waiting, then acquisition only after Go exited: **4 passed in 121.70 seconds**,
+  no skips, including the fixed two-minute native expiry case.
+- Full macOS unit/race suite, vet, formatting/diff checks and static build passed.
+- Test-runner checks cover shared-scope serialization, independent-scope
+  concurrency, credential-independent scope normalization, nonzero exit status,
+  and waiting for child cleanup with a failing exit status on termination.
+- The resource-inspection regression verifies retained-segment enumeration and
+  explicit rejection of malformed descriptors.
+
+The four reported blockers are addressed. Independent Airbyte connector checks,
+real grant/ACL revocation, forced lease loss, kill/disconnect coverage, direct
+compaction evidence and any private-composition/release qualification remain
+separate gates. No production release or automatic connector enablement follows.

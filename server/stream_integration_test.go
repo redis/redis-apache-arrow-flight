@@ -15,6 +15,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/flight/flightsql"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/redis/redis-apache-arrow-flight/internal/integrationtest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -120,16 +121,30 @@ func schemaCursors(t *testing.T, admin goredis.UniversalClient, schema, table st
 	if _, ok := admin.(*goredis.ClusterClient); ok {
 		return -1
 	}
-	reply, err := admin.Do(context.Background(), "FT.INFO", "idx:"+schema+":"+table).Result()
+	indexes, err := integrationtest.TableIndexes(context.Background(), admin, schema, table)
 	if err != nil {
 		t.Fatal(err)
 	}
-	stats, ok := replyField(reply, "cursor_stats")
-	if !ok {
-		t.Fatal("no cursor_stats in FT.INFO")
+	if len(indexes) == 0 {
+		t.Fatalf("%s.%s has no physical indexes", schema, table)
 	}
-	n, _ := replyField(stats, "index_total")
-	return n.(int64)
+	var total int64
+	for _, index := range indexes {
+		reply, err := admin.Do(context.Background(), "FT.INFO", index).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		stats, ok := replyField(reply, "cursor_stats")
+		if !ok {
+			t.Fatal("no cursor_stats in FT.INFO")
+		}
+		n, ok := replyInt(stats, "index_total")
+		if !ok {
+			t.Fatal("no index_total in FT.INFO")
+		}
+		total += n
+	}
+	return total
 }
 
 // waitCursors waits for a table's index to have n open cursors (on

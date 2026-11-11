@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -235,24 +236,21 @@ func cursors(t *testing.T, admin *goredis.Client, index string) int64 {
 		}
 		return nil
 	}
-	n, _ := field(field(reply, "cursor_stats"), "index_total").(int64)
+	n, ok := field(field(reply, "cursor_stats"), "index_total").(int64)
+	if !ok {
+		t.Fatalf("FT.INFO %s has no integer cursor count", index)
+	}
 	return n
 }
 
 // tempIndexes returns the indexes of temporary tables named name.
 func tempIndexes(t *testing.T, admin *goredis.Client, name string) []string {
 	t.Helper()
-	all, err := admin.Do(context.Background(), "FT._LIST").StringSlice()
+	indexes, err := integrationtest.TableIndexes(context.Background(), admin, "pg_temp", name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var temp []string
-	for _, idx := range all {
-		if strings.HasPrefix(idx, "idx:pg_temp_") && strings.HasSuffix(idx, ":"+name) {
-			temp = append(temp, idx)
-		}
-	}
-	return temp
+	return indexes
 }
 
 // On SIGTERM, an upload under way finishes, and a stream still unread at
@@ -329,8 +327,9 @@ func TestIntegrationSIGTERM(t *testing.T) {
 	if _, err := sess.ExecuteUpdate(ctx, "CREATE TEMP TABLE "+temp+" AS SELECT 1 AS a"); err != nil {
 		t.Fatal(err)
 	}
-	if got := tempIndexes(t, admin, temp); len(got) != 1 {
-		t.Fatalf("the session's temporary table has indexes %v, want one", got)
+	temporary := tempIndexes(t, admin, temp)
+	if len(temporary) != 1 {
+		t.Fatalf("the session's temporary table has indexes %v, want one", temporary)
 	}
 
 	// A result larger than the transport buffers, with its first batch read.
@@ -352,8 +351,19 @@ func TestIntegrationSIGTERM(t *testing.T) {
 	if !result.Next() {
 		t.Fatal(result.Err())
 	}
-	index := "idx:public:" + table
-	if n := cursors(t, admin, index); server.FeatureCapabilities()["optimization"] && n == 0 {
+	firstBatchRows := int(result.RecordBatch().NumRows())
+	indexes, err := integrationtest.TableIndexes(ctx, admin, "public", table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(indexes) == 0 {
+		t.Fatal("managed fixture has no indexes")
+	}
+	var openCursors int64
+	for _, index := range indexes {
+		openCursors += cursors(t, admin, index)
+	}
+	if server.FeatureCapabilities()["optimization"] && openCursors == 0 {
 		t.Fatal("the result isn't streaming: no cursor is open")
 	}
 
@@ -399,13 +409,47 @@ func TestIntegrationSIGTERM(t *testing.T) {
 	if err := c.wait(t, 15*time.Second); err != nil {
 		t.Errorf("the server exited with %v, want 0", err)
 	}
-	if n := cursors(t, admin, index); n > 0 {
-		t.Errorf("%d cursors are open after the server exited", n)
+	for _, index := range indexes {
+		if n := cursors(t, admin, index); n > 0 {
+			t.Errorf("%d cursors are open on %s after the server exited", n, index)
+		}
 	}
 	if got := tempIndexes(t, admin, temp); len(got) > 0 {
 		t.Errorf("the session's temporary table is left after the server exited: %v", got)
 	}
-	if n, err := read(result); err == nil || 500+n >= tableRows {
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		// A new native operation runs the driver's normal retirement sweep.
+		info, err := sqlClient(helper).Execute(ctx, "SELECT 1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		probe, err := sqlClient(helper).DoGet(ctx, info.Endpoint[0].Ticket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = read(probe)
+		probe.Release()
+		if err != nil {
+			t.Fatal(err)
+		}
+		live, err := admin.Do(ctx, "FT._LIST").StringSlice()
+		if err != nil {
+			t.Fatal(err)
+		}
+		remaining := false
+		for _, index := range temporary {
+			if slices.Contains(live, index) {
+				remaining = true
+			}
+		}
+		if !remaining {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("temporary physical indexes remain after shutdown/sweep: %v", temporary)
+		}
+	}
+	if n, err := read(result); err == nil || firstBatchRows+n >= tableRows {
 		t.Errorf("the stream left unread got %d more rows, err = %v; want it cut off", n, err)
 	}
 

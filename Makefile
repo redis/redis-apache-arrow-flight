@@ -50,7 +50,7 @@ test:
 export REDIS_URI
 test-integration:
 	@test -n "$$REDIS_URI" || (echo 'Set REDIS_URI to a Redis Enterprise TLS endpoint with username and password'; exit 1)
-	@REDIS_INTEGRATION_REQUIRED=1 go test -count=1 -race ./...
+	@REDIS_INTEGRATION_REQUIRED=1 python3 scripts/run-integration.py -- go test -count=1 -p 1 -race ./...
 
 # Compatibility alias: all integration tests now use Redis Enterprise.
 test-cluster: test-integration
@@ -115,4 +115,4 @@ integrations-test:
 # Requires a TLS/authenticated gateway backed by disposable Redis Enterprise; never native ADBC.
 .PHONY: test-shared-snapshot
 test-shared-snapshot:
-	python3 -m pytest -v tests/integrations/test_shared_snapshot.py
+	python3 scripts/run-integration.py -- python3 -m pytest -v tests/integrations/test_shared_snapshot.py
