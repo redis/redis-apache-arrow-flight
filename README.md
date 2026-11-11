@@ -121,9 +121,10 @@ against local Redis. Requires `curl`, `tar` and `shasum`.
 )
 ```
 
-Release archives and container images are published by the Release workflow
-once its checks finish. If a new release's artifacts are still being built,
-wait for publication or [build from source](docs/local-development.md).
+Release archives are published together with the matching Enterprise version.
+The public container image follows after its checks finish; see
+[paired releases](docs/paired-releases.md). While an image is building, use a
+release archive or [build from source](docs/local-development.md).
 For a different Redis host, change `REDIS_URI` in Docker or `-redis-uri` above.
 Keep the server running, then choose a [data tool guide](#data-tools).
 
@@ -249,3 +250,8 @@ for browsable guides and full-text search. See
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](LICENSE).
+
+## Paired releases
+
+Public and Enterprise versions are published together by the private coordinator.
+See [paired releases](docs/paired-releases.md) for the process and image recovery.

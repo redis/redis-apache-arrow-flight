@@ -1,23 +1,13 @@
-# Releases a tag: runs the test workflow on it, builds static binaries for
-# Linux (amd64, arm64) and macOS (arm64) and a multi-arch container image,
-# checks each binary on its own platform, then pushes the image to
-# ghcr.io/redis/redis-apache-arrow-flight and attaches the binaries,
-# with SHA-256 checksums, to the tag's GitHub release (made if there is none
-# yet; a tag with a "-" makes a prerelease).
-#
-# Runs when a v* tag is pushed, or by hand for an existing tag (its assets
-# are replaced and its image pushed again). Pull requests that change this
-# file, the Dockerfile or the Makefile build and check everything without
-# publishing anything.
-name: Release
+# Paired releases are coordinated from the Enterprise repository.
+# Kept for PR artifact verification and an explicit error for old manual links.
+# Public container publication uses release-image.yml after pair verification.
+name: Release artifact checks (legacy entry point)
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing tag to release (its assets are replaced)
+        description: Legacy entry point; use the Enterprise Coordinated release workflow
         required: true
   pull_request:
     paths:
@@ -58,12 +48,11 @@ jobs:
       - name: Resolve immutable release commit
         id: source
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Require private Enterprise qualification before release
+      - name: Direct release operators to the shared coordinator
         if: github.event_name != 'pull_request'
-        env:
-          ENTERPRISE_CI_TOKEN: ${{ secrets.ENTERPRISE_CI_TOKEN }}
-          RELEASE_SHA: ${{ steps.source.outputs.sha }}
-        run: python3 scripts/enterprise-release-gate.py --sha "$RELEASE_SHA"
+        run: |
+          echo '::error::Run Coordinated release in redis-apache-arrow-flight-enterprise. This legacy workflow only validates PR artifacts.'
+          exit 1
       - name: Explain PR artifact scope
         if: github.event_name == 'pull_request'
         run: echo 'PR artifact checks do not publish or qualify a release.'

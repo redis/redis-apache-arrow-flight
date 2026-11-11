@@ -119,20 +119,22 @@ coverage and failures; no full-suite pass is claimed.
 
 ## Release qualification
 
-The public release workflow dispatches the private `enterprise-qualification.yml`
-workflow in `Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise`.
-The private manifest must bind the exact public commit before that source's
-scripts or tests execute. The workflow verifies the fingerprint, provisions an
-isolated TLS/ACL Enterprise database, runs the complete race suite and live SQL
-smoke, and uploads a small qualification receipt.
+The Enterprise **Coordinated release** workflow calls its private
+`enterprise-qualification.yml` workflow before building either edition. Its
+manifest must bind the exact public commit before that source's scripts or tests
+execute. Qualification verifies the fingerprint, provisions an isolated TLS/ACL
+Enterprise database with active 4x QPF, runs the complete race suite and live SQL
+smoke, and uploads a revision-bound receipt.
 
-The public gate rejects missing credentials, unqualified commits, failed or stale
-runs, missing/expired artifacts, and receipt mismatches. Binaries and images are
-built from the verified immutable SHA; publication cannot proceed on gate
-failure. PR artifact checks do not publish and do not claim release qualification.
+The coordinator rejects missing qualification, mismatched source/manifest/run
+bindings, conflicting tags and different existing asset bytes. Both drafts and
+all binaries are verified before either release publishes. Each release records
+the same version and commit pair. Public PR artifact checks do not publish or
+claim Enterprise qualification.
 
-`ENTERPRISE_CI_TOKEN` is stored as a public-repository Actions secret, scoped to
-Actions read/write and Contents read on the single private repository. Its
-organization access currently awaits owner approval; it expires 2026-12-01 and
-must be rotated before then. The existing broadly scoped CLI login is never
-stored as a workflow credential.
+The coordinator uses the private repository's own `GITHUB_TOKEN` and a GitHub App
+installed only on the public repository for release writes. No PAT or public
+secret granting private repository access is required. The public image workflow
+verifies the App-uploaded pair record, version, exact public tag and qualification
+binding before rebuilding and publishing its image. See [paired releases](paired-releases.md)
+for App configuration, the publication boundary and partial-failure recovery.
