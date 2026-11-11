@@ -5,7 +5,7 @@ Read [the SDLC index](docs/sdlc/README.md) and the change's intent, spec, and pl
 
 ## Commands
 
-- Build: `make build` → `bin/redis-flight-server`; requires Go from `go.mod` (1.26.10).
+- Build: `make build` → `bin/redis-flight-server`; requires Go from `go.mod` (1.27.3).
 - Unit tests: `make test`; backend variables are unset and Redis integration tests skip.
 - Integration: `make test-integration`; cluster: `make test-cluster`. Both require an exported authenticated `rediss://` URI to a disposable Redis Enterprise cluster and the qualified enterprise Flight composition; run with `-race`, without starting Docker Redis.
 - Format check: `gofmt -l .` (empty output); static checks: `go vet ./...`.
@@ -17,7 +17,7 @@ Read [the SDLC index](docs/sdlc/README.md) and the change's intent, spec, and pl
 - `cmd/redis-flight-server/`: flags/environment, signals, health probe.
 - `server/router.go`: PATH descriptors/JSON tickets → datasets; CMD/protobuf → Flight SQL.
 - `server/sqlserver.go`, `metadata.go`: SQL through the Redis ADBC driver; preserve the pinned fork replacement in `go.mod` unless dependency changes are in scope.
-- Before updating the Redis ADBC driver, always check upstream for the latest release and default-branch commit. Verify the Go submodule version against upstream rather than trusting a potentially stale `@latest` lookup; pin the selected immutable revision and record the check date and validation results.
+- Always use the latest stable Redis ADBC driver release. Before updating, check upstream for the latest release and default-branch commit; select the release commit rather than unreleased default-branch changes. Verify the Go submodule version against upstream rather than trusting a potentially stale `@latest` lookup; pin the selected immutable revision and record the check date and validation results.
 - `server/datasets.go`, `ipc.go`: generation-based Arrow IPC storage; preserve cluster hash tags, monotonic sequence keys, atomic publication, and legacy LIST reads.
 - `server/tenant.go`, `pool.go`, `session.go`: identity-scoped resources and session state. Release Arrow references, connections, cursors, and reservations on error, cancellation, and panic.
 - `server/config.go` and command flags must stay consistent with README configuration.
