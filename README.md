@@ -245,3 +245,7 @@ for browsable guides and full-text search. See
 | Code layout, tests and releases | [Development](docs/server-guide.md#development) |
 | Dataset benchmarks and acceptance goals | [Endpoint acceptance](docs/endpoint-acceptance.md), [benchmarks](server/dataset_bench_test.go) |
 | Project context and engineering process | [SDLC documentation](docs/sdlc/README.md) |
+
+## License
+
+This project is licensed under the [Apache License, Version 2.0](LICENSE).
