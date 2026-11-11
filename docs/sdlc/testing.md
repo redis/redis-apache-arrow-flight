@@ -8,7 +8,7 @@ Evidence: [Makefile](../../Makefile), [test workflow](../../.github/workflows/te
 For a provisioned local TLS/ACL cluster and containerized enterprise runner, see
 [the Redis Enterprise environment](../redis-enterprise-testing.md).
 
-Use Go as pinned by [go.mod](../../go.mod). Integration tests create and delete tables, keys, and ACL users named `it_flight_*`; examples also mutate data. Use a disposable Redis Enterprise cluster database with Search, verified TLS, and a nonempty username and password. Use the qualified enterprise Flight composition: community explicitly rejects these security features.
+Use Go as pinned by [go.mod](../../go.mod). Integration tests create and delete tables, keys, and ACL users named `it_flight_*`; examples also mutate data. Use a disposable Redis Enterprise cluster database with Search, verified TLS, and a nonempty username and password. Core TLS/ACL authentication is available in community; paid-feature tests still need the qualified enterprise composition.
 
 | Check | Command | Prerequisites and success signal |
 | --- | --- | --- |
@@ -45,8 +45,31 @@ SQL data mutation and key cleanup. Enterprise ACL fixtures use the Software
 management API with separate admin credentials; the full repaired suite and
 original compatibility failures are recorded in the
 [local validation results](../validation/2026-11-01-enterprise-tls/README.md).
-Use a dedicated disposable database and avoid concurrent suites sharing
-fixed fixture prefixes.
+Use a dedicated disposable database. Native managed tables share one catalog,
+so unique table names alone do not isolate concurrent publications. The supported
+`make test-integration` target serializes Go packages (`-p 1`) and runs through
+`scripts/run-integration.py`, which locks a database scope for the command's
+entire lifetime. `make test-shared-snapshot` uses the same runner.
+
+Set the same nonsecret `FLIGHT_INTEGRATION_SCOPE` for every suite targeting one
+database, especially when Redis and Flight use different hostnames/endpoints.
+Without an explicit scope, the runner derives one from REDIS_URI's host/port/DB
+and excludes credentials. Flight-only runs must supply an explicit scope.
+Cooperating processes on one host must share `FLIGHT_INTEGRATION_LOCK_DIR`
+(default: a directory under the host temporary directory). For separate containers,
+wrap the `docker run` commands on the same host or mount the same lock directory;
+separate hosts must use separate disposable databases. Direct `go test`/pytest
+commands bypass this suite lock and must not publish concurrently into that DB.
+No SQL write is automatically replayed by this isolation mechanism.
+
+```sh
+export FLIGHT_INTEGRATION_SCOPE=disposable-flight-db
+make test-integration
+make test-shared-snapshot
+```
+
+For a custom command, use `python3 scripts/run-integration.py -- COMMAND ...`.
+The runner requires POSIX file locking (Linux/macOS).
 
 All Python, JDBC, R, BI-tool and benchmark validation must use a Flight server
 built from the qualified enterprise composition and connected to this same

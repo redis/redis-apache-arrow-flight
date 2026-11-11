@@ -122,8 +122,10 @@ type liveResult struct {
 	// if set, is called when one takes longer.
 	stall   time.Duration
 	stalled func()
-	// done is called once the result is released, with its error: nil if
-	// it was read to the end, or the client went away or stalled.
+	// validate, when set, checks authority before each outgoing chunk.
+	validate func() error
+	deadline time.Time
+	// done is called once with nil only after successful exhaustion.
 	done func(error)
 }
 
@@ -154,12 +156,29 @@ func streamRecords(ctx context.Context, rdr array.RecordReader, live *liveResult
 			defer stall.Stop()
 			stalled = stall.C
 		}
-		// send sends c, unless the client goes away or stalls.
+		var expired <-chan time.Time
+		if live != nil && !live.deadline.IsZero() {
+			timer := time.NewTimer(max(time.Until(live.deadline), 0))
+			defer timer.Stop()
+			expired = timer.C
+		}
+		// send sends c, unless the client goes away, stalls or loses its view.
 		send := func(c flight.StreamChunk) (ok, stuck bool) {
+			if live != nil && live.validate != nil {
+				if err := live.validate(); err != nil {
+					resultErr = err
+					if c.Data != nil {
+						c.Data.Release()
+					}
+					return false, false
+				}
+			}
 			select {
 			case ch <- c:
 				return true, false
 			case <-ctx.Done():
+			case <-expired:
+				resultErr = errSnapshotLost
 			case <-stalled:
 				stuck = true
 			}
@@ -183,13 +202,20 @@ func streamRecords(ctx context.Context, rdr array.RecordReader, live *liveResult
 			for i, part := range parts {
 				if ok, stuck := send(flight.StreamChunk{Data: part}); !ok {
 					releaseAll(parts[i+1:])
+					if resultErr == nil {
+						resultErr = context.Cause(ctx)
+					}
 					if stuck {
+						resultErr = status.Error(codes.DeadlineExceeded, "result consumer stalled")
 						reportStall(ctx, live.stalled)
 						// Free what the result holds now, and tell the
 						// client, if it comes back, that rows are missing.
 						release()
 						sendErr(status.Errorf(codes.DeadlineExceeded, "the client took longer than %s to read a "+
 							"batch of the result, so the server stopped sending it (--stream-stall-timeout)", live.stall))
+					} else if resultErr != nil && ctx.Err() == nil {
+						release()
+						sendErr(toStatus(resultErr))
 					}
 					return
 				}

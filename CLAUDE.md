@@ -7,7 +7,8 @@ Read [the SDLC index](docs/sdlc/README.md) and the change's intent, spec, and pl
 
 - Build: `make build` → `bin/redis-flight-server`; requires Go from `go.mod` (1.27.3).
 - Unit tests: `make test`; backend variables are unset and Redis integration tests skip.
-- Integration: `make test-integration`; cluster: `make test-cluster`. Both require an exported authenticated `rediss://` URI to a disposable Redis Enterprise cluster and the qualified enterprise Flight composition; run with `-race`, without starting Docker Redis.
+- Integration: `make test-integration`; cluster: `make test-cluster`. Both require an exported authenticated `rediss://` URI to a disposable Redis Enterprise cluster (and a qualified enterprise composition when exercising paid features); run with `-race -p 1`, without starting Docker Redis. Use the integration runner
+  and a shared `FLIGHT_INTEGRATION_SCOPE` to serialize suites on one database.
 - Format check: `gofmt -l .` (empty output); static checks: `go vet ./...`.
 - Client smoke: `make example` and `make jdbc-smoke`, with Redis and the server running.
 - No `make lint` target exists. See [testing](docs/sdlc/testing.md) for prerequisites and CI coverage.
@@ -38,7 +39,9 @@ Follow [REVIEW.md](REVIEW.md). Run checks appropriate to the change and report c
 ## Community and enterprise split
 
 Default builds use community implementations; read [build profiles](docs/build-profiles.md).
-Do not reintroduce paid implementations into public source or add private imports
+The requester authorized basic TLS/Redis ACL authentication in core for shared
+snapshots on 2026-11-11; see `intent/shared-read-snapshots/security.md`. Other paid
+implementations must stay outside public source; do not add private imports
 to its module. Preserve core SQL/protocol/storage/resource safety and fail closed
 when a requested security feature is absent. Paid tests belong with their original
 implementations; do not weaken assertions to make the community profile pass.

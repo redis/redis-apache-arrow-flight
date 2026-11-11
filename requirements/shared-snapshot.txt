@@ -1,0 +1,5 @@
+# Same transport versions as requirements/integrations/core.txt.
+pytest==9.2.0
+adbc-driver-flightsql==1.13.0
+adbc-driver-manager==1.13.0
+pyarrow==26.0.0

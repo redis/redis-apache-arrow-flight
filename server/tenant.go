@@ -290,7 +290,7 @@ func (c *tenantCache) release(t *tenant) {
 }
 
 func (c *tenantCache) openTenant(ctx context.Context, id identity) (*tenant, error) {
-	opts, err := clientOptions(c.cfg.RedisURI, id)
+	opts, err := c.cfg.redisOptions(id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

@@ -94,6 +94,12 @@ request.
 By default (`--auth=none`), every client runs with the credentials in
 `--redis-uri`. In that mode, keep the server on a trusted network.
 
+Basic TLS/ACL authentication is available in the community build. Redis ACL mode
+requires both Flight TLS certificate/key files and a verified `rediss://` backend;
+credential-bearing plaintext Redis URIs and `skip_verify=true` are rejected.
+For a private Redis CA, pass `--adbc-option adbc.redis.tls_ca_file=/path/to/ca.pem`
+(the same bundle is used by login, gateway Redis clients and native ADBC).
+
 With `--auth=redis-acl`, clients log in with the Flight handshake and Basic
 credentials, which are **a Redis ACL user's username and password**. The
 server checks them against Redis and returns a bearer token, and each call
@@ -101,7 +107,8 @@ then runs as that Redis user. Redis's ACLs decide what each client may read
 and change, for SQL and datasets alike.
 
 ```bash
-./bin/redis-flight-server --auth redis-acl --token-secret "$(openssl rand -hex 32)" \
+# REDIS_URI must already name your verified rediss:// deployment.
+./bin/redis-flight-server --auth redis-acl \
   --tls-cert server.crt --tls-key server.key
 ```
 
@@ -115,7 +122,9 @@ client.authenticate_basic_token("alice", "…")  # pyarrow.flight: returns the h
 
 - **Tokens** are sealed with AES-256-GCM using a key derived from
   `--token-secret`. They hold the identity and the Redis password, encrypted,
-  and expire after `--token-ttl` (12h).
+  and expire after `--token-ttl` (12h). A configured secret must contain at least
+  32 bytes; use cryptographically random secret material through `FLIGHT_TOKEN_SECRET`.
+  Without a configured secret, the server generates a fresh random key at startup.
 - **Several servers** that share the secret accept each other's tokens. A
   token secret and TLS are therefore what you need behind a load balancer.
   Without a secret, tokens last only until the server restarts.
@@ -503,8 +512,9 @@ and ACL users.
 
 See [testing and CI setup](sdlc/testing.md) for credentials, CA trust, client
 checks and the private enterprise workflow recommendation. The community build
-rejects authenticated/TLS Redis connections. Public CI runs unit/static/build
-checks; it does not provide enterprise integration qualification.
+supports the minimum TLS/ACL security baseline. Public CI exercises TLS and
+snapshot ownership with test doubles; it does not provide real Redis Enterprise
+or Airbyte integration qualification.
 
 Releases: push a tag `vX.Y.Z` (or `vX.Y.Z-rc1` for a prerelease). The
 release workflow (`.github/workflows/release.yml`) runs the tests on it,
@@ -517,13 +527,15 @@ everything without publishing.
 
 The driver dependency is pinned in `go.mod` with a `replace` to the
 [v0.0.24 release](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.24)
-of `github.com/redis/redis-adbc-driver/go` (commit `b052eedad9f2`, checked 2026-11-11 and recorded
-as a Go pseudo-version). Always select the latest stable driver release when
-updating this dependency and verify its Go submodule revision upstream.
-Version 0.0.24 uses SQL storage protocol 17 and rejects legacy SQL storage;
-it does not automatically migrate existing data. Validate existing-storage
-migration separately before deployment. See the [update validation](../intent/redis-adbc-v0.0.24/plan.md).
-To build against a local checkout instead:
+of `github.com/redis/redis-adbc-driver/go` (commit `b052eedad9f2`, checked
+2026-11-11 and recorded as a Go pseudo-version). Always select the latest stable
+driver release when updating this dependency and verify its Go submodule revision
+upstream. Version 0.0.24 requires Go 1.27.3, uses SQL storage protocol 17 and
+rejects legacy SQL storage; it does not automatically migrate existing data.
+Validate existing-storage migration separately before deployment. See the
+[update validation](../intent/redis-adbc-v0.0.24/plan.md) and the
+[shared snapshot contract](shared-read-snapshots.md) for fresh-storage requirements
+and pending transport qualification. To build against a local checkout instead:
 
 ```bash
 go mod edit -replace github.com/adbc-drivers/redis/go=../redis-adbc-driver/go

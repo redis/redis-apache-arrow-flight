@@ -711,8 +711,41 @@ func TestIntegrationMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, rows = fetch(t, ctx, c, info)
-	wantRows(t, rows, "TABLE", "VIEW")
+	wantRows(t, rows, "MATERIALIZED VIEW", "TABLE", "VIEW")
 
+	materialized := tbl + "_materialized"
+	t.Cleanup(func() { _, _ = c.ExecuteUpdate(ctx, "DROP MATERIALIZED VIEW IF EXISTS "+materialized) })
+	update(t, ctx, c, "CREATE MATERIALIZED VIEW "+materialized+" AS SELECT id,name FROM "+tbl)
+	info, err = c.GetTables(ctx, &flightsql.GetTablesOpts{TableNameFilterPattern: &materialized, IncludeSchema: true, TableTypes: []string{"MATERIALIZED VIEW"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mr, err := c.DoGet(ctx, info.Endpoint[0].Ticket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var materializedRows int64
+	for mr.Next() {
+		rec := mr.RecordBatch()
+		materializedRows += rec.NumRows()
+		for i := 0; i < int(rec.NumRows()); i++ {
+			if rec.Column(2).ValueStr(i) != materialized || rec.Column(3).ValueStr(i) != "MATERIALIZED VIEW" {
+				t.Errorf("incorrect materialized view metadata: %v", rec)
+			}
+			schema, err := flight.DeserializeSchema(rec.Column(4).(*array.Binary).Value(i), memory.DefaultAllocator)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if schema.NumFields() != 2 || schema.Field(0).Name != "id" || schema.Field(1).Name != "name" {
+				t.Errorf("materialized view schema: %s", schema)
+			}
+		}
+	}
+	err = mr.Err()
+	mr.Release()
+	if err != nil || materializedRows != 1 {
+		t.Fatalf("materialized view discovery: rows=%d, err=%v", materializedRows, err)
+	}
 	info, err = c.GetSqlInfo(ctx, []flightsql.SqlInfo{flightsql.SqlInfoFlightSqlServerName, flightsql.SqlInfoFlightSqlServerBulkIngestion})
 	if err != nil {
 		t.Fatal(err)

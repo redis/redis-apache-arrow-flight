@@ -2,8 +2,12 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	goredis "github.com/redis/go-redis/v9"
+	"os"
 	"strings"
 )
 
@@ -56,19 +60,43 @@ func newRedisClient(ctx context.Context, opts *goredis.Options, mode string) (go
 	return cluster, nil
 }
 
-// clientOptions uses the community implementation; see the build-profile contract.
+// clientOptions preserves verified TLS and applies the request's Redis identity.
 func clientOptions(uri string, id identity) (*goredis.Options, error) {
+	return clientOptionsWithCA(uri, id, "")
+}
+
+func clientOptionsWithCA(uri string, id identity, caFile string) (*goredis.Options, error) {
 	opts, err := goredis.ParseURL(uri)
 	if err != nil {
-		return nil, fmt.Errorf("invalid Redis URI: %w", err)
+		return nil, errors.New("invalid Redis URI")
 	}
 	if id.Username != "" || id.Password != "" {
-		opts.Username = id.Username
-		opts.Password = id.Password
+		opts.Username, opts.Password = id.Username, id.Password
 	}
-	if opts.TLSConfig != nil || opts.Username != "" || opts.Password != "" {
-		return nil, errFeatureUnavailable
+	if opts.TLSConfig != nil {
+		if opts.TLSConfig.InsecureSkipVerify {
+			return nil, errors.New("Redis TLS certificate verification must remain enabled")
+		}
+		opts.TLSConfig.MinVersion = tls.VersionTLS12
+	} else if opts.Username != "" || opts.Password != "" || caFile != "" {
+		return nil, errors.New("Redis credentials and custom trust require a verified rediss:// connection")
+	}
+	if caFile != "" {
+		pem, err := os.ReadFile(caFile)
+		if err != nil {
+			return nil, errors.New("cannot read Redis TLS CA file")
+		}
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(pem) {
+			return nil, errors.New("Redis TLS CA file contains no valid certificates")
+		}
+		opts.TLSConfig.RootCAs = roots
 	}
 	opts.DisableIdentity = true
 	return opts, nil
+}
+
+// Use the same explicit trust bundle for gateway clients and native ADBC.
+func (c *Config) redisOptions(id identity) (*goredis.Options, error) {
+	return clientOptionsWithCA(c.RedisURI, id, c.ADBCOptions["adbc.redis.tls_ca_file"])
 }

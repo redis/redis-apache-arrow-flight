@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"github.com/apache/arrow-go/v18/arrow/flight"
 	"github.com/apache/arrow-go/v18/arrow/flight/flightsql"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
@@ -35,17 +37,26 @@ type Server struct {
 	shutdown  sync.Once
 }
 
-// New uses the community implementation; see the build-profile contract.
+// New configures the core Flight service, including verified TLS and Redis ACL login.
 func New(cfg Config) (*Server, error) {
 	cfg.setDefaults()
-	if !enterpriseBuild && (cfg.Auth != AuthNone || cfg.TLSCertFile != "" || cfg.TLSKeyFile != "") {
-		return nil, errFeatureUnavailable
-	}
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	if _, err := clientOptions(cfg.RedisURI, identity{}); err != nil {
+	redisOpts, err := cfg.redisOptions(identity{})
+	if err != nil {
 		return nil, err
+	}
+	if cfg.Auth == AuthRedisACL && redisOpts.TLSConfig == nil {
+		return nil, errors.New("Redis ACL authentication requires a verified rediss:// backend")
+	}
+	var transport credentials.TransportCredentials
+	if cfg.TLSCertFile != "" {
+		certificate, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
+		if err != nil {
+			return nil, errors.New("cannot load Flight TLS certificate and key")
+		}
+		transport = credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{certificate}})
 	}
 	m := newMetrics()
 	middleware := []flight.ServerMiddleware{skipHealth(logMiddleware(cfg.Logger, m)), recoverMiddleware(cfg.Logger)}
@@ -57,10 +68,13 @@ func New(cfg Config) (*Server, error) {
 		if cfg.TokenSecret == "" {
 			cfg.Logger.Warn("no token secret is set: tokens are valid only until this server restarts, " + "and other servers won't accept them")
 		}
-		v := &aclValidator{uri: cfg.RedisURI, sealer: sealer, ttl: cfg.TokenTTL, now: time.Now}
+		v := &aclValidator{uri: cfg.RedisURI, caFile: cfg.ADBCOptions["adbc.redis.tls_ca_file"], sealer: sealer, ttl: cfg.TokenTTL, now: time.Now}
 		middleware = append(middleware, skipHealth(flight.CreateServerBasicAuthMiddleware(v)))
 	}
 	opts := []grpc.ServerOption{grpc.MaxRecvMsgSize(cfg.MaxMsgSize), grpc.WaitForHandlers(true), grpc.KeepaliveParams(keepalive.ServerParameters{Time: time.Minute, Timeout: 20 * time.Second}), grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{MinTime: 10 * time.Second, PermitWithoutStream: true})}
+	if transport != nil {
+		opts = append(opts, grpc.Creds(transport))
+	}
 	tenants := newTenantCache(&cfg)
 	tenants.metrics = m
 	var sessions *sessionStore

@@ -6,11 +6,12 @@ This project is a Flight SQL and Flight RPC endpoint backed by Redis. Both inter
 | --- | --- | --- |
 | Flight SQL statements and prepared statements | Query/update, parameter binding, schema discovery; prepared clients must use the rebound handle | integration_test.go, JDBC smoke |
 | Flight SQL ingestion | Create, append, replace, create-or-append; autocommit | TestIntegrationIngest |
-| Catalogs, schemas, tables, table types | Standard Arrow schemas; optional serialized table schema | TestIntegrationMetadata |
+| Catalogs, schemas, tables, table types | Standard Arrow schemas; optional serialized table schema; exact native types TABLE, VIEW and MATERIALIZED VIEW, including materialized-view discovery/schema validation | TestIntegrationMetadata |
 | GetXdbcTypeInfo | Canonical scalar SQL types, ordered by data_type; exact optional type filter; unknown filter returns an empty standard-schema stream. Unbounded/unknown size or scale is NULL. SQL aliases and RECORD are not separate entries. | TestFlightTypeInfo, TestIntegrationTypeInfoDDL |
 | GetSqlInfo | Reports server identity, SQL/ingest support, typed capability values and autocommit limitations | unit_test.go and TestIntegrationMetadata |
 | Primary/foreign keys | Standard-schema empty results, because the backend has no such constraints | metadata.go |
 | Sessions | Cookie sessions for settings and temporary objects; unknown state returns ABORTED before execution and a recovery cookie | session_integration_test.go |
+| Shared read snapshots | Session/attempt-bound native managed-catalog view; requires TLS/ACL enterprise deployment, independent validation pending; no qualified release yet | [Contract](shared-read-snapshots.md), snapshot_test.go, Python transport suite |
 | Flight RPC datasets | PATH GetFlightInfo/GetSchema/PollFlightInfo, DoPut/DoGet, ListFlights, drop_dataset; nested Arrow types, columns/batch selection | dataset integration tests, Python quickstart |
 | Query cancellation | CancelFlightInfo and translated legacy CancelQuery; pending/active read-only tickets, identity checks, shared Redis state, cooperative cleanup; completed/write/non-cancellable tickets return NOT_CANCELLABLE | cancellation_integration_test.go |
 | DoExchange | Deferred; returns UNIMPLEMENTED and directs clients to DoPut/DoGet | TestFlightUnsupportedCapabilities |
