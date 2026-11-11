@@ -516,9 +516,14 @@ request that changes it, the Dockerfile or the Makefile builds and checks
 everything without publishing.
 
 The driver dependency is pinned in `go.mod` with a `replace` to the
-[v0.0.18 release](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.18)
-of `github.com/redis/redis-adbc-driver/go` (commit `2f053d3affad`, recorded
-as a Go pseudo-version). To build against a local checkout instead:
+[v0.0.24 release](https://github.com/redis/redis-adbc-driver/releases/tag/v0.0.24)
+of `github.com/redis/redis-adbc-driver/go` (commit `b052eedad9f2`, checked 2026-11-11 and recorded
+as a Go pseudo-version). Always select the latest stable driver release when
+updating this dependency and verify its Go submodule revision upstream.
+Version 0.0.24 uses SQL storage protocol 17 and rejects legacy SQL storage;
+it does not automatically migrate existing data. Validate existing-storage
+migration separately before deployment. See the [update validation](../intent/redis-adbc-v0.0.24/plan.md).
+To build against a local checkout instead:
 
 ```bash
 go mod edit -replace github.com/adbc-drivers/redis/go=../redis-adbc-driver/go
