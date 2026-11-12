@@ -30,6 +30,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Test current release provenance validation
+        run: python3 -m unittest discover -s scripts -p 'test_verify_release_pair.py'
       - name: Verify the coordinator's published release
         id: pair
         env:

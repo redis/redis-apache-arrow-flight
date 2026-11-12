@@ -48,7 +48,11 @@ jobs:
         run: |
           python3 -m py_compile scripts/enterprise-env.py scripts/enterprise-release-gate.py
           python3 -m unittest discover -s scripts -p 'test_enterprise_release_gate.py'
-          python3 -m unittest discover -s scripts -p 'test_verify_release_pair.py'
+          # Older release commits predate coordinated-release provenance checks.
+          # Their source tests must not discover a suite which does not exist.
+          if [ -f scripts/test_verify_release_pair.py ]; then
+            python3 -m unittest discover -s scripts -p 'test_verify_release_pair.py'
+          fi
           python3 -m unittest discover -s scripts -p 'test_run_integration.py'
 
       # Unit tests exercise core TLS/ACL behavior with isolated test fixtures.
