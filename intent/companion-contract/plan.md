@@ -29,3 +29,10 @@ bounded readiness retry; non-503 management failures still propagate and verifie
 hostname checks are enabled only after installation. Three focused regression
 checks cover transient recovery, nontransient failure and deadline exhaustion.
 No SQL mutation is retried and no Go/runtime source changes for this fix.
+
+Final local v0.0.29 validation: both complete backend/race profiles passed
+(206 enterprise / 154 community named tests/subtests, one profile-specific skip
+each), both unit/race profiles, go vet, all 12 actual Python client/snapshot cases,
+the five-case make entrypoint and strict documentation build. Final exact-source
+receipts are in docs/validation/2026-11-17-companion-contract/results.json.
+Hosted qualification and review decisions are recorded by the paired PRs.

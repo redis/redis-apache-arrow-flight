@@ -1,0 +1,1648 @@
+{
+  "public_base": "ee39b4d",
+  "qualified_public_source": "ed672dbe4949376b185755f9c80d6632a5858450",
+  "private_candidate": "34a7fdeaae4b0b6dd9bac91d9064366a75c98fe1",
+  "local_runtime_go_source": "39384c1f9ff629d16ac4bf436204ba42afac1ea0",
+  "provisioning_fix_changes_go_source": false,
+  "native_release": "v0.0.29",
+  "native_commit": "30a9eefbf13d19b3e3129171f8ecdc5579b852a2",
+  "composition_fingerprints": {
+    "community_sha256": "b421bd69ef988e21753e4208da4293e03e53f8def21acb5291ee795c1646821b",
+    "module_sha256": "73535334658e62cf2d3c1a160b4ef179669c75e2d7535304c41a6b51ea9a0095",
+    "private_overlay_sha256": "551e5ceaaff9aefbb1ccfc5cafe18d058eae7bc0e65a4920ae80637fc4bbe31e"
+  },
+  "client_test_sha256": "555b3b367302da89ce377efda90d22df2a6c17659019eb5b491068132a9b1775",
+  "gateway_binary_sha256": "3e91a97b2834f2d2a0f9ea09f386ae541cbba7097f88803664cfd6a1ccdfe5c4",
+  "clients": {
+    "python": "3.14.10",
+    "packages": {
+      "pytest": "9.2.0",
+      "adbc-driver-flightsql": "1.13.0",
+      "adbc-driver-manager": "1.13.0",
+      "pyarrow": "26.0.1",
+      "redis": "8.1.0"
+    }
+  },
+  "go_backend_profiles": {
+    "native29-enterprise": {
+      "passed": 206,
+      "skipped": [
+        "TestIntegrationCommunityBufferedQueries"
+      ],
+      "failed": [],
+      "cases": [
+        {
+          "test": "TestProbeAddr",
+          "result": "pass"
+        },
+        {
+          "test": "TestHealthcheckFlag/not_serving_while_Redis_is_down",
+          "result": "pass"
+        },
+        {
+          "test": "TestHealthcheckFlag/nothing_listening",
+          "result": "pass"
+        },
+        {
+          "test": "TestHealthcheckFlag/TLS,_pinned_to_-tls-cert",
+          "result": "pass"
+        },
+        {
+          "test": "TestHealthcheckFlag",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationHealthcheckFlag",
+          "result": "pass"
+        },
+        {
+          "test": "TestSIGTERM",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSIGTERM",
+          "result": "pass"
+        },
+        {
+          "test": "TestMetricsListenFlag",
+          "result": "pass"
+        },
+        {
+          "test": "TestValidateURI",
+          "result": "pass"
+        },
+        {
+          "test": "TestDescriptorIndexesIncludesEverySegment",
+          "result": "pass"
+        },
+        {
+          "test": "TestMetadataKeyEscapingPreservesDistinctIdentifiers",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamOverflowReject",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationCommunityBufferedQueries",
+          "result": "skip"
+        },
+        {
+          "test": "TestBindStreamOwnership/handle/success",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/handle/refused",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/update/success",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/update/refused",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/ingest/success",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/ingest/refused",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/before_fetching_and_repeated_cancellation",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/active_stream_across_replicas_frees_resources",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/completed_query_and_write_result_are_not_cancellable",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/expiry_and_ownership",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/completion_races_cancellation",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationCancellationIdentity",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationCancellationReadOnlyFallback",
+          "result": "pass"
+        },
+        {
+          "test": "TestFlightTypeInfo",
+          "result": "pass"
+        },
+        {
+          "test": "TestFlightUnsupportedCapabilities",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationTypeInfoDDL",
+          "result": "pass"
+        },
+        {
+          "test": "TestBuildProfileSecurityAndTelemetry",
+          "result": "pass"
+        },
+        {
+          "test": "TestBuildBasicConnectionsDoNotReuse",
+          "result": "pass"
+        },
+        {
+          "test": "TestBuildIntegrationRoundTrip",
+          "result": "pass"
+        },
+        {
+          "test": "TestSoftwareCommandPermissionError",
+          "result": "pass"
+        },
+        {
+          "test": "TestReachable",
+          "result": "pass"
+        },
+        {
+          "test": "TestRedisHealth/serving_while_Redis_answers,_not_once_it's_gone",
+          "result": "pass"
+        },
+        {
+          "test": "TestRedisHealth/an_authentication_error_is_Redis_answering,_under_redis-acl",
+          "result": "pass"
+        },
+        {
+          "test": "TestRedisHealth/but_not_under_none,_where_the_server's_credentials_are_every_request's",
+          "result": "pass"
+        },
+        {
+          "test": "TestRedisHealth/NOT_SERVING_after_shutdown",
+          "result": "pass"
+        },
+        {
+          "test": "TestRedisHealth",
+          "result": "pass"
+        },
+        {
+          "test": "TestHealthCheckSkipsAuthAndSessions/redis-acl",
+          "result": "pass"
+        },
+        {
+          "test": "TestHealthCheckSkipsAuthAndSessions/no_session_cookie",
+          "result": "pass"
+        },
+        {
+          "test": "TestHealthCheckSkipsAuthAndSessions/unknown_service",
+          "result": "pass"
+        },
+        {
+          "test": "TestHealthCheckSkipsAuthAndSessions",
+          "result": "pass"
+        },
+        {
+          "test": "TestHealthWatchDoesNotHoldShutdown",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSQL",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationWritesRunOnce",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationTempObjectsDontLeak",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPreparedTypes",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPreparedScripts/create,_then_read",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPreparedScripts/set_search_path,_then_read",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPreparedScripts",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationZeroRowParams/update",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationZeroRowParams/update_after_a_query_bind",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationZeroRowParams/query",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationZeroRowParams",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPrepared",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationIngest",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationMetadata",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasets",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationUploadCommitOutcome/reply_lost_after_the_commit_ran",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationUploadCommitOutcome/commit_never_ran",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationUploadCommitOutcome",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetReads/hash",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetReads/list",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetReads",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetLayouts",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetReadPages",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationUploadOrder",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetTTLKeepsSeq",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStaleCredentials",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationRedisACL",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetBatchMerging",
+          "result": "pass"
+        },
+        {
+          "test": "TestMetricsCalls",
+          "result": "pass"
+        },
+        {
+          "test": "TestMetricsCountUnauthenticated",
+          "result": "pass"
+        },
+        {
+          "test": "TestPoolWaitMetric",
+          "result": "pass"
+        },
+        {
+          "test": "TestServeMetrics",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationMetrics",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessionPublicationRefusal",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/native_refusal",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/NotFound",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/message_only",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/IO_without_SQLSTATE",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/other_SQLSTATE",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/other_vendor",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/SQLSTATE_only",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/unknown_outcome",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/extra_diagnostic",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/cancelled_status",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/timeout_status",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/wrapped",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/joined_IO",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/joined_cancellation",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/joined_deadline",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/transport_status",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal/1",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal/3",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal/2",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal/0",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotPublicationRefusalRemainsTerminal",
+          "result": "pass"
+        },
+        {
+          "test": "TestDoGetFailedSendReleasesCurrentBatch",
+          "result": "pass"
+        },
+        {
+          "test": "TestSecurityTokens",
+          "result": "pass"
+        },
+        {
+          "test": "TestSecurityRedisTLSAndCredentials",
+          "result": "pass"
+        },
+        {
+          "test": "TestSecurityFlightTLSAuthAndSnapshotOwnership",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/SET_lasts_with_cookies",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/temporary_tables_last",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/temporary_ingest",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/session_options",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/CloseSession",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/idle_sessions_close",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/sessions_off",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessionOwner",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessionSettings",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessionReplicaLoss",
+          "result": "pass"
+        },
+        {
+          "test": "TestCookieToken",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionStoreReap",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotLeaseLoss",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotDisconnectAndIdleExpiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotIndependentPrincipal",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotSQLGrantRevocation",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/pending_cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/active_cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/early_release",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotAffinityAndRelease",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard/missing_header",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard/missing_cookie",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard/wrong_handle",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard/duplicate_header",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/expiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/lease_loss",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/native_unbound",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/changed_generation",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/metadata_failure",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotAcquireFailure",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup/success",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup/cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup/stall",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup/expiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotReaderChecksBufferedExpiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotUnsupportedDeployment",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"attach\"}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":0}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":119999}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":3600001}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"generation\":\"external\"}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\"}_{}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotAcquireCancellationIsTerminal",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/a_stream_holds_a_connection_until_it_is_read,_and_leaves_the_user_one",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/with_a_pool_of_1,_results_are_read_whole",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/a_cancelled_read_frees_the_connection",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/beyond_MaxStreams,_results_are_read_whole",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/beyond_MaxTableStreams,_results_are_read_whole",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/results_read_whole_for_want_of_a_stream_take_at_most_ResultMemory",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/the_server_finds_a_table's_index,_also_after_a_rename",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/streams_stop_at_three_quarters_of_the_index's_cursors,_counting_other_clients",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/an_index_out_of_cursors_is_RESOURCE_EXHAUSTED",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/a_client_that_stalls_gets_an_error",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/in_a_session,_a_plain_scan_streams_on_a_pooled_connection",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/a_session's_stream_has_its_search_path_and_time_zone,_and_leaves_the_pool's",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/in_a_session_with_temporary_objects,_results_are_read_on_its_connection",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/in_a_session,_beyond_MaxStreams,_results_are_read_whole",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults/a_session_isn't_closed_as_idle_while_its_result_streams",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamResults",
+          "result": "pass"
+        },
+        {
+          "test": "TestTokenSealer",
+          "result": "pass"
+        },
+        {
+          "test": "TestChangesSession",
+          "result": "pass"
+        },
+        {
+          "test": "TestCreatesTemp",
+          "result": "pass"
+        },
+        {
+          "test": "TestStreamTokens",
+          "result": "pass"
+        },
+        {
+          "test": "TestStreamTable",
+          "result": "pass"
+        },
+        {
+          "test": "TestIndexCursors",
+          "result": "pass"
+        },
+        {
+          "test": "TestEscapeKeyPart",
+          "result": "pass"
+        },
+        {
+          "test": "TestTableStreams",
+          "result": "pass"
+        },
+        {
+          "test": "TestResultBudget",
+          "result": "pass"
+        },
+        {
+          "test": "TestCursorLimitStatus",
+          "result": "pass"
+        },
+        {
+          "test": "TestReusable",
+          "result": "pass"
+        },
+        {
+          "test": "TestConnectStatus",
+          "result": "pass"
+        },
+        {
+          "test": "TestWithConnReleasesOnPanic",
+          "result": "pass"
+        },
+        {
+          "test": "TestLeaseConnUndo",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionTempFlag",
+          "result": "pass"
+        },
+        {
+          "test": "TestAcquireAfterPanicInOpen",
+          "result": "pass"
+        },
+        {
+          "test": "TestIngestMode",
+          "result": "pass"
+        },
+        {
+          "test": "TestFlattenObjects",
+          "result": "pass"
+        },
+        {
+          "test": "TestChunks",
+          "result": "pass"
+        },
+        {
+          "test": "TestColumnChunks",
+          "result": "pass"
+        },
+        {
+          "test": "TestBatchRange",
+          "result": "pass"
+        },
+        {
+          "test": "TestPageLen",
+          "result": "pass"
+        },
+        {
+          "test": "TestDatasetKeys",
+          "result": "pass"
+        },
+        {
+          "test": "TestStatementHandle",
+          "result": "pass"
+        },
+        {
+          "test": "TestShutdownDrainsThenCancels",
+          "result": "pass"
+        },
+        {
+          "test": "TestDoPutNeedsDescriptor",
+          "result": "pass"
+        },
+        {
+          "test": "TestConfigValidation",
+          "result": "pass"
+        },
+        {
+          "test": "TestSqlInfoTypes",
+          "result": "pass"
+        },
+        {
+          "test": "TestIssuedSessionCookies",
+          "result": "pass"
+        },
+        {
+          "test": "TestDistributedCursorReservations",
+          "result": "pass"
+        },
+        {
+          "test": "TestDatasetBatchBufferCleanup/success",
+          "result": "pass"
+        },
+        {
+          "test": "TestDatasetBatchBufferCleanup/emit_failure",
+          "result": "pass"
+        },
+        {
+          "test": "TestDatasetBatchBufferCleanup",
+          "result": "pass"
+        },
+        {
+          "test": "TestDatasetBatchBufferBounds",
+          "result": "pass"
+        }
+      ],
+      "packages": [
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+          "Action": "pass",
+          "Elapsed": 8.777
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/internal/integrationtest",
+          "Action": "pass",
+          "Elapsed": 1.012
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+          "Action": "pass",
+          "Elapsed": 1.005
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/scripts/enterprise-smoke",
+          "Action": "skip",
+          "Elapsed": 0
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/server",
+          "Action": "pass",
+          "Elapsed": 105.116
+        }
+      ],
+      "raw_log_sha256": "e1733c3c92b5fcc0ab76dfc12b07c213dc7dcd1948be2c23c1064900bcd7d543"
+    },
+    "native29-community": {
+      "passed": 154,
+      "skipped": [
+        "TestIntegrationStreamOverflowReject"
+      ],
+      "failed": [],
+      "cases": [
+        {
+          "test": "TestProbeAddr",
+          "result": "pass"
+        },
+        {
+          "test": "TestSIGTERM",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSIGTERM",
+          "result": "pass"
+        },
+        {
+          "test": "TestValidateURI",
+          "result": "pass"
+        },
+        {
+          "test": "TestDescriptorIndexesIncludesEverySegment",
+          "result": "pass"
+        },
+        {
+          "test": "TestMetadataKeyEscapingPreservesDistinctIdentifiers",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationStreamOverflowReject",
+          "result": "skip"
+        },
+        {
+          "test": "TestIntegrationCommunityBufferedQueries",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/handle/success",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/handle/refused",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/update/success",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/update/refused",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/ingest/success",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership/ingest/refused",
+          "result": "pass"
+        },
+        {
+          "test": "TestBindStreamOwnership",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/before_fetching_and_repeated_cancellation",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/active_stream_across_replicas_frees_resources",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/completed_query_and_write_result_are_not_cancellable",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/expiry_and_ownership",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation/completion_races_cancellation",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationQueryCancellation",
+          "result": "pass"
+        },
+        {
+          "test": "TestFlightTypeInfo",
+          "result": "pass"
+        },
+        {
+          "test": "TestFlightUnsupportedCapabilities",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationTypeInfoDDL",
+          "result": "pass"
+        },
+        {
+          "test": "TestBuildProfileSecurityAndTelemetry",
+          "result": "pass"
+        },
+        {
+          "test": "TestBuildBasicConnectionsDoNotReuse",
+          "result": "pass"
+        },
+        {
+          "test": "TestBuildIntegrationRoundTrip",
+          "result": "pass"
+        },
+        {
+          "test": "TestSoftwareCommandPermissionError",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSQL",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationWritesRunOnce",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationTempObjectsDontLeak",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPreparedTypes",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPreparedScripts/create,_then_read",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPreparedScripts/set_search_path,_then_read",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPreparedScripts",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationZeroRowParams/update",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationZeroRowParams/update_after_a_query_bind",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationZeroRowParams/query",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationZeroRowParams",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationPrepared",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationIngest",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationMetadata",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasets",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationUploadCommitOutcome/reply_lost_after_the_commit_ran",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationUploadCommitOutcome/commit_never_ran",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationUploadCommitOutcome",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetReads/hash",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetReads/list",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetReads",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetLayouts",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetReadPages",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationUploadOrder",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationDatasetTTLKeepsSeq",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessionPublicationRefusal",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/native_refusal",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/NotFound",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/message_only",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/IO_without_SQLSTATE",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/other_SQLSTATE",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/other_vendor",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/SQLSTATE_only",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/unknown_outcome",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/extra_diagnostic",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/cancelled_status",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/timeout_status",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/wrapped",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/joined_IO",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/joined_cancellation",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/joined_deadline",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification/transport_status",
+          "result": "pass"
+        },
+        {
+          "test": "TestPublicationRefusalClassification",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal/0",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal/2",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal/3",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal/1",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionPublicationRefusal",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotPublicationRefusalRemainsTerminal",
+          "result": "pass"
+        },
+        {
+          "test": "TestDoGetFailedSendReleasesCurrentBatch",
+          "result": "pass"
+        },
+        {
+          "test": "TestSecurityTokens",
+          "result": "pass"
+        },
+        {
+          "test": "TestSecurityRedisTLSAndCredentials",
+          "result": "pass"
+        },
+        {
+          "test": "TestSecurityFlightTLSAuthAndSnapshotOwnership",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/SET_lasts_with_cookies",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/temporary_tables_last",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/temporary_ingest",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/session_options",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/CloseSession",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/idle_sessions_close",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions/sessions_off",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessions",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessionSettings",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSessionReplicaLoss",
+          "result": "pass"
+        },
+        {
+          "test": "TestCookieToken",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionStoreReap",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotLeaseLoss",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotDisconnectAndIdleExpiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotIndependentPrincipal",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotSQLGrantRevocation",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/pending_cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/active_cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/early_release",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotAffinityAndRelease",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard/missing_header",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard/missing_cookie",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard/wrong_handle",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard/duplicate_header",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotGuard",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/expiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/lease_loss",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/native_unbound",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/changed_generation",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal/metadata_failure",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotLossIsTerminal",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotAcquireFailure",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup/success",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup/cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup/stall",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup/expiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotStreamCleanup",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotReaderChecksBufferedExpiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotUnsupportedDeployment",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"attach\"}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":0}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":119999}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":3600001}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"generation\":\"external\"}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\"}_{}",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotInvalidCommandHasNoEffects",
+          "result": "pass"
+        },
+        {
+          "test": "TestReadSnapshotAcquireCancellationIsTerminal",
+          "result": "pass"
+        },
+        {
+          "test": "TestChangesSession",
+          "result": "pass"
+        },
+        {
+          "test": "TestCreatesTemp",
+          "result": "pass"
+        },
+        {
+          "test": "TestStreamTokens",
+          "result": "pass"
+        },
+        {
+          "test": "TestStreamTable",
+          "result": "pass"
+        },
+        {
+          "test": "TestIndexCursors",
+          "result": "pass"
+        },
+        {
+          "test": "TestEscapeKeyPart",
+          "result": "pass"
+        },
+        {
+          "test": "TestTableStreams",
+          "result": "pass"
+        },
+        {
+          "test": "TestResultBudget",
+          "result": "pass"
+        },
+        {
+          "test": "TestCursorLimitStatus",
+          "result": "pass"
+        },
+        {
+          "test": "TestReusable",
+          "result": "pass"
+        },
+        {
+          "test": "TestConnectStatus",
+          "result": "pass"
+        },
+        {
+          "test": "TestWithConnReleasesOnPanic",
+          "result": "pass"
+        },
+        {
+          "test": "TestSessionTempFlag",
+          "result": "pass"
+        },
+        {
+          "test": "TestAcquireAfterPanicInOpen",
+          "result": "pass"
+        },
+        {
+          "test": "TestIngestMode",
+          "result": "pass"
+        },
+        {
+          "test": "TestFlattenObjects",
+          "result": "pass"
+        },
+        {
+          "test": "TestChunks",
+          "result": "pass"
+        },
+        {
+          "test": "TestColumnChunks",
+          "result": "pass"
+        },
+        {
+          "test": "TestBatchRange",
+          "result": "pass"
+        },
+        {
+          "test": "TestPageLen",
+          "result": "pass"
+        },
+        {
+          "test": "TestDatasetKeys",
+          "result": "pass"
+        },
+        {
+          "test": "TestStatementHandle",
+          "result": "pass"
+        },
+        {
+          "test": "TestShutdownDrainsThenCancels",
+          "result": "pass"
+        },
+        {
+          "test": "TestDoPutNeedsDescriptor",
+          "result": "pass"
+        },
+        {
+          "test": "TestSqlInfoTypes",
+          "result": "pass"
+        },
+        {
+          "test": "TestIssuedSessionCookies",
+          "result": "pass"
+        }
+      ],
+      "packages": [
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+          "Action": "pass",
+          "Elapsed": 8.449
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/internal/integrationtest",
+          "Action": "pass",
+          "Elapsed": 1.012
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+          "Action": "pass",
+          "Elapsed": 1.005
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/scripts/enterprise-smoke",
+          "Action": "skip",
+          "Elapsed": 0
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/server",
+          "Action": "pass",
+          "Elapsed": 43.297
+        }
+      ],
+      "raw_log_sha256": "8d34082fc28c4f66483f860b29377730c9bc4eb616b36d2a4e829121ab354942"
+    }
+  },
+  "python_cases": [
+    {
+      "name": "test_sql_metadata_binding_and_ingestion",
+      "seconds": 0.165,
+      "result": "passed"
+    },
+    {
+      "name": "test_flight_driver_partitions_are_deferred_and_replayable",
+      "seconds": 0.112,
+      "result": "passed"
+    },
+    {
+      "name": "test_native_flight_datasets_and_explicit_unsupported",
+      "seconds": 0.02,
+      "result": "passed"
+    },
+    {
+      "name": "test_explicit_unsupported_transactions",
+      "seconds": 0.012,
+      "result": "passed"
+    },
+    {
+      "name": "test_query_ticket_expiry_is_terminal",
+      "seconds": 0.212,
+      "result": "passed"
+    },
+    {
+      "name": "test_two_tables_metadata_and_publications",
+      "seconds": 0.34,
+      "result": "passed"
+    },
+    {
+      "name": "test_handle_requires_own_session",
+      "seconds": 0.033,
+      "result": "passed"
+    },
+    {
+      "name": "test_failure_releases_attempt",
+      "seconds": 0.022,
+      "result": "passed"
+    },
+    {
+      "name": "test_expiry_never_falls_back",
+      "seconds": 121.033,
+      "result": "passed"
+    },
+    {
+      "name": "test_native_lease_loss_never_falls_back",
+      "seconds": 0.039,
+      "result": "passed"
+    },
+    {
+      "name": "test_snapshot_survives_observed_compaction",
+      "seconds": 0.344,
+      "result": "passed"
+    },
+    {
+      "name": "test_gateway_kill_restart_loses_session_and_expires_pin",
+      "seconds": 120.307,
+      "result": "passed"
+    }
+  ],
+  "make_entrypoint_cases": [
+    {
+      "name": "test_sql_metadata_binding_and_ingestion",
+      "seconds": 0.201,
+      "result": "passed"
+    },
+    {
+      "name": "test_flight_driver_partitions_are_deferred_and_replayable",
+      "seconds": 0.137,
+      "result": "passed"
+    },
+    {
+      "name": "test_native_flight_datasets_and_explicit_unsupported",
+      "seconds": 0.022,
+      "result": "passed"
+    },
+    {
+      "name": "test_explicit_unsupported_transactions",
+      "seconds": 0.014,
+      "result": "passed"
+    },
+    {
+      "name": "test_query_ticket_expiry_is_terminal",
+      "seconds": 0.249,
+      "result": "passed"
+    }
+  ],
+  "new_performance_run": false,
+  "provisioning_fix_go_inputs_unchanged": true,
+  "hosted_enterprise_workflow": "https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44191413392",
+  "first_hosted_attempt": {
+    "workflow": "https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44190076568",
+    "result": "failed before tests",
+    "reason": "HTTP 503 installing bootstrap certificates"
+  },
+  "provisioning_regression_tests_passed": 3
+}

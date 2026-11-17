@@ -1,38 +1,56 @@
 # Companion integration qualification — 2026-11-17
 
-Status: v0.0.29 qualification in progress after its release during the audit.
-The v0.0.28 results below are historical until superseded by final results.
-
-This records the acceptance audit for [Flight #61](https://github.com/redis/redis-apache-arrow-flight/issues/61)
+This completes the acceptance audit for [Flight #61](https://github.com/redis/redis-apache-arrow-flight/issues/61)
 and original [native #214](https://github.com/redis/redis-adbc-driver/issues/214).
 The resulting [companion contract](../../companion-contract.md) is the integration
 boundary. It does not expand protocol, production or application support.
 
 ## Recorded sources and environment
 
-[Initial v0.0.28 results](results-v0.0.28.json) bind the new Python test file and gateway
-binary by SHA-256, record exact Python/client versions, and include complete
-public-module/replaced-file/private-overlay fingerprints. The public base is
-`ee39b4d` plus this test/documentation change. Go runtime source is byte-for-byte
-equivalent, under the enterprise builder's complete module guard, to qualified
-public `a2fa5ae0aebe9d74f9a82e096b3f84f3673db60d` and private candidate
-`a6c640a84ccd3467d6c3122fbc3000e48b099172`. No Go source or dependency changed.
-The builder was rerun for the new gateway and rejected no source mismatch.
+[Machine-readable results](results.json) bind the final Python test file and
+rebuilt gateway binary by SHA-256, list every Go/Python case, record exact client
+versions and include full public-module/replaced-file/private-overlay fingerprints.
+The qualified public Go source is
+`ed672dbe4949376b185755f9c80d6632a5858450`; the private candidate is
+`34a7fdeaae4b0b6dd9bac91d9064366a75c98fe1` (enterprise PR #15).
 
-The earlier [complete serialized backend results](../2026-11-17-snapshots/revocation-results.json)
-record 206 passing enterprise named tests/subtests (one community-only skip) and
-154 community passes (one enterprise-only skip). The
-[hosted enterprise qualification](https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44184407701)
-passed its full race suite, live SQL read/write smoke, TLS/ACL verification and
-composition receipt. Those source-matched results are reused, not presented as
-a new Go rerun. The earlier failed revocation-timing run and invalid overlapping
-local attempts remain disclosed in the [follow-up](../2026-11-17-snapshots/revocation-followup.md).
+Local backend/client runs used Go source `39384c1`, which is byte-for-byte
+identical in every Go/C/module input to `ed672db`. The latter adds only the
+provisioning-readiness fix, its tests/workflow check and documentation. The first
+hosted attempt stopped before tests with HTTP 503 on certificate installation;
+it is not a qualification pass. The idempotent PUT now uses a bounded readiness
+retry, with three regression checks for recovery, nontransient errors and timeout.
+It does not retry SQL mutations or disable certificate verification. The fresh
+hosted workflow below validates the corrected provisioning path.
 
-The five **new** tests passed with Python **3.14.10**, Python ADBC Flight SQL and
-manager **1.13.0**, PyArrow **26.0.1**, pytest **9.2.0**, redis-py **8.1.0**.
-They loaded only Apache Flight clients, not the native Redis shared library.
-The rebuilt Linux arm64 gateway uses Go 1.27.4, Arrow Go 18.9.0, ADBC Go 1.13.0,
-gRPC 1.85.0 and released native Redis ADBC v0.0.28 (`b63a010d88d2`).
+Stable native **v0.0.29** was released during this audit and selected at immutable
+commit `30a9eefbf13d19b3e3129171f8ecdc5579b852a2`, Go submodule
+`v0.0.0-20261117215830-30a9eefbf13d`. Go 1.27.4, Arrow Go 18.9.0, ADBC Go
+1.13.0 and gRPC 1.85.0 remain selected. The SourceType API/report rename has no
+gateway references. Storage protocol remains 17; this introduces no old-catalog
+migration or downgrade guarantee.
+
+Both complete backend/race profiles were **rerun** on v0.0.29: 206 passing
+enterprise named tests/subtests (one community-only skip) and 154 community
+passes (one enterprise-only skip). Both local unit/race profiles and go vet
+also passed. The [paired hosted enterprise workflow](https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44191413392)
+checks this exact source separately, including full race/backend and live SQL
+read/write qualification. Its final status is required before issue closure.
+
+The **twelve** real-network Python cases passed without skips: all five new
+companion tests and all seven existing shared-snapshot cases, including actual
+native fixed expiry, observed compaction, owned-handle rejection, cleanup and
+SIGKILL/restart with natural lease collection. Python **3.14.10**, Python ADBC
+Flight SQL/manager **1.13.0**, PyArrow **26.0.1**, pytest **9.2.0**, redis-py
+**8.1.0** were used. No native Redis shared library was loaded by these clients.
+The five companion cases additionally passed through the new make entrypoint.
+
+The initial [v0.0.28 client results](results-v0.0.28.json) remain historical.
+Their earlier matching Go fingerprints allowed an initial coverage audit, but
+they do not qualify the subsequent dependency upgrade. The final v0.0.29 results
+above supersede them. Earlier revocation timing failures and invalid overlapping
+local attempts remain disclosed in the [prior follow-up](../2026-11-17-snapshots/revocation-followup.md);
+the final local runner serializes all cooperating suites through a shared lock.
 
 A fresh disposable Software fixture used `redislabs/redis:8.2.0-78.18`, Redis
 8.6.2, Search, three active primary shards, verified active **4x QPF**, 1 GiB,
@@ -60,7 +78,7 @@ and private source fingerprints in results.json identify that exact composition.
 
 ## Lifecycle and error evidence
 
-| Behavior | Source-matched executed test / practical limit |
+| Behavior | Executed test on the recorded v0.0.29 composition / practical limit |
 | --- | --- |
 | Read tickets replay as fresh reads; writes do not execute again | New `test_flight_driver_partitions_are_deferred_and_replayable`; existing `TestIntegrationWritesRunOnce`, including repeated result fetch and retained-result TTL assertions. Fully qualified ordinary SQL is used; no session portability is inferred. |
 | Ticket expiry and unknown control state | New `test_query_ticket_expiry_is_terminal` verifies the issued TTL is positive and at most ten minutes, then shortens only its exact newly issued record to 100 ms and waits for real Redis expiry. Both subsequent reads return ADBC NOT_FOUND. This is not a ten-minute wall-clock soak. Existing cancellation expiry case removes its test record to simulate unavailable authority. |
@@ -73,9 +91,8 @@ and private source fingerprints in results.json identify that exact composition.
 
 Some Go protocol/lifecycle cases use in-process Flight transport; they are not
 misrepresented as a new external network/client run. The added Python cases
-supply real network/TLS standard-client coverage. Snapshot-specific natural
-lifetime, compaction, death and cleanup results retain their earlier client
-versions and recorded revisions.
+supply real network/TLS standard-client coverage. All seven actual snapshot cases were rerun on v0.0.29 and Python 3.14;
+the previous dated records still retain their earlier versions and revisions.
 
 ## New executable checks
 
@@ -105,7 +122,7 @@ disposable databases. No SQL mutation is retried by these checks.
 
 ## Remaining boundaries
 
-The five #61 gates are mapped by the contract, complete original-item map,
+The five #61 gates are satisfied by the contract, complete original-item map,
 source-matched lifecycle/security results, secured Software/4x-QPF checks and
 links from capability/client documentation. This does not close #28 (bounded
 execution), #35 (deployment/performance), #17/#38 (JDBC), #41 (Superset) or #57
