@@ -9,7 +9,7 @@ Start the [server and sample table](README.md#optional-sample-sql-table).
 From the repository root, create a separate environment:
 
 ```sh
-python3.12 -m venv .venv-sqlalchemy
+python3.14 -m venv .venv-sqlalchemy
 . .venv-sqlalchemy/bin/activate
 python -m pip install -r requirements/integrations/core.txt
 ```

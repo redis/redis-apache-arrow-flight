@@ -1,5 +1,5 @@
 # Dependency refresh 2026-11-17; see dated validation for executed coverage.
-# Python 3.12 (Airflow: 3.14). Historical November 3 results retain their old pins.
+# Python 3.14 minimum. Historical November 3 results retain their old pins.
 pytest==9.2.0
 adbc-driver-flightsql==1.13.0
 adbc-driver-manager==1.13.0

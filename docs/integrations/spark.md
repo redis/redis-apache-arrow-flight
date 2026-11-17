@@ -9,7 +9,7 @@ Start the [server and sample table](README.md#optional-sample-sql-table).
 From the repository root, create a separate environment:
 
 ```sh
-python3.12 -m venv .venv-spark
+python3.14 -m venv .venv-spark
 . .venv-spark/bin/activate
 python -m pip install -r requirements/integrations/spark.txt
 make bin/flight-sql-jdbc-driver-19.0.0.jar

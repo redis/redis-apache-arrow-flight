@@ -2,7 +2,7 @@
 
 [Back to the README](../README.md). Run these commands from the repository root.
 
-You need Go 1.27.4 or newer, Docker and, for the Python example,
+You need Go 1.27.4 or newer, Docker and, for the Python example, Python 3.14 or newer and
 [uv](https://docs.astral.sh/uv/). For tagged builds, see [Install a release](../README.md#install-a-release).
 
 ```bash

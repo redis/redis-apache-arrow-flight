@@ -52,6 +52,8 @@ transactions and savepoints are unsupported. See the
 
 ## Integration paths
 
+Python examples and project tooling require Python **3.14 or newer**.
+
 All three paths connect to the same Flight endpoint. Flight SQL defines SQL
 commands using Flight RPC; gRPC carries the requests and Arrow streams.
 

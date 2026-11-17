@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.14"
 # dependencies = ["adbc-driver-flightsql==1.13.0", "adbc-driver-manager==1.13.0", "pyarrow==26.0.1"]
 # ///
 """Explicit Flight dataset -> SQL ingestion, with unique fixtures and cleanup.

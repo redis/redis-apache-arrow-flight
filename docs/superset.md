@@ -12,7 +12,7 @@ version:
 
 ## Superset 6.1: direct Redis ADBC
 
-Use the Redis driver's `superset` extra in a dedicated Python 3.12 environment:
+Use the Redis driver's `superset` extra in a dedicated Python 3.14 environment:
 
 ```sh
 python -m pip install 'apache-superset==6.1.0' 'adbc-driver-redis[superset]'

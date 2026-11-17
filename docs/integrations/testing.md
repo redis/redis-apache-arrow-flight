@@ -55,9 +55,9 @@ loading PyTorch after XGBoost training in one process repeatedly aborted;
 separate interpreters passed without runtime bypass flags.
 
 `--setup` creates isolated uv environments and installs the pinned top-level
-requirements in `requirements/integrations/`. Python 3.12 is used, except for
-Airflow on 3.14. Full resolved package versions and interpreter versions are
-saved for every run. OS-specific dependencies can differ. Quarto/JDK/R are
+requirements in `requirements/integrations/`. Python 3.14 is used for all
+profiles. Reused environments must also run Python 3.14 or newer. Full resolved
+package versions and interpreter versions are saved for every run. OS-specific dependencies can differ. Quarto/JDK/R are
 external prerequisites; the R run logs its session and package versions.
 Omit `--setup` to reuse prepared environments. `--uv /path/to/uv` selects uv.
 The November 3 run used JDK 21.0.13, Quarto 1.10.20, R 4.6.2,

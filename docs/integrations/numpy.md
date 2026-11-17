@@ -5,10 +5,10 @@
 ## Install
 
 Start with the [server and sample table](README.md#optional-sample-sql-table).
-Run from the repository root, using Python 3.12 in a separate environment:
+Run from the repository root, using Python 3.14 in a separate environment:
 
 ```sh
-python3.12 -m venv .venv-numpy
+python3.14 -m venv .venv-numpy
 . .venv-numpy/bin/activate
 python -m pip install -r requirements/integrations/core.txt
 ```

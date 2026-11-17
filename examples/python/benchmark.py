@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.14"
 # dependencies = ["adbc-driver-flightsql==1.13.0", "adbc-driver-manager==1.13.0", "pyarrow==26.0.1", "redis==8.1.0", "psutil==7.2.2"]
 # ///
 """Synthetic local endpoint benchmark. Mutates uniquely named disposable fixtures.

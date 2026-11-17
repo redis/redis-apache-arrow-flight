@@ -21,6 +21,10 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
       - uses: astral-sh/setup-uv@v10.3.3
       - name: Check external runtimes
         run: |
