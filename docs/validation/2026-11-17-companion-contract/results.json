@@ -1,7 +1,7 @@
 {
   "public_base": "ee39b4d",
-  "qualified_public_source": "ed672dbe4949376b185755f9c80d6632a5858450",
-  "private_candidate": "34a7fdeaae4b0b6dd9bac91d9064366a75c98fe1",
+  "qualified_public_source": "8c0a686daa5083b126bda865a2d6895c225afc73",
+  "private_candidate": "a137a0ee290b502948d5d5c75653160f595d17c6",
   "local_runtime_go_source": "39384c1f9ff629d16ac4bf436204ba42afac1ea0",
   "provisioning_fix_changes_go_source": false,
   "native_release": "v0.0.29",
@@ -1638,11 +1638,18 @@
   ],
   "new_performance_run": false,
   "provisioning_fix_go_inputs_unchanged": true,
-  "hosted_enterprise_workflow": "https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44191413392",
-  "first_hosted_attempt": {
-    "workflow": "https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44190076568",
-    "result": "failed before tests",
-    "reason": "HTTP 503 installing bootstrap certificates"
-  },
-  "provisioning_regression_tests_passed": 3
+  "hosted_enterprise_workflow": "https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44192540023",
+  "provisioning_regression_tests_passed": 4,
+  "provisioning_failed_attempts": [
+    {
+      "workflow": "https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44190076568",
+      "result": "failed before tests",
+      "reason": "HTTP 503 installing bootstrap certificates"
+    },
+    {
+      "workflow": "https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44191413392",
+      "result": "failed before tests",
+      "reason": "HTTP 401 before bootstrap admin credentials became active"
+    }
+  ]
 }

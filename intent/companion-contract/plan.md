@@ -36,3 +36,10 @@ each), both unit/race profiles, go vet, all 12 actual Python client/snapshot cas
 the five-case make entrypoint and strict documentation build. Final exact-source
 receipts are in docs/validation/2026-11-17-companion-contract/results.json.
 Hosted qualification and review decisions are recorded by the paired PRs.
+
+A subsequent bootstrap attempt returned HTTP401 before its new management
+credentials became active. Only the certificate-install readiness operation now
+waits for this status under the same deadline; HTTP403/validation failures remain
+immediate. Four readiness regression tests and all 19 script tests pass. Both
+failed hosted provisioning attempts are retained in the final receipt; neither
+ran the backend suite or counts as qualification.

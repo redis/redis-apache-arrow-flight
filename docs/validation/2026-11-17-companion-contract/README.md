@@ -11,15 +11,18 @@ boundary. It does not expand protocol, production or application support.
 rebuilt gateway binary by SHA-256, list every Go/Python case, record exact client
 versions and include full public-module/replaced-file/private-overlay fingerprints.
 The qualified public Go source is
-`ed672dbe4949376b185755f9c80d6632a5858450`; the private candidate is
-`34a7fdeaae4b0b6dd9bac91d9064366a75c98fe1` (enterprise PR #15).
+`8c0a686daa5083b126bda865a2d6895c225afc73`; the private candidate is
+`a137a0ee290b502948d5d5c75653160f595d17c6` (enterprise PR #15).
 
 Local backend/client runs used Go source `39384c1`, which is byte-for-byte
-identical in every Go/C/module input to `ed672db`. The latter adds only the
+identical in every Go/C/module input to `8c0a686`. The latter adds only the
 provisioning-readiness fix, its tests/workflow check and documentation. The first
 hosted attempt stopped before tests with HTTP 503 on certificate installation;
 it is not a qualification pass. The idempotent PUT now uses a bounded readiness
-retry, with three regression checks for recovery, nontransient errors and timeout.
+retry. A subsequent attempt returned HTTP 401 before newly bootstrapped admin
+credentials became active; that response is also bounded by the same startup
+deadline. Four regression checks cover service/admin readiness, nontransient
+errors and timeout. HTTP 403/validation failures still propagate immediately.
 It does not retry SQL mutations or disable certificate verification. The fresh
 hosted workflow below validates the corrected provisioning path.
 
@@ -33,7 +36,7 @@ migration or downgrade guarantee.
 Both complete backend/race profiles were **rerun** on v0.0.29: 206 passing
 enterprise named tests/subtests (one community-only skip) and 154 community
 passes (one enterprise-only skip). Both local unit/race profiles and go vet
-also passed. The [paired hosted enterprise workflow](https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44191413392)
+also passed. The [paired hosted enterprise workflow](https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44192540023)
 checks this exact source separately, including full race/backend and live SQL
 read/write qualification. Its final status is required before issue closure.
 
