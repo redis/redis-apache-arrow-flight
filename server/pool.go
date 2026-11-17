@@ -82,8 +82,12 @@ func reusable(sql string, err error) bool {
 
 // isStatementError reports whether err is about the statement (bad SQL, a
 // missing table, a permission, an index out of cursors, a result too big
-// for ResultMemory) rather than the connection.
+// for ResultMemory, a definite catalog publication refusal) rather than the
+// connection. This classification never causes an automatic statement retry.
 func isStatementError(err error) bool {
+	if isPublicationRefusal(err) {
+		return true
+	}
 	if isCursorLimit(err) || errors.Is(err, errResultMemory) {
 		return true
 	}
@@ -98,6 +102,21 @@ func isStatementError(err error) bool {
 		return true
 	}
 	return false
+}
+
+// isPublicationRefusal recognizes only the native driver's definite catalog
+// CAS refusal. In driver 640dbf1fa880, beginSnapshotWrite and
+// publishPreparedSnapshot return this exact error before committing the failed
+// statement; executeSnapshot aborts its workspace and restores temporary state.
+// Other IO/40001 errors, especially unknown publication outcomes, are not proof
+// that the connection is usable. Require the direct error, so a joined or
+// wrapped cancellation/transport failure cannot borrow this classification.
+// Keeping the connection is not permission to replay SQL, scripts or Arrow input.
+func isPublicationRefusal(err error) bool {
+	ae, ok := err.(adbc.Error)
+	return ok && ae.Code == adbc.StatusIO && ae.VendorCode == 0 &&
+		ae.SqlState == [5]byte{'4', '0', '0', '0', '1'} &&
+		ae.Msg == "[redis] snapshot catalog changed concurrently; retry the statement"
 }
 
 // tempSchema is where the driver keeps a connection's temporary tables

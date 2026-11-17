@@ -97,6 +97,7 @@ type session struct {
 // closed; the next request opens another and sets the session's options
 // on it again (its temporary objects are gone). A snapshot attempt instead
 // remains terminal and must never reopen against a newer catalog.
+// A definite publication refusal keeps the live connection without replaying fn.
 func (s *session) run(ctx context.Context, t *tenant, fn func(adbc.ConnectionWithContext) error) (err error) {
 	s.store.begin(s)
 	defer s.store.end(s)

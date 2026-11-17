@@ -62,6 +62,15 @@ request.
 - **Ownership.** A session belongs to the Redis user that made it. With
   `--auth=redis-acl`, another user's request with the same cookie gets a
   session of its own.
+- **Publication conflicts.** The native driver's definite catalog publication
+  refusal (`IO`, SQLSTATE `40001`, exact Redis catalog-conflict diagnostic)
+  returns `UNAVAILABLE` while preserving the live session connection, SQL
+  settings and temporary objects. Flight does not retry the request. A caller
+  may submit a fresh safe statement after this refusal, but must not replay a
+  script's committed prefix or reuse consumed Arrow input. Generic I/O,
+  cancellation, timeouts and unknown publication outcomes do not receive this
+  connection-preserving classification. Shared read-snapshot failures remain
+  terminal.
 - **Plain scans stream.** A query that [streams](sql-reference.md#flight-sql-support) from
   Redis outside a session does in a session too, on a pooled connection, so
   the session's own stays free for its other statements (clients such as
