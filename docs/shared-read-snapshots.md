@@ -121,6 +121,11 @@ The native connection uses that identity's Redis credentials. Current Redis ACLs
 logical SQL grants and metadata visibility rules remain enforced. A retained
 snapshot does not preserve revoked SELECT access. Revocation does not retract
 already fetched or buffered copies or impose a synchronous in-flight barrier.
+SQL GRANT/REVOKE changes propagate asynchronously to backend proxies/shards;
+a denial on another connection does not establish an immediate barrier for this
+one. Qualification requires this connection to observe permission loss and then
+remain failed, including for otherwise permitted queries. See the
+[revocation follow-up](validation/2026-11-17-snapshots/revocation-followup.md).
 Changing session catalog/schema/timezone after acquisition is refused.
 Native read-only restrictions also reject DML/DDL, ingestion, temporary objects,
 sequences with side effects and unsupported execution APIs on this connection.
