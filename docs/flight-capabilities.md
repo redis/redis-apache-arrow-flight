@@ -2,6 +2,13 @@
 
 This project is a Flight SQL and Flight RPC endpoint backed by Redis. Both interfaces share one gRPC service. Protocol support is distinct from validation of a particular BI application.
 
+The [companion integration contract](companion-contract.md) defines deployment
+ownership, native ADBC partitions versus Flight tickets/dataset endpoints,
+identity, replay, lifetime and unsupported behavior. Its
+[acceptance map and qualification](validation/2026-11-17-companion-contract/README.md)
+separate source-matched backend results from new secured standard-client checks
+and historical application sweeps.
+
 | Interface / operation | Behavior | Evidence |
 | --- | --- | --- |
 | Flight SQL statements and prepared statements | Query/update, parameter binding, schema discovery; prepared clients must use the rebound handle | integration_test.go, JDBC smoke |

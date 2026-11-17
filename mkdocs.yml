@@ -32,6 +32,7 @@ nav:
       - Client guide: docs/client-guide.md
       - Dataset to SQL: docs/dataset-sql-workflow.md
   - Reference:
+      - Companion integration contract: docs/companion-contract.md
       - Server guide: docs/server-guide.md
       - SQL reference: docs/sql-reference.md
       - Protocol capabilities: docs/flight-capabilities.md
@@ -78,6 +79,7 @@ nav:
       - RStudio: docs/integrations/rstudio.md
       - Integration testing: docs/integrations/testing.md
   - Validation records:
+      - Companion contract: docs/validation/2026-11-17-companion-contract/README.md
       - Core endpoint: docs/validation/2026-10-29-core-endpoint/README.md
       - Enterprise TLS: docs/validation/2026-11-01-enterprise-tls/README.md
       - BI and JDBC: docs/validation/2026-11-01-bi-jdbc/README.md

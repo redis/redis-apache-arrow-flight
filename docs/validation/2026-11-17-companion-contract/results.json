@@ -1,0 +1,55 @@
+{
+  "public_base": "ee39b4d3b22393f67d8523e0c674c5dc552bf542",
+  "qualified_go_source": "a2fa5ae0aebe9d74f9a82e096b3f84f3673db60d",
+  "private_candidate": "a6c640a84ccd3467d6c3122fbc3000e48b099172",
+  "go_source_equivalent": true,
+  "composition_fingerprints": {
+    "community_sha256": "b421bd69ef988e21753e4208da4293e03e53f8def21acb5291ee795c1646821b",
+    "module_sha256": "96bb2e0d2b1b8ea8de8c975362d4e95f3a081b4f5b00baeca2cfc700c172009b",
+    "private_overlay_sha256": "551e5ceaaff9aefbb1ccfc5cafe18d058eae7bc0e65a4920ae80637fc4bbe31e"
+  },
+  "client_test_sha256": "555b3b367302da89ce377efda90d22df2a6c17659019eb5b491068132a9b1775",
+  "gateway_binary_sha256": "35aed74615f1ea91240d99adb7acd156ed89638d31120e8689db7e6ed77afcb4",
+  "clients": {
+    "python": "3.14.10",
+    "packages": {
+      "pytest": "9.2.0",
+      "adbc-driver-flightsql": "1.13.0",
+      "adbc-driver-manager": "1.13.0",
+      "pyarrow": "26.0.1",
+      "redis": "8.1.0"
+    }
+  },
+  "new_python_cases": [
+    {
+      "name": "test_sql_metadata_binding_and_ingestion",
+      "seconds": 0.477,
+      "result": "passed"
+    },
+    {
+      "name": "test_flight_driver_partitions_are_deferred_and_replayable",
+      "seconds": 0.125,
+      "result": "passed"
+    },
+    {
+      "name": "test_native_flight_datasets_and_explicit_unsupported",
+      "seconds": 0.021,
+      "result": "passed"
+    },
+    {
+      "name": "test_explicit_unsupported_transactions",
+      "seconds": 0.012,
+      "result": "passed"
+    },
+    {
+      "name": "test_query_ticket_expiry_is_terminal",
+      "seconds": 0.375,
+      "result": "passed"
+    }
+  ],
+  "reused_go_results": "../2026-11-17-snapshots/revocation-results.json",
+  "hosted_enterprise_qualification": "https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44184407701",
+  "new_go_suite_run": false,
+  "new_performance_run": false,
+  "entrypoint": "make test-companion-contract via a shared scope lock"
+}

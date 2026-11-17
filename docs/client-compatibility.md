@@ -1,5 +1,12 @@
 # Client compatibility
 
+For the current companion-service boundary and the distinction between native
+ADBC partitions, Flight SQL tickets and dataset endpoints, see the
+[integration contract](companion-contract.md) and
+[2026-11-17 acceptance audit](validation/2026-11-17-companion-contract/README.md).
+That audit adds Python 3.14 secured ADBC/PyArrow checks; earlier matrices below
+retain their own versions and application scope.
+
 Validated locally on 2026-10-20 against Redis 8.6.2. The server uses Arrow Go
 18.8.0, Apache ADBC 1.12.0 and Redis ADBC revision a66467bc5e6a. The local run
 used macOS arm64 for Go/Python and a disposable Temurin Java 25 Docker image.
