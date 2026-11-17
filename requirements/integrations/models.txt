@@ -1,14 +1,15 @@
-# Versions exercised on 2026-11-03; Python 3.12 (Airflow: 3.14).
+# Dependency refresh 2026-11-17; see dated validation for executed coverage.
+# Python 3.12 (Airflow: 3.14). Historical November 3 results retain their old pins.
 pytest==9.2.0
 adbc-driver-flightsql==1.13.0
 adbc-driver-manager==1.13.0
-pyarrow==26.0.0
-numpy==2.5.4
+pyarrow==26.0.1
+numpy==2.5.5
 xgboost==3.4.1
 torch==2.15.0
 tensorflow==2.21.0
 keras==3.15.1
-transformers==5.22.1
+transformers==5.23.0
 tokenizers==0.23.3
 plotly==7.1.0
 matplotlib==3.11.2

@@ -61,8 +61,9 @@ state is shared there. This does not make cookie sessions portable.
   For example, `{"dataset": "features/v1"}` reads the current generation, and
   `{"dataset": "features/v1", "columns": ["id", "label"], "batches": [0, 4]}`
   reads two columns of its first four batches. The stored batches are the
-  uploaded ones, split to about 2 MiB each; the PutResult and the FlightInfo's
-  app metadata count them (`batches`). Each column of a batch is stored on
+  uploaded ones, split to about 2 MiB each in community. Enterprise uploads
+  also merge small compatible batches, so ranges can cover more rows. The
+  PutResult and FlightInfo app metadata count stored batches (`batches`). Each column of a batch is stored on
   its own, so a read takes only the ticket's columns from Redis. The
   [dataset benchmarks](../server/dataset_bench_test.go) measure full and
   one-column reads. A read takes the columns about 8 MiB at a time (up to
@@ -94,6 +95,12 @@ The name in a key is URL-path-escaped.
 
 Storing each column of a batch on its own can use more Redis memory than
 storing batches whole, since each column of each batch is a separate value.
+Enterprise upload coalescing reduces that overhead for small batches. Its pending
+buffer retains at most about 2 MiB of Arrow buffer capacity; concatenation can
+briefly allocate a similarly sized output. Large backing buffers and extension
+arrays bypass merging, and changed dictionaries flush the buffer. These are
+additional upload buffers, not a bound on total process memory. Stored layout 2
+and legacy generation reads remain compatible.
 
 **Upgrading.** Servers before the HASH layout fail to read the generations
 newer ones store (Redis answers their `LLEN` with `WRONGTYPE`), so upgrade

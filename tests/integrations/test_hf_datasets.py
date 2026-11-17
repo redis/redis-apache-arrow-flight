@@ -8,12 +8,12 @@ import adbc_driver_flightsql.dbapi as dbapi
 
 
 class EmptyDatasetPersistenceError(AssertionError):
-    """Only the independently reproduced Datasets 5.1.0 zero-shard failure."""
+    """Only the independently reproduced Datasets 5.1.0/5.2.0 zero-shard failure."""
 
 
 known_empty_failure = pytest.mark.xfail(
     raises=EmptyDatasetPersistenceError, strict=True,
-    reason="Datasets 5.1.0 cannot reload its default zero-shard empty save (#253)",
+    reason="Datasets 5.1.0/5.2.0 cannot reload its default zero-shard empty save (#253)",
 )
 
 
@@ -22,7 +22,7 @@ def reload_dataset(datasets, path):
         return datasets.load_from_disk(str(path))
     except IndexError as exc:
         state = json.loads((path / "state.json").read_text())
-        if (datasets.__version__ == "5.1.0" and state["_data_files"] == []
+        if (datasets.__version__ in {"5.1.0", "5.2.0"} and state["_data_files"] == []
                 and str(exc) == "list index out of range"):
             raise EmptyDatasetPersistenceError(str(exc)) from exc
         raise
@@ -65,7 +65,7 @@ def test_arrow_dataset_save_reload_and_filter(
     assert dataset.to_list() == expected.to_pylist()
     assert dataset.data.schema.remove_metadata() == expected.schema.remove_metadata()
     path = tmp_path / "saved_dataset"
-    # datasets 5.1.0 defaults to zero shards for an empty table, which its
+    # datasets 5.1.0 and 5.2.0 default to zero shards for an empty table, which its
     # loader cannot reopen. One shard preserves even the empty result schema.
     dataset.save_to_disk(str(path), **({"num_shards": 1} if explicit_shard else {}))
     restored = reload_dataset(datasets, path)

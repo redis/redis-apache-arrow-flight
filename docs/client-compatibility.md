@@ -282,3 +282,14 @@ binary checksum and full source fingerprint could not be recovered. These
 client checks do not qualify current-source builds or a release. Consult the
 [per-guide results](validation/2026-11-03-guide-recipes/summary.md) for partial
 Power BI/Redis Insight checks and unchanged application UI limitations.
+
+## Shared snapshots and dependency profiles on 2026-11-17
+
+The [dated qualification](validation/2026-11-17-snapshots/README.md) records the
+current source composition, Redis ADBC v0.0.28, Python ADBC Flight SQL 1.13.0 and
+PyArrow 26.0.1. Seven real Python snapshot tests and two independent Airbyte source
+Flight tests passed over verified TLS and Redis ACL authentication. The receipt
+also records complete Go backend/race suites, fault/security coverage and all
+seven refreshed dependency profiles (24 automated tool routes). Earlier client
+matrices retain their historical versions. Published connector releases and
+manual BI application acceptance are separate from these source checks.

@@ -1,0 +1,45 @@
+{
+  "snapshot_python": [
+    {
+      "name": "test_two_tables_metadata_and_publications",
+      "seconds": "0.804",
+      "result": "passed"
+    },
+    {
+      "name": "test_handle_requires_own_session",
+      "seconds": "0.033",
+      "result": "passed"
+    },
+    {
+      "name": "test_failure_releases_attempt",
+      "seconds": "0.031",
+      "result": "passed"
+    },
+    {
+      "name": "test_expiry_never_falls_back",
+      "seconds": "121.033",
+      "result": "passed"
+    },
+    {
+      "name": "test_native_lease_loss_never_falls_back",
+      "seconds": "0.092",
+      "result": "passed"
+    },
+    {
+      "name": "test_snapshot_survives_observed_compaction",
+      "seconds": "0.389",
+      "result": "passed"
+    },
+    {
+      "name": "test_gateway_kill_restart_loses_session_and_expires_pin",
+      "seconds": "120.438",
+      "result": "passed"
+    }
+  ],
+  "airbyte": {
+    "cases": 2,
+    "result": "passed",
+    "client_lock": "Airbyte current requirements.lock; CDK 7.49.0, PyArrow 26.0.1",
+    "seconds": 12.6
+  }
+}

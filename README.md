@@ -40,6 +40,10 @@ values without converting them to SQL rows. You can combine the two: upload a
 dataset, then ingest selected data into a SQL table. See the
 [dataset-to-SQL workflow](docs/dataset-sql-workflow.md).
 
+Enterprise uploads merge small compatible batches to reduce per-column IPC and
+Redis field overhead. Ticket ranges count stored batches; see
+[dataset storage and memory](docs/data-access.md#datasets).
+
 Flight SQL supports queries, updates, prepared statements, bulk ingestion,
 metadata, sessions and read-only query cancellation. SQL uses autocommit;
 transactions and savepoints are unsupported. See the
@@ -239,7 +243,7 @@ for browsable guides and full-text search. See
 | Cancellation and named Arrow datasets | [Data access reference](docs/data-access.md) |
 | Combining datasets and SQL | [Dataset-to-SQL workflow](docs/dataset-sql-workflow.md) |
 | Community and enterprise availability | [Build profiles](docs/build-profiles.md) |
-| Shared managed-catalog read snapshots (qualification pending) | [Snapshot protocol](docs/shared-read-snapshots.md) |
+| Shared managed-catalog read snapshots (source qualified; release separate) | [Snapshot protocol](docs/shared-read-snapshots.md) |
 | Cookies, settings and temporary tables | [Sessions](docs/server-guide.md#sessions) |
 | Configuration, security, shutdown and monitoring | [Deployment and operations](docs/server-guide.md#deployment-and-operations) |
 | Routing, storage and request flow | [Architecture](docs/server-guide.md#architecture) |

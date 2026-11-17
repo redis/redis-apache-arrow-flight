@@ -14,7 +14,7 @@ plugin, a Flight requirement for native ADBC, or a network license check.
 |---|---|---|
 | SQL/ADBC/Arrow or Flight protocol | Correct basic execution, types, errors and cleanup | Same APIs plus implemented paid capabilities |
 | Monitoring | No diagnostics file, empty optional metrics; Flight metrics HTTP 204 and health UNKNOWN | Existing diagnostics, metrics, backend health and request logging |
-| Optimization | Full driver SQL execution; basic Flight connections and one dataset endpoint | Full driver SQL execution plus Flight pooling and accelerated streaming as implemented |
+| Optimization | Full driver SQL execution; basic Flight connections and one dataset endpoint | Full driver SQL execution plus Flight pooling, accelerated streaming and small dataset upload batch coalescing |
 | Automation | Full driver automation; basic Flight protocol/shard routing | Full driver automation plus existing Flight management automation |
 | Basic security | Verified Flight TLS, Redis TLS/custom CA, Redis ACL login and encrypted expiring tokens | Same minimum contract; extra security capabilities require their own review |
 | Backup, Active-Active adaptation and infrastructure migration | Unavailable | Not yet implemented; this split does not implement the roadmap |

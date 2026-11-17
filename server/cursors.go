@@ -2,15 +2,13 @@ package server
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/redis/redis-apache-arrow-flight/internal/nativecatalog"
 )
 
 const (
@@ -126,44 +124,10 @@ func fetchCursors(ctx context.Context, rdb goredis.UniversalClient, src streamSo
 	return open, capacity, nil
 }
 
-// tableIndex returns the name of src's search index, from the table's
-// metadata as the Redis ADBC driver keeps it (its store.go: metaKey, and
-// tableMeta.IndexName, which adopted and rekeyed tables set). Other
-// tables' indexes are named after them (indexName).
+// tableIndex resolves the committed protocol-17 index without guessing names.
 func tableIndex(ctx context.Context, rdb goredis.UniversalClient, src streamSource) (string, error) {
-	suffix := escapeKeyPart(src.schema) + ":" + escapeKeyPart(src.name)
-	raw, err := rdb.Get(ctx, "adbc:{meta}:table:"+suffix).Result()
-	if errors.Is(err, goredis.Nil) {
-		return "", fmt.Errorf("table %s.%s has no metadata", src.schema, src.name)
-	}
-	if err != nil {
-		return "", err
-	}
-	var meta struct {
-		IndexName string `json:"index_name"`
-	}
-	if err := json.Unmarshal([]byte(raw), &meta); err != nil {
-		return "", err
-	}
-	if meta.IndexName != "" {
-		return meta.IndexName, nil
-	}
-	return "idx:" + suffix, nil
-}
-
-// escapeKeyPart escapes a schema or table name for a key, as the driver
-// does (store.go).
-func escapeKeyPart(s string) string {
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c == '%' || c == ':' || c == '{' || c == '}' || c == '*' || c == '?' || c == '[' || c == ']' || c == '\\' || c <= ' ' || c == 0x7f {
-			fmt.Fprintf(&b, "%%%02X", c)
-		} else {
-			b.WriteByte(c)
-		}
-	}
-	return b.String()
+	descriptor, err := nativecatalog.ReadTable(ctx, rdb, src.schema, src.name)
+	return descriptor.Index, err
 }
 
 // replyField reads a field of a RESP2 (flat list) or RESP3 (map) reply.

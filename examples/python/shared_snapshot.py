@@ -5,7 +5,7 @@ for each attempt. Close all cursors/readers inside this context. Never retry on 
 new connection or treat partial records as a successful full refresh.
 """
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 import json
 
 SESSION = "adbc.flight.sql.session.option."
@@ -29,10 +29,17 @@ def shared_snapshot(connection, retention_ms=900000):
             raise RuntimeError("Flight SQL gateway did not acquire a shared snapshot")
         options.set_options(**{HEADER: view["handle"]})
         yield view
-    finally:
-        # Keep the guard installed: reuse after release must fail. Closing the
-        # ADBC connection also closes its Flight session. If transport cleanup
-        # fails, gateway idle expiry/native fixed leases bound retention.
+    except BaseException:
+        # Preserve extraction/cancellation errors if cleanup also fails, such as
+        # after gateway death. The attempt remains failed; never retry live.
+        with suppress(Exception):
+            options.set_options(**{
+                SESSION + "redis.read_snapshot": '{"action":"release"}'
+            })
+        raise
+    else:
+        # Keep the guard installed. A cleanup failure after otherwise successful
+        # extraction must still fail the attempt, rather than report success.
         options.set_options(**{
             SESSION + "redis.read_snapshot": '{"action":"release"}'
         })

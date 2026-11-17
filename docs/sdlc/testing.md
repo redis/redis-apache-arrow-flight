@@ -119,6 +119,8 @@ are **not** enterprise integration qualification.
 | Redis ACL and changed credentials | `TestIntegrationRedisACL`, `TestIntegrationStaleCredentials` in integration_test.go |
 | Sessions, ownership, settings | `TestIntegrationSessions`, `TestIntegrationSessionOwner`, `TestIntegrationSessionSettings` in [session_integration_test.go](../../server/session_integration_test.go) |
 | Definite publication refusals preserve SQL session state without replay | `TestIntegrationSessionPublicationRefusal` in [publication_refusal_integration_test.go](../../server/publication_refusal_integration_test.go); [source contract and before/after evidence](../../intent/session-publication-refusal/plan.md) |
+| Shared snapshot lease loss, independent identities/SQL grants/ACL revocation, disconnect, cancellation and reader cleanup | [snapshot_integration_test.go](../../server/snapshot_integration_test.go), with a real secured Software backend |
+| Actual Python Flight snapshot consistency, native expiry, observed compaction and process death | [test_shared_snapshot.py](../../tests/integrations/test_shared_snapshot.py); destructive cases require explicit opt-in |
 | Streaming, fallback, cleanup | `TestIntegrationStreamResults` in [stream_integration_test.go](../../server/stream_integration_test.go); budget/token/panic tests in [unit_test.go](../../server/unit_test.go) |
 | Health auth exception and draining | `TestHealthCheckSkipsAuthAndSessions`, `TestHealthWatchDoesNotHoldShutdown` in [health_test.go](../../server/health_test.go) |
 | Shutdown and command behavior | `TestShutdownDrainsThenCancels` in unit_test.go; `TestSIGTERM`, `TestIntegrationSIGTERM` in [main_test.go](../../cmd/redis-flight-server/main_test.go) |
