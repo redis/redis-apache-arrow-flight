@@ -5,12 +5,16 @@ table. SQL tables use row HASHes/Search indexes and different type rules. Keep
 that distinction explicit so a client never silently changes storage or types.
 
 `examples/python/dataset_to_sql.py` demonstrates the supported standard-client
-workflow: upload a dataset, discover/read its endpoints, select scalar columns,
-use ADBC bulk ingestion to create a SQL table, query it, then drop both fixtures.
-It uses unique names, nullable values and cleanup, and checks that direct struct
-SQL ingestion fails with an unsupported-type error. The pinned driver supports
-one-dimensional lists as SQL arrays; lists alone are not an unsupported fixture. The example was run locally
-with PyArrow 26.0.0 and ADBC Flight SQL/manager 1.12.0 and is included in CI.
+workflow: upload a dataset, discover/read its endpoints, and explicitly use ADBC
+bulk ingestion to create SQL tables. The example checks a direct import of list
+and typed-struct columns, then a scalar projection, queries both, and cleans up
+its unique fixtures. It verifies nullable values, empty lists and nested values
+without silently flattening the struct. Redis ADBC 0.0.28 supports these nested
+types; projecting scalar columns is an optional client choice.
+
+The 2026-11-17 local run used PyArrow 26.0.1 and ADBC Flight SQL/manager 1.13.0
+against the public Flight build and a disposable TLS/ACL Redis Enterprise
+backend. See the [dependency refresh evidence](../intent/dependency-refresh-2026-11/plan.md).
 
 No server-side import action is added. Standard Flight plus ADBC already covers
 the defined workflow, while an automatic action would need new naming, ACL,
@@ -23,8 +27,9 @@ publish it before exposing it to readers.
 The small example materializes data on the client. Large imports should project
 columns using dataset tickets and feed record batches incrementally to ingestion.
 When FlightInfo has multiple endpoints, consume every endpoint. Preserve nullable
-values, signed ranges, decimal precision and timezone semantics; unsupported nested types such as structs
-need an explicit supported transformation or must remain Flight datasets.
+values, signed ranges, decimal precision and timezone semantics. Check the
+pinned driver's supported Arrow types before importing; unsupported types need
+an explicit supported transformation or must remain Flight datasets.
 Dictionary columns supported by the backend are decoded to their value types;
 SQL storage does not preserve a dataset's dictionary encoding.
 

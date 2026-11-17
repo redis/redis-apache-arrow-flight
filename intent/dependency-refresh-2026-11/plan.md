@@ -76,9 +76,51 @@ Two inspected candidates still need their custom implementations:
   formatting (`gofmt -l .` empty), local Markdown link checks and
   `git diff --check`: passed.
 
-No REDIS_URI is configured. Enterprise integration, real Flight SQL read/write
-client smoke, JDBC smoke and enterprise composition qualification are not run.
-Unit tests are not evidence of those capabilities. No container build was run.
+The initial unit-only phase had no REDIS_URI configured. At the maintainer's
+subsequent request, provisioned a dedicated Docker Desktop Redis Enterprise
+instance for this PR, without reusing or modifying other chats' databases.
+Its Redis endpoint is localhost:26390, management endpoint localhost:39443 and
+public Flight endpoint grpc://localhost:28816. It uses the repository's existing
+Redis Software image with a fresh volume and an isolated 10.227.88.0/24 network
+(Docker's automatic address pool was exhausted). Generated credentials and CA
+remain in ignored .local/enterprise files and are not committed.
+
+The provisioning verification passed: three active primary shards, active 4x QPF,
+verified TLS, ACL authentication, Search read/write and negative connection checks.
+Bootstrap initially required retries while management authentication and shards
+became ready. A Linux arm64 public Flight binary built from this PR runs in a
+Go 1.27.4 container; its real SELECT 1 readiness check passed.
+
+The integration runner uses the public/community source from this PR, Go 1.27.4,
+a private CA trust bundle, the dedicated backend's generated data/management
+credentials, REDIS_INTEGRATION_REQUIRED=1, a shared scope lock, serialized Go
+packages and the race detector. No private source overlay is applied: available
+private worktrees contain unrelated edits and are not qualification for this PR.
+Full paid-feature/composition qualification and JDBC smoke remain unverified.
+No Dockerfile image build was run; the live Flight container runs the separately
+cross-compiled static binary. The full public/community race suite passed against this backend with
+`go test -count=1 -p 1 -race ./...` (command package 10.300s, server 31.516s).
+The quickstart passed, including 1,000 SQL rows, parameter binding, an UPDATE
+readback, and a 10,000-row multi-batch Arrow dataset round trip. The dataframe
+compatibility script passed with pandas 3.1.1, Polars 2.1.0 and DuckDB 2.0.0;
+pandas still raises its documented NotImplementedError for ADBC params, and the
+direct ADBC binding fallback passes.
+
+The first dataset_to_sql run exposed an obsolete assertion that struct ingestion
+must fail. Driver 0.0.28 supports typed stored structs. Updated the example to
+assert successful nested import, exact values (including NULL/empty-list cases)
+and Arrow nested types, followed by the existing scalar projection/readback.
+Removed its obsolete exception handling and updated the workflow documentation.
+The corrected example passed, including `actual.equals(source)` to check exact
+Arrow types and values, followed by the scalar projection/readback. This is an
+intentional compatibility expectation change backed by the live failure and
+the native driver's stored_struct.go/types.go implementation.
+
+The isolated Redis and Flight containers are left running for further testing.
+This worktree's ignored `.local/enterprise/host.env` holds the host data URI and
+CA path; `.local/enterprise/backend-env.py verify` rechecks backend readiness
+without printing credentials. The local Compose file is
+`.local/enterprise/compose.yaml`, with this checkout as its project directory.
 
 Rollback: restore the dependency graph, inline/requirements pins and ownership
 changes together. The release continues to use native SQL storage protocol 17;

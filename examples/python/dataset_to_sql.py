@@ -13,7 +13,6 @@ import json
 import uuid
 
 import adbc_driver_flightsql.dbapi as sql
-import adbc_driver_manager
 import pyarrow as pa
 import pyarrow.flight as flight
 
@@ -27,7 +26,7 @@ def main():
     suffix = uuid.uuid4().hex
     dataset = "bridge/" + suffix
     target = "flight_bridge_" + suffix
-    rejected = target + "_nested"
+    nested = target + "_nested"
     client = flight.connect(args.uri)
     options = flight.FlightCallOptions()
     kwargs = {}
@@ -39,8 +38,7 @@ def main():
         "id": pa.array([1, 2, 3], pa.int64()),
         "label": pa.array(["one", None, "three"], pa.string()),
         "embedding": pa.array([[1.0], [2.0, 3.0], []], pa.list_(pa.float32())),
-        # The pinned driver supports one-dimensional lists as SQL arrays, but
-        # struct ingestion is still unsupported and must fail explicitly.
+        # The pinned driver supports lists as SQL arrays and typed structs.
         "metadata": pa.array([{"source": "a"}, None, {"source": "c"}],
                              pa.struct([("source", pa.string())])),
     })
@@ -55,21 +53,19 @@ def main():
             info = client.get_flight_info(desc, options)
             downloaded = pa.concat_tables([client.do_get(ep.ticket, options).read_all() for ep in info.endpoints])
             assert downloaded.equals(source)
-            # Uploading is independent of SQL; ingestion of a nested type fails
-            # explicitly for the struct rather than silently flattening it.
-            try:
-                cur.adbc_ingest(rejected, downloaded, mode="create")
-            except (adbc_driver_manager.ProgrammingError, adbc_driver_manager.NotSupportedError) as error:
-                assert "unsupported Arrow type" in str(error), str(error)
-            else:
-                raise AssertionError("nested SQL ingestion unexpectedly succeeded")
+            # SQL import is explicit, including the driver's supported nested types.
+            assert cur.adbc_ingest(nested, downloaded, mode="create") == 3
+            cur.execute("SELECT id, label, embedding, metadata FROM " + nested + " ORDER BY id")
+            actual = cur.fetch_arrow_table()
+            assert actual.equals(source), actual
+            print("Flight dataset -> explicit nested SQL ingestion/query: passed")
             projected = downloaded.select(["id", "label"])
             assert cur.adbc_ingest(target, projected, mode="create") == 3
             cur.execute("SELECT id, label FROM " + target + " ORDER BY id")
             assert cur.fetchall() == [(1, "one"), (2, None), (3, "three")]
             print("Flight dataset -> explicit scalar projection -> SQL ingestion/query: passed")
         finally:
-            for table in [target, rejected]:
+            for table in [target, nested]:
                 cur.execute("DROP TABLE IF EXISTS " + table)
                 cur.fetch_arrow_table()
             for _ in client.do_action(flight.Action("drop_dataset", dataset.encode()), options):

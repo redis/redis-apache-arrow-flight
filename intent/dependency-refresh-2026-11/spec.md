@@ -10,6 +10,9 @@
 - Use ADBC's reader-retention contract in all three BindStream call sites.
   Release caller-owned readers on success and binding refusal; leave the
   ingest handler's reader reference owned by its Flight SQL caller.
+- Update the dataset-to-SQL example to the current driver's typed-struct
+  ingestion contract; verify nested values/types and keep scalar projection as
+  an explicit choice. Do not continue asserting unsupported structs.
 - Preserve protocol, authentication, publication, memory-budget and stream
   cleanup behavior. No new Flight-owned commercial feature is introduced.
 - Verify ownership with checked Arrow allocations, and run community race tests,
