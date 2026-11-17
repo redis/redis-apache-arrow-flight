@@ -1,0 +1,168 @@
+{
+  "public_source": "a2fa5ae0aebe9d74f9a82e096b3f84f3673db60d",
+  "private_candidate": "a6c640a84ccd3467d6c3122fbc3000e48b099172",
+  "runtime_change": false,
+  "profiles": {
+    "revocation-enterprise": {
+      "passed_named_tests_and_subtests": 206,
+      "skipped": [
+        "TestIntegrationCommunityBufferedQueries"
+      ],
+      "failed": [],
+      "packages": [
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+          "Action": "pass",
+          "Elapsed": 9.067
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/internal/integrationtest",
+          "Action": "pass",
+          "Elapsed": 1.015
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+          "Action": "pass",
+          "Elapsed": 1.006
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/scripts/enterprise-smoke",
+          "Action": "skip",
+          "Elapsed": 0
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/server",
+          "Action": "pass",
+          "Elapsed": 105.56
+        }
+      ],
+      "snapshot_cases": [
+        {
+          "test": "TestIntegrationSnapshotLeaseLoss",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotDisconnectAndIdleExpiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotIndependentPrincipal",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotSQLGrantRevocation",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/pending_cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/active_cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/early_release",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup",
+          "result": "pass"
+        }
+      ],
+      "raw_log_sha256": "37677b847811dd6f97869e6f365d0b438eaf73c7db4d88d44c3ab5ec663f92f9"
+    },
+    "revocation-community": {
+      "passed_named_tests_and_subtests": 154,
+      "skipped": [
+        "TestIntegrationStreamOverflowReject"
+      ],
+      "failed": [],
+      "packages": [
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+          "Action": "pass",
+          "Elapsed": 8.986
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/internal/integrationtest",
+          "Action": "pass",
+          "Elapsed": 1.017
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+          "Action": "pass",
+          "Elapsed": 1.006
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/scripts/enterprise-smoke",
+          "Action": "skip",
+          "Elapsed": 0
+        },
+        {
+          "Package": "github.com/redis/redis-apache-arrow-flight/server",
+          "Action": "pass",
+          "Elapsed": 45.315
+        }
+      ],
+      "snapshot_cases": [
+        {
+          "test": "TestIntegrationSnapshotLeaseLoss",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotDisconnectAndIdleExpiry",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotIndependentPrincipal",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotSQLGrantRevocation",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/pending_cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/active_cancel",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup/early_release",
+          "result": "pass"
+        },
+        {
+          "test": "TestIntegrationSnapshotReaderCleanup",
+          "result": "pass"
+        }
+      ],
+      "raw_log_sha256": "3a1ad12d0c5c644167ac0daab2f41179806f9980d4610de3e4b02fc89d7cb81d"
+    }
+  },
+  "focused": {
+    "passed": 10,
+    "failed": 0,
+    "race_detector": true,
+    "seconds": 73.145,
+    "completed_reads_before_policy_observed": [
+      31,
+      0,
+      30,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "composition_fingerprints": {
+    "community_sha256": "b421bd69ef988e21753e4208da4293e03e53f8def21acb5291ee795c1646821b",
+    "module_sha256": "96bb2e0d2b1b8ea8de8c975362d4e95f3a081b4f5b00baeca2cfc700c172009b",
+    "private_overlay_sha256": "551e5ceaaff9aefbb1ccfc5cafe18d058eae7bc0e65a4920ae80637fc4bbe31e"
+  }
+}
