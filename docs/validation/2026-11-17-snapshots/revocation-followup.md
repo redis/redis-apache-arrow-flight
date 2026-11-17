@@ -37,3 +37,13 @@ The final serialized focused command passed all ten repetitions with the race
 detector in 73.145 seconds on verified TLS/ACL Redis Software, Search, three
 primary shards and active 4x QPF. The complete backend reruns are recorded
 separately when they finish; this focused result alone is not their substitute.
+
+Both complete serialized backend suites then passed with the race detector:
+206 passing named tests/subtests in enterprise (one community-only skip), and
+154 in community (one enterprise-only skip). The enterprise server package took
+105.560 seconds; the community server package took 45.315 seconds. See the
+[follow-up results and composition fingerprints](revocation-results.json).
+The public qualification source is `a2fa5ae0aebe9d74f9a82e096b3f84f3673db60d`;
+the private candidate is `a6c640a84ccd3467d6c3122fbc3000e48b099172`. The subsequent
+[paired hosted workflow](https://github.com/Redislabs-Solution-Architects/redis-apache-arrow-flight-enterprise/actions/runs/44184407701)
+checks that exact composition separately from the failed first candidate.
