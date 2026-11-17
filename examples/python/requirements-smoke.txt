@@ -1,8 +1,8 @@
-# Dependency pins refreshed on 2026-10-22; validation is recorded in
-# intent/dependency-refresh/plan.md.
-adbc-driver-flightsql==1.12.0
-adbc-driver-manager==1.12.0
-pyarrow==26.0.0
-pandas==3.1.0
+# Dependency pins refreshed on 2026-11-17; validation is recorded in
+# intent/dependency-refresh-2026-11/plan.md.
+adbc-driver-flightsql==1.13.0
+adbc-driver-manager==1.13.0
+pyarrow==26.0.1
+pandas==3.1.1
 redis==8.1.0
 psutil==7.2.2

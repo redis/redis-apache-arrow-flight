@@ -132,8 +132,6 @@ func decodeHandle(b []byte) (statementHandle, error) {
 	return h, nil
 }
 
-// newStatement makes a statement on conn for h's query with h's parameters
-// bound.
 // newStatement makes a statement for h on conn. Its query result is read
 // whole unless stream is set (see executeQuery).
 func (s *sqlServer) newStatement(ctx context.Context, conn adbc.ConnectionWithContext, h statementHandle, stream bool) (adbc.StatementWithContext, error) {
@@ -166,7 +164,8 @@ func (s *sqlServer) newStatement(ctx context.Context, conn adbc.ConnectionWithCo
 			_ = stmt.Close(ctx)
 			return nil, err
 		}
-		// The statement takes ownership of the reader.
+		// BindStream retains its own reference; release ours on either outcome.
+		defer rdr.Release()
 		if err := stmt.BindStream(ctx, rdr); err != nil {
 			_ = stmt.Close(ctx)
 			return nil, err
@@ -642,11 +641,7 @@ func (s *sqlServer) bufferQuery(ctx context.Context, t *tenant, h statementHandl
 func (s *sqlServer) executeUpdate(ctx context.Context, h statementHandle, params array.RecordReader) (int64, error) {
 	if params != nil {
 		h.Params = nil
-		defer func() {
-			if params != nil {
-				params.Release()
-			}
-		}()
+		defer params.Release()
 	}
 	t, done, err := s.tenants.acquire(ctx)
 	if err != nil {
@@ -661,10 +656,7 @@ func (s *sqlServer) executeUpdate(ctx context.Context, h statementHandle, params
 		}
 		defer stmt.Close(ctx)
 		if params != nil {
-			// The statement now owns params, even if binding fails.
-			p := params
-			params = nil
-			if err := stmt.BindStream(ctx, p); err != nil {
+			if err := stmt.BindStream(ctx, params); err != nil {
 				return err
 			}
 		}
@@ -1005,9 +997,7 @@ func (s *sqlServer) DoPutCommandStatementIngest(ctx context.Context, cmd flights
 				return err
 			}
 		}
-		// The statement releases what it binds; the Flight SQL handler
-		// releases rdr too.
-		rdr.Retain()
+		// BindStream retains its own reference; the Flight SQL handler owns rdr.
 		if err := stmt.BindStream(ctx, rdr); err != nil {
 			return err
 		}
