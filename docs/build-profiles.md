@@ -1,5 +1,11 @@
 # Community and enterprise build profiles
 
+The [companion integration contract](companion-contract.md) defines service
+ownership and protocol/descriptor boundaries across these profiles. Its
+[qualified acceptance map](validation/2026-11-17-companion-contract/README.md)
+identifies the exact composed source and distinguishes public core checks from
+tests supplied by the private overlay.
+
 This checkout builds **community** with basic verified TLS and Redis ACL
 authentication. The minimum security baseline was added at the requester's
 explicit direction for shared snapshots (2026-11-11). Monitoring, tuning and

@@ -116,3 +116,8 @@ integrations-test:
 .PHONY: test-shared-snapshot
 test-shared-snapshot:
 	python3 scripts/run-integration.py -- python3 -m pytest -v tests/integrations/test_shared_snapshot.py
+
+# Independent standard clients; supplied environment must identify disposable TLS/ACL Software.
+.PHONY: test-companion-contract
+test-companion-contract:
+	python3 scripts/run-integration.py -- python3 -m pytest -v tests/integrations/test_companion_contract.py

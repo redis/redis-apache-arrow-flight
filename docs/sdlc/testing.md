@@ -109,6 +109,14 @@ are **not** enterprise integration qualification.
 
 ## Behavior-to-test map
 
+The consolidated [companion contract acceptance map](../validation/2026-11-17-companion-contract/README.md)
+records which named tests actually passed on its source-matched composition.
+Paid-specific names in the map below may be supplied by the enterprise overlay;
+their presence in this table does not imply a public implementation or rerun.
+`make test-companion-contract` runs independent Python ADBC/PyArrow clients over
+verified TLS/ACL; its default scope lock must be shared by all cooperating
+containers using the same disposable backend.
+
 | Contract | Existing source evidence |
 | --- | --- |
 | Writes occur once when returned tickets are read repeatedly | `TestIntegrationWritesRunOnce` in [integration_test.go](../../server/integration_test.go) |
