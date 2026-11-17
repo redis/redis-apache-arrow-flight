@@ -8,12 +8,14 @@ Native snapshot results alone do not establish Flight SQL support.
 
 ## Versions and deployment
 
-This implementation pins Redis ADBC **v0.0.24**, Go submodule
-`v0.0.0-20261110200608-b052eedad9f2` (release commit
-`b052eedad9f2fb2c6eeb7c79fe63f8bbc3ca6bdd`), requiring Go **1.27.3**.
-Checked upstream on 2026-11-11: latest completed release v0.0.24; default branch
-`766dded08cc3728edfd092f5e4941e95932bfc9a`. The release was chosen rather than
-unreleased main. [Native contract](https://github.com/redis/redis-adbc-driver/blob/v0.0.24/docs/shared-read-snapshots.md).
+This implementation pins Redis ADBC **v0.0.28**, Go submodule
+`v0.0.0-20261117191025-b63a010d88d2` (release commit
+`b63a010d88d2b69707594cb9dc063992dac06b32`), requiring Go **1.27.3**.
+Checked upstream on 2026-11-17: latest completed release v0.0.28; default branch
+`2b6634e0c7c92d0c8148dff62225671cb7a15c4e`. The release was chosen rather than
+unreleased main. The native lifecycle first appeared in v0.0.24;
+[its contract](https://github.com/redis/redis-adbc-driver/blob/v0.0.28/docs/shared-read-snapshots.md)
+remains distinct from this gateway extension.
 Local transport validation exercises ADBC Flight SQL/driver manager **1.13.0**
 and PyArrow **26.0.0** on Python **3.12.12**. See the [dated evidence](validation/2026-11-11-shared-snapshots/README.md)
 for results and outstanding gates; this does not qualify the external connector.
@@ -194,3 +196,21 @@ qualified deployment; verify compaction actually occurred. The new TLS unit test
 are evidence of transport/security behavior, not native Redis snapshot qualification. Record gateway commit,
 composition fingerprint, native/client versions and full results. There is no
 qualified gateway/driver/client combination published yet.
+
+## Additional fault qualification
+
+The opt-in tests additionally require `redis` from
+`requirements/shared-snapshot.txt`, an authenticated `REDIS_URI` using `rediss://`,
+and optionally `REDIS_CA_FILE` for its verified CA. Set
+`FLIGHT_SNAPSHOT_FAULT_INJECTION=1` only for a dedicated disposable catalog.
+The lease-loss test removes only the newly acquired test pin; the compaction
+inspector is read-only. The restart test requires Docker and
+`FLIGHT_SNAPSHOT_GATEWAY_CONTAINER` naming that disposable gateway, plus
+`FLIGHT_SNAPSHOT_LONG_TESTS=1`. It sends SIGKILL, restarts the same container,
+rejects old sessions and waits for natural native lease collection. No production
+endpoint or shared test database is suitable for these destructive checks.
+Keep the normal gateway idle timeout above two minutes when qualifying native
+fixed-lifetime expiry; short idle expiry is a separate Go lifecycle case.
+
+The [2026-11-17 record](validation/2026-11-17-snapshots/README.md) distinguishes
+final recorded qualification from preliminary/historical checks and release state.

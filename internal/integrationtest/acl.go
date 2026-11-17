@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	redis "github.com/adbc-drivers/redis/go"
 	goredis "github.com/redis/go-redis/v9"
 	"io"
 	"net/http"
@@ -224,4 +225,45 @@ func (u *ACLUser) wait(deleted bool) {
 			u.t.Fatalf("Enterprise ACL update did not become observable at the data endpoint: denied=%v deleted=%v error=%v", wantDenied, deleted, err)
 		}
 	}
+}
+
+// SnapshotRBACOptions converts this isolated fixture into a native SQL SELECT
+// authorization domain. The returned database option contains management secrets;
+// pass it directly to Config.ADBCOptions and never log or persist it publicly.
+func (u *ACLUser) SnapshotRBACOptions() string {
+	u.t.Helper()
+	domain := fmt.Sprintf("adbc-select-db%d-role%d", u.database, u.role)
+	policy := redis.SnapshotReaderPermissions(domain)
+	u.call("PUT", fmt.Sprintf("/redis_acls/%d", u.acl), map[string]any{"name": domain, "acl": policy.ACL}, nil)
+	u.rules = []string{policy.ACL}
+	u.wait(false)
+	u.t.Cleanup(func() {
+		opts, err := goredis.ParseURL(os.Getenv("REDIS_URI"))
+		if err != nil {
+			u.t.Error("invalid fixture cleanup URI")
+			return
+		}
+		opts.TLSConfig = u.client.Transport.(*http.Transport).TLSClientConfig.Clone()
+		c := goredis.NewClient(opts)
+		defer c.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		// Registered before the gateway's cleanup, so all its sessions have closed
+		// before this fixture's exact test-only authorization namespace is removed.
+		if err := c.SRem(ctx, policy.Registry, policy.Namespace).Err(); err != nil {
+			u.t.Error("cannot remove test snapshot authorization domain")
+		}
+		if err := c.SRem(ctx, "adbc:{meta}:snapshot:17:readers", policy.Namespace).Err(); err != nil {
+			u.t.Error("cannot remove test reader registration")
+		}
+		if err := c.Del(ctx, "adbc:{meta}:snapshot:17:reader:"+policy.Namespace).Err(); err != nil {
+			u.t.Error("cannot remove test reader namespace")
+		}
+	})
+	config := map[string]any{"api_url": strings.TrimSuffix(u.base, "/v1"), "username": u.admin, "password": u.secret, "ca_file": os.Getenv("REDIS_ENTERPRISE_CA_FILE"), "database_uid": u.database, "roles": map[string]any{u.name: map[string]int{"role_uid": u.role, "acl_uid": u.acl}}}
+	raw, err := json.Marshal(config)
+	if err != nil {
+		u.t.Fatal("cannot encode native test RBAC configuration")
+	}
+	return string(raw)
 }

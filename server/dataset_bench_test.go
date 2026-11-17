@@ -118,8 +118,8 @@ func readRedisCost(b testing.TB, admin goredis.UniversalClient) redisCost {
 		}
 		mu.Lock()
 		defer mu.Unlock()
-		for _, line := range strings.Split(info, "\r\n") {
-			k, v, _ := strings.Cut(line, ":")
+		for _, line := range strings.Split(info, "\n") {
+			k, v, _ := strings.Cut(strings.TrimSuffix(line, "\r"), ":")
 			n, _ := strconv.ParseInt(v, 10, 64)
 			switch k {
 			case "total_net_output_bytes":
@@ -190,33 +190,82 @@ func benchDatasetServer(b *testing.B) (flight.Client, goredis.UniversalClient, *
 	return fc, admin, mem, prefix
 }
 
-func BenchmarkDatasetWrite(b *testing.B) {
-	fc, admin, mem, _ := benchDatasetServer(b)
-	ctx := context.Background()
-	for _, name := range []string{"num10", "mixed10"} {
+// datasetBenchmarkInput adds the issue #27 small10 layout: the same num10
+// values uploaded in 100 independent 1,000-row batches.
+func datasetBenchmarkInput(b *testing.B, name string) (arrow.RecordBatch, []arrow.RecordBatch) {
+	if name != "small10" {
 		rec := benchDatasets()[name]
+		return rec, []arrow.RecordBatch{rec}
+	}
+	rec := benchDatasets()["num10"]
+	var parts []arrow.RecordBatch
+	for start := int64(0); start < rec.NumRows(); start += 1000 {
+		parts = append(parts, rec.NewSlice(start, min(start+1000, rec.NumRows())))
+	}
+	b.Cleanup(func() { releaseAll(parts) })
+	return rec, parts
+}
+
+func reportDatasetStorage(b *testing.B, admin goredis.UniversalClient, prefix, name string, m datasetMeta, input []arrow.RecordBatch) {
+	b.Helper()
+	key := (&datasets{prefix: prefix}).keys("bench/" + name).gen(m.Generation)
+	n, err := admin.MemoryUsage(context.Background(), key, 0).Result()
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportMetric(float64(n), "redis-stored-B")
+	b.ReportMetric(float64(m.Bytes), "stored-ipc-B")
+	b.ReportMetric(float64(m.Batches), "stored-batches")
+	uploaded, err := writeIPC(input[0].Schema(), input, memory.DefaultAllocator)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportMetric(float64(len(uploaded)), "uploaded-ipc-B")
+}
+
+func BenchmarkDatasetWrite(b *testing.B) {
+	fc, admin, mem, prefix := benchDatasetServer(b)
+	ctx := context.Background()
+	for _, name := range []string{"num10", "mixed10", "small10"} {
+		rec, parts := datasetBenchmarkInput(b, name)
 		b.Run(name, func(b *testing.B) {
 			b.ReportAllocs()
 			desc := &flight.FlightDescriptor{Type: flight.DescriptorPATH, Path: []string{"bench", name}}
 			mem.peak.Store(mem.cur.Load())
 			before := readRedisCost(b, admin)
+			var m datasetMeta
 			for range b.N {
-				if _, err := tryPutDataset(ctx, fc, desc, rec.Schema(), rec); err != nil {
+				var err error
+				if m, err = tryPutDataset(ctx, fc, desc, rec.Schema(), parts...); err != nil {
 					b.Fatal(err)
 				}
+				// No readers hold old benchmark generations. Remove the prior
+				// fixture outside timing so repeated writes do not fill Redis
+				// with grace-period copies (50 x ~12 MiB per input otherwise).
+				b.StopTimer()
+				if m.Generation > 1 {
+					old := (&datasets{prefix: prefix}).keys("bench/" + name).gen(m.Generation - 1)
+					if err := admin.Del(ctx, old).Err(); err != nil {
+						b.Fatal(err)
+					}
+				}
+				b.StartTimer()
 			}
+			b.StopTimer()
 			reportRedisCost(b, before, readRedisCost(b, admin), mem)
+			reportDatasetStorage(b, admin, prefix, name, m, parts)
 		})
 	}
 }
 
 func BenchmarkDatasetRead(b *testing.B) {
-	fc, admin, mem, _ := benchDatasetServer(b)
+	fc, admin, mem, prefix := benchDatasetServer(b)
 	ctx := context.Background()
-	for _, name := range []string{"num10", "mixed10"} {
-		rec := benchDatasets()[name]
+	for _, name := range []string{"num10", "mixed10", "small10"} {
+		rec, parts := datasetBenchmarkInput(b, name)
 		desc := &flight.FlightDescriptor{Type: flight.DescriptorPATH, Path: []string{"bench", name}}
-		if _, err := tryPutDataset(ctx, fc, desc, rec.Schema(), rec); err != nil {
+		m, err := tryPutDataset(ctx, fc, desc, rec.Schema(), parts...)
+		if err != nil {
 			b.Fatal(err)
 		}
 		for _, read := range []struct {
@@ -233,7 +282,9 @@ func BenchmarkDatasetRead(b *testing.B) {
 						b.Fatalf("read %d rows, want %d", n, rec.NumRows())
 					}
 				}
+				b.StopTimer()
 				reportRedisCost(b, before, readRedisCost(b, admin), mem)
+				reportDatasetStorage(b, admin, prefix, name, m, parts)
 			})
 		}
 	}
