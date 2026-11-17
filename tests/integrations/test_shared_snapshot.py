@@ -261,7 +261,7 @@ def test_gateway_kill_restart_loses_session_and_expires_pin(snapshot_connect, sn
         pytest.fail("set FLIGHT_SNAPSHOT_GATEWAY_CONTAINER to the disposable gateway container")
     with snapshot_connect() as conn:
         before = native_pins(snapshot_admin)
-        with pytest.raises(AdbcError):
+        with pytest.raises(AdbcError, match="session is unknown|shared read snapshot unavailable"):
             with shared_snapshot(conn):
                 pin = acquired_pin(snapshot_admin, before)
                 subprocess.run(["docker", "kill", "--signal", "KILL", container], check=True, capture_output=True)
@@ -275,7 +275,8 @@ def test_gateway_kill_restart_loses_session_and_expires_pin(snapshot_connect, sn
                     except AdbcError:
                         assert time.monotonic() < deadline, "restarted gateway did not become ready"
                         time.sleep(0.1)
-                # Old cookies/bearer tokens/handles cannot attach to the new process.
+                # Keep the gateway bearer-token secret stable across restart: this
+                # must reject lost snapshot/session state, not merely a rotated token.
                 execute(conn, "SELECT 1")
         # Process death cannot close native connections. Verify actual expiry and
         # physical sweep, rather than deleting the pin or accelerating Redis time.

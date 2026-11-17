@@ -31,10 +31,7 @@ func queryOwner(t *tenant) string {
 }
 
 func (s *sqlServer) queryKey(id string) (string, error) {
-	if len(id) != 32 {
-		return "", status.Error(codes.InvalidArgument, "invalid query cancellation ID")
-	}
-	if _, err := hex.DecodeString(id); err != nil {
+	if !validSessionToken(id) {
 		return "", status.Error(codes.InvalidArgument, "invalid query cancellation ID")
 	}
 	return s.keyPrefix + "query:{" + id + "}", nil

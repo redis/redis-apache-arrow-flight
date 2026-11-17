@@ -46,8 +46,8 @@ func toStatus(err error) error {
 
 // isCursorLimit reports whether err is RediSearch refusing a query because
 // its index has search-index-cursor-limit cursors open (128 by default,
-// across every client). The driver reads every table through a cursor, so
-// any query on the table fails until some are closed: clients can retry.
+// across every client). Queries that require Search cursors fail until some
+// close; the driver's bounded key-range scans do not require those cursors.
 func isCursorLimit(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "INDEX_CURSOR_LIMIT")
 }

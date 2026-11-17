@@ -1,0 +1,1874 @@
+{
+  "enterprise-final": {
+    "packages": [
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "Action": "pass",
+        "Elapsed": 9.123
+      },
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/internal/integrationtest",
+        "Action": "pass",
+        "Elapsed": 1.013
+      },
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+        "Action": "pass",
+        "Elapsed": 1.005
+      },
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/scripts/enterprise-smoke",
+        "Action": "skip",
+        "Elapsed": 0
+      },
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/server",
+        "Action": "pass",
+        "Elapsed": 106.889
+      }
+    ],
+    "cases": [
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestProbeAddr",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestHealthcheckFlag/not_serving_while_Redis_is_down",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestHealthcheckFlag/nothing_listening",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestHealthcheckFlag/TLS,_pinned_to_-tls-cert",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestHealthcheckFlag",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestIntegrationHealthcheckFlag",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestSIGTERM",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestIntegrationSIGTERM",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestMetricsListenFlag",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/internal/integrationtest",
+        "test": "TestValidateURI",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+        "test": "TestDescriptorIndexesIncludesEverySegment",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+        "test": "TestMetadataKeyEscapingPreservesDistinctIdentifiers",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamOverflowReject",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationCommunityBufferedQueries",
+        "result": "skip"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/handle/success",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/handle/refused",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/update/success",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/update/refused",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/ingest/success",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/ingest/refused",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/before_fetching_and_repeated_cancellation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/active_stream_across_replicas_frees_resources",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/completed_query_and_write_result_are_not_cancellable",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/expiry_and_ownership",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/completion_races_cancellation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationCancellationIdentity",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationCancellationReadOnlyFallback",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestFlightTypeInfo",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestFlightUnsupportedCapabilities",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationTypeInfoDDL",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBuildProfileSecurityAndTelemetry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBuildBasicConnectionsDoNotReuse",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBuildIntegrationRoundTrip",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSoftwareCommandPermissionError",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReachable",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestRedisHealth/serving_while_Redis_answers,_not_once_it's_gone",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestRedisHealth/an_authentication_error_is_Redis_answering,_under_redis-acl",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestRedisHealth/but_not_under_none,_where_the_server's_credentials_are_every_request's",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestRedisHealth/NOT_SERVING_after_shutdown",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestRedisHealth",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestHealthCheckSkipsAuthAndSessions/redis-acl",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestHealthCheckSkipsAuthAndSessions/no_session_cookie",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestHealthCheckSkipsAuthAndSessions/unknown_service",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestHealthCheckSkipsAuthAndSessions",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestHealthWatchDoesNotHoldShutdown",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSQL",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationWritesRunOnce",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationTempObjectsDontLeak",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPreparedTypes",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPreparedScripts/create,_then_read",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPreparedScripts/set_search_path,_then_read",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPreparedScripts",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationZeroRowParams/update",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationZeroRowParams/update_after_a_query_bind",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationZeroRowParams/query",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationZeroRowParams",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPrepared",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationIngest",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationMetadata",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasets",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationUploadCommitOutcome/reply_lost_after_the_commit_ran",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationUploadCommitOutcome/commit_never_ran",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationUploadCommitOutcome",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetReads/hash",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetReads/list",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetReads",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetLayouts",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetReadPages",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationUploadOrder",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetTTLKeepsSeq",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStaleCredentials",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationRedisACL",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetBatchMerging",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestMetricsCalls",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestMetricsCountUnauthenticated",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPoolWaitMetric",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestServeMetrics",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationMetrics",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessionPublicationRefusal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/native_refusal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/NotFound",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/message_only",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/IO_without_SQLSTATE",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/other_SQLSTATE",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/other_vendor",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/SQLSTATE_only",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/unknown_outcome",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/extra_diagnostic",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/cancelled_status",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/timeout_status",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/wrapped",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/joined_IO",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/joined_cancellation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/joined_deadline",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/transport_status",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal/1",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal/2",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal/3",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal/0",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotPublicationRefusalRemainsTerminal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDoGetFailedSendReleasesCurrentBatch",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSecurityTokens",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSecurityRedisTLSAndCredentials",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSecurityFlightTLSAuthAndSnapshotOwnership",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/SET_lasts_with_cookies",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/temporary_tables_last",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/temporary_ingest",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/session_options",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/CloseSession",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/idle_sessions_close",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/sessions_off",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessionOwner",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessionSettings",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessionReplicaLoss",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestCookieToken",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionStoreReap",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotLeaseLoss",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotDisconnectAndIdleExpiry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotIndependentPrincipal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotSQLGrantRevocation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotReaderCleanup/pending_cancel",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotReaderCleanup/active_cancel",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotReaderCleanup/early_release",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotReaderCleanup",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotAffinityAndRelease",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard/missing_header",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard/missing_cookie",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard/wrong_handle",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard/duplicate_header",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/expiry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/lease_loss",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/native_unbound",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/changed_generation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/metadata_failure",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotAcquireFailure",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup/success",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup/cancel",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup/stall",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup/expiry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotReaderChecksBufferedExpiry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotUnsupportedDeployment",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"attach\"}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":0}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":119999}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":3600001}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"generation\":\"external\"}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\"}_{}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotAcquireCancellationIsTerminal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/a_stream_holds_a_connection_until_it_is_read,_and_leaves_the_user_one",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/with_a_pool_of_1,_results_are_read_whole",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/a_cancelled_read_frees_the_connection",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/beyond_MaxStreams,_results_are_read_whole",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/beyond_MaxTableStreams,_results_are_read_whole",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/results_read_whole_for_want_of_a_stream_take_at_most_ResultMemory",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/the_server_finds_a_table's_index,_also_after_a_rename",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/streams_stop_at_three_quarters_of_the_index's_cursors,_counting_other_clients",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/an_index_out_of_cursors_is_RESOURCE_EXHAUSTED",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/a_client_that_stalls_gets_an_error",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/in_a_session,_a_plain_scan_streams_on_a_pooled_connection",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/a_session's_stream_has_its_search_path_and_time_zone,_and_leaves_the_pool's",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/in_a_session_with_temporary_objects,_results_are_read_on_its_connection",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/in_a_session,_beyond_MaxStreams,_results_are_read_whole",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults/a_session_isn't_closed_as_idle_while_its_result_streams",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamResults",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestTokenSealer",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestChangesSession",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestCreatesTemp",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestStreamTokens",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestStreamTable",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIndexCursors",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestEscapeKeyPart",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestTableStreams",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestResultBudget",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestCursorLimitStatus",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReusable",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestConnectStatus",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestWithConnReleasesOnPanic",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestLeaseConnUndo",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionTempFlag",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestAcquireAfterPanicInOpen",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIngestMode",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestFlattenObjects",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestChunks",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestColumnChunks",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBatchRange",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPageLen",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDatasetKeys",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestStatementHandle",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestShutdownDrainsThenCancels",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDoPutNeedsDescriptor",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestConfigValidation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSqlInfoTypes",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIssuedSessionCookies",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDistributedCursorReservations",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDatasetBatchBufferCleanup/success",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDatasetBatchBufferCleanup/emit_failure",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDatasetBatchBufferCleanup",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDatasetBatchBufferBounds",
+        "result": "pass"
+      }
+    ]
+  },
+  "community-backend": {
+    "packages": [
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "Action": "pass",
+        "Elapsed": 8.624
+      },
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/internal/integrationtest",
+        "Action": "pass",
+        "Elapsed": 1.014
+      },
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+        "Action": "pass",
+        "Elapsed": 1.004
+      },
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/scripts/enterprise-smoke",
+        "Action": "skip",
+        "Elapsed": 0
+      },
+      {
+        "Package": "github.com/redis/redis-apache-arrow-flight/server",
+        "Action": "pass",
+        "Elapsed": 44.229
+      }
+    ],
+    "cases": [
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestProbeAddr",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestSIGTERM",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/cmd/redis-flight-server",
+        "test": "TestIntegrationSIGTERM",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/internal/integrationtest",
+        "test": "TestValidateURI",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+        "test": "TestDescriptorIndexesIncludesEverySegment",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/internal/nativecatalog",
+        "test": "TestMetadataKeyEscapingPreservesDistinctIdentifiers",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationStreamOverflowReject",
+        "result": "skip"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationCommunityBufferedQueries",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/handle/success",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/handle/refused",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/update/success",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/update/refused",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/ingest/success",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership/ingest/refused",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBindStreamOwnership",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/before_fetching_and_repeated_cancellation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/active_stream_across_replicas_frees_resources",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/completed_query_and_write_result_are_not_cancellable",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/expiry_and_ownership",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation/completion_races_cancellation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationQueryCancellation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestFlightTypeInfo",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestFlightUnsupportedCapabilities",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationTypeInfoDDL",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBuildProfileSecurityAndTelemetry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBuildBasicConnectionsDoNotReuse",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBuildIntegrationRoundTrip",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSoftwareCommandPermissionError",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSQL",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationWritesRunOnce",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationTempObjectsDontLeak",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPreparedTypes",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPreparedScripts/create,_then_read",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPreparedScripts/set_search_path,_then_read",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPreparedScripts",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationZeroRowParams/update",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationZeroRowParams/update_after_a_query_bind",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationZeroRowParams/query",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationZeroRowParams",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationPrepared",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationIngest",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationMetadata",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasets",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationUploadCommitOutcome/reply_lost_after_the_commit_ran",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationUploadCommitOutcome/commit_never_ran",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationUploadCommitOutcome",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetReads/hash",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetReads/list",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetReads",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetLayouts",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetReadPages",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationUploadOrder",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationDatasetTTLKeepsSeq",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessionPublicationRefusal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/native_refusal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/NotFound",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/message_only",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/IO_without_SQLSTATE",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/other_SQLSTATE",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/other_vendor",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/SQLSTATE_only",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/unknown_outcome",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/extra_diagnostic",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/cancelled_status",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/timeout_status",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/wrapped",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/joined_IO",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/joined_cancellation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/joined_deadline",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification/transport_status",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPublicationRefusalClassification",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal/0",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal/1",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal/3",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal/2",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionPublicationRefusal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotPublicationRefusalRemainsTerminal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDoGetFailedSendReleasesCurrentBatch",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSecurityTokens",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSecurityRedisTLSAndCredentials",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSecurityFlightTLSAuthAndSnapshotOwnership",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/SET_lasts_with_cookies",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/temporary_tables_last",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/temporary_ingest",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/session_options",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/CloseSession",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/idle_sessions_close",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions/sessions_off",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessions",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessionSettings",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSessionReplicaLoss",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestCookieToken",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionStoreReap",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotLeaseLoss",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotDisconnectAndIdleExpiry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotIndependentPrincipal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotSQLGrantRevocation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotReaderCleanup/pending_cancel",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotReaderCleanup/active_cancel",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotReaderCleanup/early_release",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIntegrationSnapshotReaderCleanup",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotAffinityAndRelease",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard/wrong_handle",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard/duplicate_header",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard/missing_header",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard/missing_cookie",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotGuard",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/expiry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/lease_loss",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/native_unbound",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/changed_generation",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal/metadata_failure",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotLossIsTerminal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotAcquireFailure",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup/success",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup/cancel",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup/stall",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup/expiry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotStreamCleanup",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotReaderChecksBufferedExpiry",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotUnsupportedDeployment",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"attach\"}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":0}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":119999}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"retention_ms\":3600001}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\",\"generation\":\"external\"}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects/{\"action\":\"acquire\"}_{}",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotInvalidCommandHasNoEffects",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReadSnapshotAcquireCancellationIsTerminal",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestChangesSession",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestCreatesTemp",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestStreamTokens",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestStreamTable",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIndexCursors",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestEscapeKeyPart",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestTableStreams",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestResultBudget",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestCursorLimitStatus",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestReusable",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestConnectStatus",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestWithConnReleasesOnPanic",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSessionTempFlag",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestAcquireAfterPanicInOpen",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIngestMode",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestFlattenObjects",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestChunks",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestColumnChunks",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestBatchRange",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestPageLen",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDatasetKeys",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestStatementHandle",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestShutdownDrainsThenCancels",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestDoPutNeedsDescriptor",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestSqlInfoTypes",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/redis/redis-apache-arrow-flight/server",
+        "test": "TestIssuedSessionCookies",
+        "result": "pass"
+      }
+    ]
+  }
+}

@@ -18,6 +18,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/flight/flightsql"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/redis/redis-apache-arrow-flight/internal/nativecatalog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -199,8 +200,8 @@ func TestEscapeKeyPart(t *testing.T) {
 		"Mixed Case":  "Mixed%20Case",
 		"a:b{c}%d*e?": "a%3Ab%7Bc%7D%25d%2Ae%3F",
 	} {
-		if got := escapeKeyPart(in); got != want {
-			t.Errorf("escapeKeyPart(%q) = %q, want %q", in, got, want)
+		if got := nativecatalog.KeyPart(in); got != want {
+			t.Errorf("nativecatalog.KeyPart(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

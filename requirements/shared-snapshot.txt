@@ -2,7 +2,7 @@
 pytest==9.2.0
 adbc-driver-flightsql==1.13.0
 adbc-driver-manager==1.13.0
-pyarrow==26.0.0
+pyarrow==26.0.1
 
 # Test-only native catalog inspection and narrowly scoped fault injection.
 redis==8.1.0

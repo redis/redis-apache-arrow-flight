@@ -69,6 +69,13 @@ func acquireLiveSnapshot(t *testing.T, c *flightsql.Client, ctx context.Context)
 	if err != nil || len(result.Errors) > 0 {
 		t.Fatal("real snapshot acquisition failed", err)
 	}
+	// Carry the exact cookie returned by acquisition into the control/read
+	// contexts. In-flight SDK middleware callbacks must not select a different
+	// issued session between acquisition and status discovery.
+	cookie := sessionToken(headers)
+	if cookie != "" {
+		ctx = withSession(ctx, cookie)
+	}
 	opts, err := c.GetSessionOptions(ctx, &flight.GetSessionOptionsRequest{})
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +84,7 @@ func acquireLiveSnapshot(t *testing.T, c *flightsql.Client, ctx context.Context)
 	if err := json.Unmarshal([]byte(opts.SessionOptions[snapshotStatusOption].GetStringValue()), &view); err != nil || view.State != "active" {
 		t.Fatal("snapshot is not active", err)
 	}
-	return metadata.AppendToOutgoingContext(ctx, snapshotHeader, view.Handle), view, sessionToken(headers)
+	return metadata.AppendToOutgoingContext(ctx, snapshotHeader, view.Handle), view, cookie
 }
 
 func nativeSnapshotPins(t *testing.T, admin goredis.UniversalClient) map[string]bool {

@@ -1,10 +1,12 @@
 # Flight SQL shared read snapshots
 
-Status: gateway protocol v1 implementation for [issue #65](https://github.com/redis/redis-apache-arrow-flight/issues/65),
-**pending independent enterprise/transport qualification**. No gateway release is
-qualified by this change. The Airbyte connector must continue rejecting
-`read_consistency=shared_snapshot` for `flight_sql` until that evidence exists.
-Native snapshot results alone do not establish Flight SQL support.
+Status: gateway protocol v1 for [issue #65](https://github.com/redis/redis-apache-arrow-flight/issues/65)
+has passed the [2026-11-17 source qualification](validation/2026-11-17-snapshots/README.md),
+including secured transport, real backend faults and an independent Airbyte
+source implementation. These results qualify the recorded source composition;
+they do not constitute a published gateway or connector release. Published
+connectors retain their existing behavior until the companion change is merged
+and released. Native snapshot results alone do not establish Flight SQL support.
 
 ## Versions and deployment
 
@@ -189,13 +191,14 @@ checks establish enterprise integration support.
 The [2026-11-11 local run](validation/2026-11-11-shared-snapshots/README.md)
 records the actual Python transport results, initial Go fixture failures, and
 the successful complete backend rerun after fixes for #68–#71.
-Still required before enabling Airbyte: independent connector validation,
-revoked-grant/Redis-ACL tests with independently authenticated principals, forced
-native lease loss, gateway kill/restart and disconnect cleanup through the
-qualified deployment; verify compaction actually occurred. The new TLS unit tests
-are evidence of transport/security behavior, not native Redis snapshot qualification. Record gateway commit,
-composition fingerprint, native/client versions and full results. There is no
-qualified gateway/driver/client combination published yet.
+The [2026-11-17 qualification](validation/2026-11-17-snapshots/README.md) adds
+independent connector validation, revoked SQL grants and Redis ACLs under
+independent principals, forced native lease loss, gateway kill/restart, disconnect
+cleanup and observed installed compaction. Its real-backend Go tests complement
+the unit fixtures. Exact source fingerprints, native/client versions and results
+are recorded separately from historical checks. Release and deployment remain
+separate steps; there is no qualified gateway/driver/client release published by
+this source change.
 
 ## Additional fault qualification
 
@@ -207,7 +210,9 @@ The lease-loss test removes only the newly acquired test pin; the compaction
 inspector is read-only. The restart test requires Docker and
 `FLIGHT_SNAPSHOT_GATEWAY_CONTAINER` naming that disposable gateway, plus
 `FLIGHT_SNAPSHOT_LONG_TESTS=1`. It sends SIGKILL, restarts the same container,
-rejects old sessions and waits for natural native lease collection. No production
+rejects old sessions and waits for natural native lease collection. Keep the
+gateway's securely supplied `FLIGHT_TOKEN_SECRET` stable across restart so the
+test proves lost session/handle rejection with still-valid authentication. No production
 endpoint or shared test database is suitable for these destructive checks.
 Keep the normal gateway idle timeout above two minutes when qualifying native
 fixed-lifetime expiry; short idle expiry is a separate Go lifecycle case.
