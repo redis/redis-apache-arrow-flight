@@ -43,8 +43,17 @@ class CertificateReadiness(unittest.TestCase):
         self.api.load_context.assert_not_called()
         self.assertFalse(self.api.context.check_hostname)
 
+    def test_bootstrap_credentials_must_become_active(self):
+        self.api.request.side_effect = [RuntimeError('Management HTTP 401'), {}]
+        with patch.object(env.time, 'sleep'):
+            env.install_certificates(self.api)
+        self.assertEqual(self.api.request.call_count, 2)
+        self.assertEqual(*self.api.request.call_args_list)
+        self.api.load_context.assert_called_once_with()
+        self.assertTrue(self.api.context.check_hostname)
+
     def test_unavailable_service_has_a_deadline(self):
-        self.api.request.side_effect = RuntimeError('Management HTTP 503')
+        self.api.request.side_effect = RuntimeError('Management HTTP 401')
         with patch.object(env.time, 'monotonic', side_effect=[0, 0, 361]), patch.object(env.time, 'sleep'):
             with self.assertRaisesRegex(RuntimeError, 'Timed out waiting for cluster certificates'):
                 env.install_certificates(self.api)

@@ -176,12 +176,20 @@ class Management:
 
 
 def install_certificates(api):
-    # Bootstrap completion can precede certificate-service readiness (HTTP 503).
+    # Bootstrap completion can precede service/admin readiness (HTTP 503/401).
     # This PUT is idempotent: retry the same certificates, never SQL or creation.
     body = {'certificates': [{
         'name': name, 'certificate': (STATE / 'proxy.crt').read_text(),
         'key': (STATE / 'proxy.key').read_text()} for name in ('proxy', 'api')]}
-    retry('cluster certificates', lambda: api.request('/cluster/certificates', body, 'PUT') or True)
+    def install():
+        try:
+            api.request('/cluster/certificates', body, 'PUT')
+        except RuntimeError as exc:
+            if 'HTTP 401' in str(exc):
+                return False  # Newly bootstrapped admin credentials are not active yet.
+            raise
+        return True
+    retry('cluster certificates', install)
     api.load_context()
     api.context.check_hostname = True
 
