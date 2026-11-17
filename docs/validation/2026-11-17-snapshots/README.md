@@ -35,6 +35,11 @@ qualification is not a published gateway/connector release or production rollout
 
 ## Executed checks
 
+The subsequent [revocation follow-up](revocation-followup.md) records a failed
+hosted qualification, its documented asynchronous-propagation cause and the
+corrected exact-connection/terminal-state check. The first local receipts below
+must not be read as a passing result for that failed hosted run.
+
 Both complete Go backend profiles passed with the race detector and required
 integration mode against the secured Software fixture. The enterprise run
 recorded 206 passing named tests/subtests and one expected community-only skip;

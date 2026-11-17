@@ -276,7 +276,12 @@ func TestIntegrationSnapshotSQLGrantRevocation(t *testing.T) {
 			t.Fatal("SQL SELECT revocation did not propagate")
 		}
 	}
-	for attempt := range 2 {
+	// Native REVOKE verifies management state, whose ACL update propagates
+	// asynchronously to proxies/shards. A denial on probe's connection is not a
+	// barrier for reader's existing connection. Observe permission loss on that
+	// exact retained connection, then require terminal failure even for SELECT 1.
+	pendingReads := 0
+	for deadline := time.Now().Add(15 * time.Second); ; time.Sleep(50 * time.Millisecond) {
 		info, err := reader.Execute(bound, statement)
 		if err == nil {
 			r, e := reader.DoGet(bound, info.Endpoint[0].Ticket)
@@ -288,13 +293,19 @@ func TestIntegrationSnapshotSQLGrantRevocation(t *testing.T) {
 			}
 			err = e
 		}
-		if err == nil {
-			t.Fatal("retained snapshot bypassed revoked SQL SELECT grant")
+		if err != nil {
+			if status.Code(err) != codes.PermissionDenied {
+				t.Fatal("snapshot did not surface the revoked SELECT grant", err)
+			}
+			t.Logf("retained connection observed revocation after %d reads during asynchronous propagation", pendingReads)
+			break
 		}
-		if attempt == 0 && status.Code(err) != codes.PermissionDenied {
-			t.Fatal("snapshot did not surface the revoked SELECT grant", err)
+		pendingReads++
+		if time.Now().After(deadline) {
+			t.Fatal("SQL SELECT revocation did not reach the retained snapshot connection")
 		}
 	}
+	requireSnapshotReadFailure(t, reader, bound)
 }
 
 func TestIntegrationSnapshotReaderCleanup(t *testing.T) {
