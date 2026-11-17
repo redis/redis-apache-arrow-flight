@@ -175,6 +175,17 @@ class Management:
             return self.request(path, body, method)
 
 
+def install_certificates(api):
+    # Bootstrap completion can precede certificate-service readiness (HTTP 503).
+    # This PUT is idempotent: retry the same certificates, never SQL or creation.
+    body = {'certificates': [{
+        'name': name, 'certificate': (STATE / 'proxy.crt').read_text(),
+        'key': (STATE / 'proxy.key').read_text()} for name in ('proxy', 'api')]}
+    retry('cluster certificates', lambda: api.request('/cluster/certificates', body, 'PUT') or True)
+    api.load_context()
+    api.context.check_hostname = True
+
+
 def resp_read(stream):
     line = stream.readline()
     if not line:
@@ -303,11 +314,7 @@ def up(cfg):
         return False
     print('Waiting for isolated Redis Enterprise cluster bootstrap...', flush=True)
     retry('cluster bootstrap', bootstrap)
-    api.request('/cluster/certificates', {'certificates': [{
-        'name': name, 'certificate': (STATE / 'proxy.crt').read_text(),
-        'key': (STATE / 'proxy.key').read_text()} for name in ('proxy','api')]}, 'PUT')
-    api.load_context()
-    api.context.check_hostname = True
+    install_certificates(api)
     bdbs = api.request('/bdbs')
     bdb = next((b for b in bdbs if b['name'] == 'flight-integration'), None)
     if bdb is None:

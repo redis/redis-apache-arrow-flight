@@ -539,12 +539,12 @@ The driver dependency is pinned in `go.mod` with a `replace` to the
 of `github.com/redis/redis-adbc-driver/go` (commit `30a9eefbf13d`, checked
 2026-11-17 and recorded as a Go pseudo-version). Always select the latest stable
 driver release when updating this dependency and verify its Go submodule revision
-upstream. Version 0.0.28 requires Go 1.27.3, uses SQL storage protocol 17 and
+upstream. Version 0.0.29 requires Go 1.27.4, uses SQL storage protocol 17 and
 rejects legacy SQL storage; it does not automatically migrate existing data.
 Validate existing-storage migration separately before deployment. See the
-[update validation](../intent/dependency-refresh-2026-11/plan.md) and the
+[companion qualification](validation/2026-11-17-companion-contract/README.md) and the
 [shared snapshot contract](shared-read-snapshots.md) for fresh-storage requirements
-and pending transport qualification. To build against a local checkout instead:
+and version-scoped transport qualification. To build against a local checkout instead:
 
 ```bash
 go mod edit -replace github.com/adbc-drivers/redis/go=../redis-adbc-driver/go

@@ -22,3 +22,10 @@ The Go/report SourceType rename has no gateway references. Protocol stays17;
 no old-storage migration or downgrade is inferred. Requalify both profiles,
 new secured clients and actual snapshot faults with a new paired manifest;
 the earlier fingerprint-equivalent v0.0.28 results remain historical.
+
+The first v0.0.29 hosted run failed before tests: certificate installation after
+bootstrap returned HTTP503. The idempotent certificate PUT now uses the existing
+bounded readiness retry; non-503 management failures still propagate and verified
+hostname checks are enabled only after installation. Three focused regression
+checks cover transient recovery, nontransient failure and deadline exhaustion.
+No SQL mutation is retried and no Go/runtime source changes for this fix.
