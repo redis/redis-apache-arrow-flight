@@ -1,10 +1,10 @@
 # /// script
-# requires-python = ">=3.10"
+# requires-python = ">=3.11"
 # dependencies = [
-#   "adbc-driver-flightsql>=1.7",
-#   "adbc-driver-manager>=1.7",
-#   "pyarrow>=18",
-#   "pandas>=2",
+#   "adbc-driver-flightsql==1.13.0",
+#   "adbc-driver-manager==1.13.0",
+#   "pyarrow==26.0.1",
+#   "pandas==3.1.1",
 # ]
 # ///
 """A tour of the Redis Arrow Flight server from Python.

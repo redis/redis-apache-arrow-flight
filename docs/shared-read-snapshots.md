@@ -8,13 +8,15 @@ Native snapshot results alone do not establish Flight SQL support.
 
 ## Versions and deployment
 
-This implementation pins Redis ADBC **v0.0.24**, Go submodule
-`v0.0.0-20261110200608-b052eedad9f2` (release commit
-`b052eedad9f2fb2c6eeb7c79fe63f8bbc3ca6bdd`), requiring Go **1.27.3**.
-Checked upstream on 2026-11-11: latest completed release v0.0.24; default branch
-`766dded08cc3728edfd092f5e4941e95932bfc9a`. The release was chosen rather than
-unreleased main. [Native contract](https://github.com/redis/redis-adbc-driver/blob/v0.0.24/docs/shared-read-snapshots.md).
-Local transport validation exercises ADBC Flight SQL/driver manager **1.13.0**
+This implementation pins Redis ADBC **v0.0.28**, Go submodule
+`v0.0.0-20261117191025-b63a010d88d2` (release commit
+`b63a010d88d2b69707594cb9dc063992dac06b32`), requiring Go **1.27.3** upstream. The gateway requires **1.27.4** for
+the latest standard-library security fix.
+Checked upstream on 2026-11-17: latest completed release v0.0.28; default branch
+`55da25218f3606f2f8fb04d74f527903870805a4`. The release was chosen rather than
+unreleased main. [Native contract](https://github.com/redis/redis-adbc-driver/blob/v0.0.28/docs/shared-read-snapshots.md).
+Dependency upgrade checks are recorded in the [refresh plan](../intent/dependency-refresh-2026-11/plan.md).
+The separately dated 2026-11-11 transport validation exercised ADBC Flight SQL/driver manager **1.13.0**
 and PyArrow **26.0.0** on Python **3.12.12**. See the [dated evidence](validation/2026-11-11-shared-snapshots/README.md)
 for results and outstanding gates; this does not qualify the external connector.
 

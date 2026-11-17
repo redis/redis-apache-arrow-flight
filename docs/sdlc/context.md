@@ -17,10 +17,10 @@ The repository exercises Python ADBC/PyArrow, Go clients, and the Flight SQL JDB
 
 | Component | Checked-in value/source |
 | --- | --- |
-| Go | `go 1.27.3` in [go.mod](../../go.mod) |
-| Arrow Go / ADBC | `v18.8.0` / `v1.12.0` in go.mod |
-| Redis driver | Module path `github.com/adbc-drivers/redis/go`, replaced by `github.com/redis/redis-adbc-driver/go`, pseudo-version `v0.0.0-20261110200608-b052eedad9f2` (public v0.0.24 release, checked 2026-11-11) |
-| go-redis / gRPC / Prometheus client | `v9.22.0` / `v1.83.2` / `v1.24.1` in go.mod |
+| Go | `go 1.27.4` in [go.mod](../../go.mod) |
+| Arrow Go / ADBC | `v18.9.0` / `v1.13.0` in go.mod |
+| Redis driver | Module path `github.com/adbc-drivers/redis/go`, replaced by `github.com/redis/redis-adbc-driver/go`, pseudo-version `v0.0.0-20261117191025-b63a010d88d2` (public v0.0.28 release, checked 2026-11-17) |
+| go-redis / gRPC / Prometheus client | `v9.23.0` / `v1.85.0` / `v1.25.0` in go.mod |
 | Test Redis | `redis:8.6.2` standalone and three-node cluster in [compose.yaml](../../compose.yaml) |
 | Container | Go build stage, static binary, distroless nonroot runtime in [Dockerfile](../../Dockerfile) |
 | JDBC smoke | Driver `19.0.0`; CI runs Java 17, 21, 25 |
