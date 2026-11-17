@@ -58,4 +58,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261116203732-fd2c7689a808 // indirect
 )
 
-replace github.com/adbc-drivers/redis/go => github.com/redis/redis-adbc-driver/go v0.0.0-20261117191025-b63a010d88d2
+replace github.com/adbc-drivers/redis/go => github.com/redis/redis-adbc-driver/go v0.0.0-20261117215830-30a9eefbf13d

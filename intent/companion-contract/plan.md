@@ -13,3 +13,12 @@ make entrypoint and strict docs build completed. Exact source/overlay fingerprin
 match the reused full backend qualification. Local review found no runtime,
 credential, paid-source, replay or resource-contract changes. PR review/CI and issue disposition follow;
 no human approval or release is implied.
+
+A new stable native release v0.0.29 landed during the audit (22:18 UTC,
+2026-11-17), after the initial v0.0.28 checks. Per CLAUDE.md, select its
+immutable release commit 30a9eefbf13d19b3e3129171f8ecdc5579b852a2,
+Go submodule v0.0.0-20261117215830-30a9eefbf13d, requiring Go 1.27.4.
+The Go/report SourceType rename has no gateway references. Protocol stays17;
+no old-storage migration or downgrade is inferred. Requalify both profiles,
+new secured clients and actual snapshot faults with a new paired manifest;
+the earlier fingerprint-equivalent v0.0.28 results remain historical.

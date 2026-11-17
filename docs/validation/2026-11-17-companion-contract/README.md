@@ -1,13 +1,16 @@
 # Companion integration qualification — 2026-11-17
 
-This completes the acceptance audit for [Flight #61](https://github.com/redis/redis-apache-arrow-flight/issues/61)
+Status: v0.0.29 qualification in progress after its release during the audit.
+The v0.0.28 results below are historical until superseded by final results.
+
+This records the acceptance audit for [Flight #61](https://github.com/redis/redis-apache-arrow-flight/issues/61)
 and original [native #214](https://github.com/redis/redis-adbc-driver/issues/214).
 The resulting [companion contract](../../companion-contract.md) is the integration
 boundary. It does not expand protocol, production or application support.
 
 ## Recorded sources and environment
 
-[Machine-readable results](results.json) bind the new Python test file and gateway
+[Initial v0.0.28 results](results-v0.0.28.json) bind the new Python test file and gateway
 binary by SHA-256, record exact Python/client versions, and include complete
 public-module/replaced-file/private-overlay fingerprints. The public base is
 `ee39b4d` plus this test/documentation change. Go runtime source is byte-for-byte
@@ -102,7 +105,7 @@ disposable databases. No SQL mutation is retried by these checks.
 
 ## Remaining boundaries
 
-The five #61 gates are satisfied by the contract, complete original-item map,
+The five #61 gates are mapped by the contract, complete original-item map,
 source-matched lifecycle/security results, secured Software/4x-QPF checks and
 links from capability/client documentation. This does not close #28 (bounded
 execution), #35 (deployment/performance), #17/#38 (JDBC), #41 (Superset) or #57
