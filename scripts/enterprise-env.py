@@ -2,7 +2,7 @@
 """Provision an isolated local Redis Enterprise TLS test environment.
 
 Secrets stay in .local/enterprise (0700); this script never prints connection URIs.
-Requires Docker Compose, Python 3.9+, OpenSSL, Go, and a qualified private Flight
+Requires Docker Compose, Python 3.14+, OpenSSL, Go, and a qualified private Flight
 composition. No global trust-store changes and no plaintext Redis fallback.
 """
 import argparse

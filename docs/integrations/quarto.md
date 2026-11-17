@@ -10,7 +10,7 @@ in RStudio. Start the [server and sample table](README.md#optional-sample-sql-ta
 then from the repository root:
 
 ```sh
-python3.12 -m venv .venv-quarto
+python3.14 -m venv .venv-quarto
 . .venv-quarto/bin/activate
 python -m pip install -r requirements/integrations/documents.txt
 export QUARTO_PYTHON="$(command -v python)"

@@ -136,9 +136,9 @@ def main():
         with (results/f'{profile}.log').open('w') as log:
             try:
                 if args.setup:
-                    subprocess.run([args.uv,'venv','--allow-existing','--python','3.14' if profile=='airflow' else '3.12',str(python.parent.parent)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=300)
+                    subprocess.run([args.uv,'venv','--allow-existing','--python','3.14',str(python.parent.parent)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=300)
                     subprocess.run([args.uv,'pip','install','--python',str(python),'-r',str(ROOT/'requirements/integrations'/f'{profile}.txt')],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=900)
-                versions = subprocess.check_output([str(python),'-c','import importlib.metadata as m,json,sys; print(json.dumps({"python":sys.version,"packages":{d.metadata["Name"]:d.version for d in m.distributions()}},indent=2))'],text=True)
+                versions = subprocess.check_output([str(python),'-c','import importlib.metadata as m,json,sys; sys.version_info >= (3,14) or sys.exit("Python 3.14 or newer is required"); print(json.dumps({"python":sys.version,"packages":{d.metadata["Name"]:d.version for d in m.distributions()}},indent=2))'],text=True,stderr=log)
                 (results/f'{profile}-versions.json').write_text(versions)
                 cmd = [str(python),'-m','pytest','-v','-rA',*['tests/integrations/'+t for t in PROFILES[profile]],
                        '--junitxml='+str(results/f'{profile}.xml'),'--basetemp='+str(results/'artifacts'/profile)]

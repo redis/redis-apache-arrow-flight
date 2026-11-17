@@ -28,7 +28,7 @@ The tested runtime could not install `adbcflightsql`, so these instructions use 
 To obtain the shared library from the recorded Python driver wheel:
 
 ```sh
-python3.12 -m venv .venv-r-driver
+python3.14 -m venv .venv-r-driver
 . .venv-r-driver/bin/activate
 python -m pip install adbc-driver-flightsql==1.13.0
 python -c 'import adbc_driver_flightsql; print(adbc_driver_flightsql._driver_path())'

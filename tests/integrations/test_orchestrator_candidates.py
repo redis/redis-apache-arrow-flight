@@ -17,7 +17,7 @@ def test_kubeflow_local_component(uri, workflow_rows, tmp_path, monkeypatch):
     name, _ = workflow_rows
     local.init(runner=local.SubprocessRunner(use_venv=False), pipeline_root=str(tmp_path / "outputs"))
 
-    @dsl.component(base_image="python:3.12", install_kfp_package=False)
+    @dsl.component(base_image="python:3.14", install_kfp_package=False)
     def read_redis(redis_uri: str, table_name: str) -> int:
         import adbc_driver_flightsql.dbapi as dbapi
 

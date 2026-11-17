@@ -32,6 +32,10 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
       - name: Download Go dependencies
         run: go mod download
 

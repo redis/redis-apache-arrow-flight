@@ -9,7 +9,7 @@ second copy of their content to maintain. Source-code links point to GitHub.
 ## Preview and build
 
 ```sh
-python3 -m venv .local/docs-venv
+python3.14 -m venv .local/docs-venv
 .local/docs-venv/bin/python -m pip install -r requirements-docs.txt
 .local/docs-venv/bin/python -m mkdocs serve
 ```

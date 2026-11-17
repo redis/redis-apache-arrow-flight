@@ -9,7 +9,7 @@ Start the [server and sample table](README.md#optional-sample-sql-table).
 From the repository root, create a separate environment:
 
 ```sh
-python3.12 -m venv .venv-kubeflow
+python3.14 -m venv .venv-kubeflow
 . .venv-kubeflow/bin/activate
 python -m pip install -r requirements/integrations/orchestrators.txt
 ```
@@ -26,7 +26,7 @@ Save as `kubeflow_example.py` and run `python kubeflow_example.py`.
 ```python
 from kfp import dsl, local
 
-@dsl.component(base_image="python:3.12", install_kfp_package=False)
+@dsl.component(base_image="python:3.14", install_kfp_package=False)
 def copy_rows() -> int:
     import os
     import uuid

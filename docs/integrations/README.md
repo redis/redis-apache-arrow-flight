@@ -9,6 +9,10 @@ Redis ADBC driver's [data model](../../README.md#choose-an-interface), and runs
 in autocommit mode without transactions. Named Arrow datasets are separate
 from SQL tables.
 
+Python examples and tooling require Python 3.14 or newer. The saved validation
+records retain the interpreter versions used at the time; they do not establish
+compatibility with the current minimum.
+
 Local examples assume an unauthenticated endpoint without TLS:
 
 ```text
